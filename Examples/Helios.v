@@ -144,6 +144,16 @@ Section Helios.
 
   (** Ballot well-formedness for one candidate of one ballot.
 
+      A note on orientation, which is not cosmetic.  [TEq a b]
+      elaborates to [a] times the inverse of [b] equals the identity,
+      so whichever side carries the secret keeps a positive exponent
+      in the compiled matrix while the other becomes the public
+      target the verifier raises to the challenge.  Helios checks
+      [g ^ r = A * alpha ^ c], so the secret side has to be written
+      on the left.  Writing it the other way round compiles to the
+      same claim with every exponent negated, and then no published
+      ballot verifies.
+
       The left branch is the claim that the vote was zero, so the
       ciphertext is [(g ^ r, h ^ r)]; the right branch is the claim
       that it was one, so the ciphertext is [(g ^ r, h ^ r * g)].
@@ -152,10 +162,10 @@ Section Helios.
       simulates the other. *)
   Definition ballot_stmt : @sstmt F string :=
     TOr
-      (TAnd (TEq (YPt "alpha") (YPow "g" (XPriv "r0")))
-            (TEq (YPt "beta")  (YPow "h" (XPriv "r0"))))
-      (TAnd (TEq (YPt "alpha") (YPow "g" (XPriv "r1")))
-            (TEq (YPt "beta")  (YMul (YPow "h" (XPriv "r1")) (YPt "g")))).
+      (TAnd (TEq (YPow "g" (XPriv "r0")) (YPt "alpha"))
+            (TEq (YPow "h" (XPriv "r0")) (YPt "beta")))
+      (TAnd (TEq (YPow "g" (XPriv "r1")) (YPt "alpha"))
+            (TEq (YMul (YPow "h" (XPriv "r1")) (YPt "g")) (YPt "beta"))).
 
   (** A trustee's decryption proof.
 
@@ -167,8 +177,14 @@ Section Helios.
       leaf, so both equations read the same entry of one witness
       vector, which is exactly what ties them together. *)
   Definition decrypt_stmt : @sstmt F string :=
-    TAnd (TEq (YPt "pk") (YPow "g" (XPriv "x")))
-         (TEq (YPt "M")  (YPow "AA" (XPriv "x"))).
+    TAnd (TEq (YPow "g"  (XPriv "x")) (YPt "pk"))
+         (TEq (YPow "AA" (XPriv "x")) (YPt "M")).
+
+  (** A trustee's proof that it knows the secret key behind its
+      published key.  Plain Schnorr, and the third of the three
+      statements a Helios verifier checks. *)
+  Definition pok_stmt : @sstmt F string :=
+    TEq (YPow "g" (XPriv "x")) (YPt "pk").
 
   (** Every name either statement can mention, plus the two Pedersen
       bases the gadgets would use.  Neither statement needs a gadget,
@@ -263,6 +279,25 @@ Section Helios.
     @compile F fzero fadd fmul fopp fdec G gone ginv_g gmul gpow
       string String.string_dec 2 ballot_privs (ballot_genv h alpha beta)
       penvI node ballot_core.
+
+  Definition pok_core : @stmt F string :=
+    match elabC used0 pok_stmt with
+    | Some (c, _) => c
+    | None => SEqs List.nil
+    end.
+
+  (** The instance of a key proof is just the generator and the
+      trustee's published key. *)
+  Definition pok_genv (pk : G) : string -> G :=
+    fun s =>
+      if String.eqb s "g" then gen
+      else if String.eqb s "pk" then pk
+      else gone.
+
+  Definition pok_rel (pk : G) : option comp_relC :=
+    @compile F fzero fadd fmul fopp fdec G gone ginv_g gmul gpow
+      string String.string_dec 1 decrypt_privs (pok_genv pk)
+      penvI node pok_core.
 
   Definition decrypt_rel (pk aggr fac : G) : option comp_relC :=
     @compile F fzero fadd fmul fopp fdec G gone ginv_g gmul gpow
@@ -402,6 +437,77 @@ Section Helios.
       + exact heq. }
     destruct (@app_split_eq G pre pre _ _ eq_refl helems) as (_ & hann).
     eapply (@ann_to_list_inj F fzero G); exact hann.
+  Qed.
+
+  (** ** Verifying proofs produced by Helios itself
+
+      Everything above derives its own challenge with SHA-256 over an
+      encoding of our choosing, which is fine for proofs this
+      development also produces.  Checking a published Helios ballot
+      needs Helios's own derivation, and the format is not a matter
+      of taste: get one separator wrong and every proof fails.
+
+      Reading it off the published IACR 2024 election, the challenge
+      of a ballot proof is
+
+        SHA-1 of "A0,B0,A1,B1"
+
+      read as a big-endian integer, where the four values are the
+      commitments of the two branches rendered in decimal; and the
+      two branch challenges sum to it modulo [q].  A trustee's
+      decryption proof uses SHA-1 of "A,B" and its key proof SHA-1 of
+      the single commitment.  All three are the same rule: join the
+      announcement's group elements with commas and hash.
+
+      That is precisely [String.concat "," (List.map g_to_string
+      (ann_to_list r a))], the encoding [hash_with] already uses, so
+      only the hash itself differs.
+
+      There is no verified SHA-1 here, and rather than assume one as
+      an axiom the hash is taken as a parameter.  The development
+      stays axiom-free and the completeness theorem below holds for
+      whatever is supplied, because [nizk_completeness] holds for an
+      arbitrary hash.  The driver passes a native SHA-1. *)
+
+  (** The challenge Helios derives, given a hash. *)
+  Definition helios_hash (sha1 : string -> N)
+    (r : comp_relC) (a : comp_ann_tC r) : F :=
+    mk_field (Z.of_N (sha1 (String.concat ","
+      (List.map g_to_string (@ann_to_list F fzero G r a))))).
+
+  (** Verifying a published ballot proof: recompute the challenge
+      from the announcement and check the equations against it.
+
+      This is the step the hand-written verifier in the SigmaProtocol
+      development omits.  It takes the challenge from the ballot and
+      never recomputes it, which is why a ballot encrypting a value
+      outside the allowed set is accepted there. *)
+  Definition helios_ballot_verify (sha1 : string -> N)
+    (r : comp_relC) (t : comp_transcriptC r) : bool :=
+    @nizk_verify F fzero fone fadd fmul fsub finv G gone gmul gpow gdec
+      r (helios_hash sha1 r) t.
+
+  (** And the same entry point serves a trustee's decryption proof,
+      since the challenge rule is the same. *)
+  Definition helios_decrypt_verify (sha1 : string -> N)
+    (r : comp_relC) (t : comp_transcriptC r) : bool :=
+    @nizk_verify F fzero fone fadd fmul fsub finv G gone gmul gpow gdec
+      r (helios_hash sha1 r) t.
+
+  (** Whatever hash is supplied, an honestly produced proof verifies
+      under it.  So using Helios's SHA-1 costs nothing in the theory;
+      it only has to be the same function the prover used. *)
+  Theorem helios_ballot_complete :
+    ∀ (sha1 : string -> N) (r : comp_relC)
+      (w : comp_witnessC r) (rnd : comp_randC r),
+    comp_rel_holdsC r w ->
+    helios_ballot_verify sha1 r
+      (@nizk_prove F fzero fone fadd fmul fsub fopp finv G gone gmul gpow
+         r (helios_hash sha1 r) w rnd) = true.
+  Proof.
+    intros sha1 r w rnd hw.
+    eapply (@nizk_completeness F fzero fone fadd fmul fsub fdiv fopp finv fdec
+      G gone ginv_g gmul gpow gdec Hvec r (helios_hash sha1 r) w rnd hw).
   Qed.
 
   (** ** Running it

@@ -1,14 +1,19 @@
-(* A Helios verifier driven from the extracted compiler.
+(* A self-test of the compiled Helios statements.
+ *
+ * This is NOT a verifier for a real Helios election.  It reads no
+ * election data.  Every proof it checks is one it generated moments
+ * earlier, so what it demonstrates is that the compiled protocol is
+ * internally consistent at the real 2048-bit parameters, plus that
+ * the two tamper cases fail.  The election below invents its own
+ * trustee key rather than using the three real ones.
+ *
+ * Verifying published 2024 ballots would additionally need SHA-1,
+ * Helios's exact byte encoding of the hash input, and a parser for
+ * the election JSON.  None of those are here.
  *
  * The statements, their compilation, the Fiat-Shamir binding and the
- * completeness theorems all live in Examples/Helios.v.  This file is
- * the part that cannot be a theorem: drawing randomness, doing the
- * arithmetic at the real 2048-bit parameters, and running an
- * election end to end.
- *
- * Nothing here is trusted for soundness.  Verification is
- * Helios.ballot_verify and Helios.decrypt_verify, both extracted from
- * the verified development. *)
+ * completeness theorems all live in Examples/Helios.v, and those ARE
+ * general: they quantify over every ciphertext and every trustee. *)
 
 open Helioslib
 
@@ -48,7 +53,7 @@ let get = function Some x -> x | None -> failwith "compilation failed"
 (* ---------------- one ballot, at the real 2024 parameters ---------- *)
 
 let one_ballot () =
-  Printf.printf "A single ballot under the real IACR 2024 election key\n";
+  Printf.printf "A self-generated ballot under the real IACR 2024 election key\n";
   let v = Helios.mk_field (big 1) in          (* the voter votes yes *)
   let r = rnd_scalar () in
   let (alpha, beta) = Helios.encrypt Helios.pubkey v r in
@@ -85,7 +90,7 @@ let dlog_search (target : Helios.coq_G) (limit : int) : int option =
   go 0 Helios.gone
 
 let election nvoters =
-  Printf.printf "\nA %d-voter election with one trustee, same group\n" nvoters;
+  Printf.printf "\nA %d-voter mock election, self-generated trustee key\n" nvoters;
   (* trustee key *)
   let x = rnd_scalar () in
   let pk = Helios.gpow Helios.gen x in
@@ -149,7 +154,8 @@ let check_rendering () =
 
 let () =
   Random.self_init ();
-  Printf.printf "Helios verifier, built from the verified compiler\n";
+  Printf.printf "Self-test of the compiled Helios statements\n";
+  Printf.printf "  (not a verifier for a real election; see the header)\n";
   check_hash ();
   check_rendering ();
   Printf.printf "  q = %d bits, p = %d bits\n"
