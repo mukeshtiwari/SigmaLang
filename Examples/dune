@@ -4,4 +4,4 @@
  (synopsis "Concrete instances of the verified compiler")
  (modules (:standard))
  (rocqdoc_flags :standard --utf8)
- (theories Stdlib Algebra Utility Probability Crypto Compiler))
+ (theories Stdlib Algebra Utility Probability Crypto Compiler Coqprime Bignums))

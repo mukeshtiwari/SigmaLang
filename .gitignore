@@ -14,3 +14,6 @@ _build/
 # local working files, deliberately not in version control
 CLAUDE.md
 Todo.md
+
+# scratch files left by the Rocq MCP tooling
+rocq_mcp_cache_*.v
