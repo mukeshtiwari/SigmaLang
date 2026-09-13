@@ -2,10 +2,12 @@
 -Q Utility Utility
 -Q Probability Probability
 -Q Crypto Crypto
+-Q Compiler Compiler
 -Q _build/default/Algebra Algebra
 -Q _build/default/Utility Utility
 -Q _build/default/Probability Probability
 -Q _build/default/Crypto Crypto
+-Q _build/default/Compiler Compiler
 
 # Files in dependency order: Algebra -> Utility -> Probability -> Crypto.
 Algebra/Monoid.v
@@ -29,3 +31,6 @@ Probability/Convex.v
 Probability/Sampling.v
 
 Crypto/Sigma.v
+
+Compiler/LinearRelation.v
+Compiler/Composition.v
