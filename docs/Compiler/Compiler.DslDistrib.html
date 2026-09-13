@@ -1,0 +1,1234 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<title>Compiler.DslDistrib</title>
+</head>
+
+<body>
+
+<div id="page">
+
+<div id="header">
+</div>
+
+<div id="main">
+
+<h1 class="libtitle">Library Compiler.DslDistrib</h1>
+
+<div class="code">
+<span class="id" title="keyword">From</span> <span class="id" title="var">Stdlib</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <span class="id" title="library">Setoid</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">setoid_ring.Field</span> <span class="id" title="library">Lia</span> <span class="id" title="library">Vector</span> <span class="id" title="library">Utf8</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">Psatz</span> <span class="id" title="library">Bool</span> <span class="id" title="library">List</span> <span class="id" title="library">PeanoNat</span>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Algebra</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">Hierarchy</span> <span class="id" title="library">Group</span> <span class="id" title="library">Monoid</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">Field</span> <span class="id" title="library">Integral_domain</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">Ring</span> <span class="id" title="library">Vector_space</span>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Utility</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">Util</span>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Compiler</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span><br/>
+&nbsp;&nbsp;<a class="idref" href="Compiler.LinearRelation.html#"><span class="id" title="library">LinearRelation</span></a> <a class="idref" href="Compiler.Composition.html#"><span class="id" title="library">Composition</span></a> <a class="idref" href="Compiler.Dsl.html#"><span class="id" title="library">Dsl</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Import</span> <span class="id" title="module">VectorNotations</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab48"></a><h1 class="section">DslDistrib: distributing AND over OR</h1>
+
+
+<div class="paragraph"> </div>
+
+    The surface language of Dsl.v lets a user build a statement out
+    of blocks of linear equations (<span class="inlinecode"><span class="id" title="var">SEqs</span></span>) combined with AND
+    (<span class="inlinecode"><span class="id" title="var">SAnd</span></span>), OR (<span class="inlinecode"><span class="id" title="var">SOr</span></span>) and threshold (<span class="inlinecode"><span class="id" title="var">SThresh</span></span>) nodes.  Before
+    such a statement can be compiled into a sigma protocol it has to
+    pass the disjunction-invariant checker <span class="inlinecode"><span class="id" title="var">disj_inv</span></span> of Dsl.v.
+    This file contains one of the two repairs for statements that
+    the checker rejects.  The other repair, which uses a Pedersen
+    commitment and also works under a threshold, is in DslRepair.v.
+
+<div class="paragraph"> </div>
+
+<a id="lab49"></a><h2 class="section">Vocabulary</h2>
+
+
+<div class="paragraph"> </div>
+
+    A few words are used throughout and are worth fixing first.
+
+<div class="paragraph"> </div>
+
+<ul class="doclist">
+<li> A private variable is one of the secret numbers the prover
+      claims to know.  The vector <span class="inlinecode"><span class="id" title="var">privs</span></span> declares them.
+
+</li>
+<li> A witness is a concrete assignment of field elements to those
+      private variables.  It is what the prover keeps to itself, and
+      what a proof convinces the verifier exists.
+
+</li>
+<li> A leaf is a single block of linear equations.  The compiler
+      turns it into one <span class="inlinecode"><span class="id" title="var">Leaf</span></span> node of the statement tree
+      <span class="inlinecode"><span class="id" title="var">comp_rel</span></span>, and that node carries exactly one witness vector.
+      The function <span class="inlinecode"><span class="id" title="var">leaves_only</span></span> of Dsl.v recognises the statements
+      that become one leaf, namely the AND-trees whose own leaves
+      are all equation blocks, and returns the flat list of their
+      equations.  Such a statement is called pure here.
+
+</li>
+</ul>
+
+<div class="paragraph"> </div>
+
+<a id="lab50"></a><h2 class="section">Why a shared private variable is a problem</h2>
+
+
+<div class="paragraph"> </div>
+
+    Every leaf of the compiled tree gets a witness vector of its
+    own.  Suppose a private variable <span class="inlinecode"><span class="id" title="var">x</span></span> occurs in the left child of
+    an AND and again in the right child, and suppose the two
+    children compile to two separate leaves.  Then nothing ties the
+    two leaves together: the left leaf may use one value for <span class="inlinecode"><span class="id" title="var">x</span></span> and
+    the right leaf another.  The protocol would prove something
+    weaker than what the user wrote.  Rather than accept that,
+    <span class="inlinecode"><span class="id" title="var">disj_inv</span></span> rejects the statement.
+
+<div class="paragraph"> </div>
+
+    An OR is harmless in comparison.  Only one branch of an OR is
+    ever used by a proof, so a variable shared between the branches
+    costs nothing: knowing some <span class="inlinecode"><span class="id" title="var">x</span></span> with <span class="inlinecode"><span class="id" title="var">P</span></span> <span class="inlinecode"><span class="id" title="var">x</span></span>, or knowing some <span class="inlinecode"><span class="id" title="var">x</span></span>
+    with <span class="inlinecode"><span class="id" title="var">Q</span></span> <span class="inlinecode"><span class="id" title="var">x</span></span>, is the same as knowing some <span class="inlinecode"><span class="id" title="var">x</span></span> with <span class="inlinecode"><span class="id" title="var">P</span></span> <span class="inlinecode"><span class="id" title="var">x</span></span> or with
+    <span class="inlinecode"><span class="id" title="var">Q</span></span> <span class="inlinecode"><span class="id" title="var">x</span></span>.
+
+<div class="paragraph"> </div>
+
+    So the cure is to arrange that the two occurrences of the shared
+    variable end up inside one and the same leaf.  One leaf means
+    one witness vector, and one witness vector means one value.
+
+<div class="paragraph"> </div>
+
+<a id="lab51"></a><h2 class="section">What this pass does</h2>
+
+
+<div class="paragraph"> </div>
+
+    It pushes ANDs inward past ORs, using the ordinary distribution
+    law of logic:
+
+<div class="paragraph"> </div>
+
+<ul class="doclist">
+<li> <span class="inlinecode"><span class="id" title="var">SAnd</span></span> <span class="inlinecode">(<span class="id" title="var">SOr</span></span> <span class="inlinecode"><span class="id" title="var">a₁</span></span> <span class="inlinecode"><span class="id" title="var">a₂</span>)</span> <span class="inlinecode"><span class="id" title="var">b</span></span> becomes <span class="inlinecode"><span class="id" title="var">SOr</span></span> <span class="inlinecode">(<span class="id" title="var">SAnd</span></span> <span class="inlinecode"><span class="id" title="var">a₁</span></span> <span class="inlinecode"><span class="id" title="var">b</span>)</span> <span class="inlinecode">(<span class="id" title="var">SAnd</span></span> <span class="inlinecode"><span class="id" title="var">a₂</span></span> <span class="inlinecode"><span class="id" title="var">b</span>)</span>
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">SAnd</span></span> <span class="inlinecode"><span class="id" title="var">a</span></span> <span class="inlinecode">(<span class="id" title="var">SOr</span></span> <span class="inlinecode"><span class="id" title="var">b₁</span></span> <span class="inlinecode"><span class="id" title="var">b₂</span>)</span> becomes <span class="inlinecode"><span class="id" title="var">SOr</span></span> <span class="inlinecode">(<span class="id" title="var">SAnd</span></span> <span class="inlinecode"><span class="id" title="var">a</span></span> <span class="inlinecode"><span class="id" title="var">b₁</span>)</span> <span class="inlinecode">(<span class="id" title="var">SAnd</span></span> <span class="inlinecode"><span class="id" title="var">a</span></span> <span class="inlinecode"><span class="id" title="var">b₂</span>)</span>
+
+</li>
+</ul>
+
+<div class="paragraph"> </div>
+
+    It repeats this until no AND has an OR below it.  Every AND left
+    over then has two pure children, and those two blocks of
+    equations are concatenated into a single block.  A variable that
+    was shared between a conjunct and a disjunct is now inside that
+    single merged block, that is, inside one leaf, which is exactly
+    what was wanted.
+
+<div class="paragraph"> </div>
+
+    The result is in disjunctive normal form.  Disjunctive normal
+    form means a disjunction of conjunctions, with no disjunction
+    left inside any conjunction.  Here the conjunctions have already
+    been merged away into single blocks, so what is left is
+    literally an OR-tree of <span class="inlinecode"><span class="id" title="var">SEqs</span></span> nodes.  That is what the boolean
+    test <span class="inlinecode"><span class="id" title="var">dnf</span></span> recognises.
+
+<div class="paragraph"> </div>
+
+<a id="lab52"></a><h2 class="section">Cost</h2>
+
+
+<div class="paragraph"> </div>
+
+    Distribution copies the other side of the AND once per branch of
+    the OR.  An AND over a two-way OR duplicates its partner twice,
+    an AND over two nested ORs duplicates it four times, and so on.
+    The size of the output is therefore exponential in how deeply
+    ORs are nested underneath ANDs.  That is the price of the
+    approach, and it is why DslRepair.v exists as an alternative.
+
+<div class="paragraph"> </div>
+
+<a id="lab53"></a><h2 class="section">Thresholds are left alone</h2>
+
+
+<div class="paragraph"> </div>
+
+    The pass deliberately does not distribute an AND over a
+    threshold node.  A threshold is not a two-way branch that can be
+    duplicated cheaply: it says that at least <span class="inlinecode"><span class="id" title="var">t</span></span> of these <span class="inlinecode"><span class="id" title="var">k</span></span>
+    children hold, so turning it into a disjunction would mean
+    writing out every one of the many subsets of size <span class="inlinecode"><span class="id" title="var">t</span></span>, which is
+    far worse than the already exponential OR case.  So <span class="inlinecode"><span class="id" title="var">and_merge</span></span>
+    treats a threshold as an opaque, non-pure child and simply keeps
+    the AND above it.  The pass still recurses into the children of
+    a threshold, so everything below it is normalised, but the
+    threshold node itself stays where it is.  This is why the
+    disjunctive-normal-form result is stated only for
+    threshold-free statements, and why DslRepair.v is needed for the
+    rest.
+
+<div class="paragraph"> </div>
+
+<a id="lab54"></a><h2 class="section">The two main results</h2>
+
+
+<div class="paragraph"> </div>
+
+<ul class="doclist">
+<li> <span class="inlinecode"><span class="id" title="var">distrib_denote</span></span> says the pass changes nothing about what the
+      statement means.  It is an if and only if, so nothing is lost
+      and nothing is gained: the rewritten statement holds for
+      exactly the same witness assignments as the original.
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">distrib_disj_inv</span></span> says that on threshold-free input the
+      rewritten statement passes <span class="inlinecode"><span class="id" title="var">disj_inv</span></span>.  So the pass really
+      does repair the statement, and it does so with no side
+      condition at all. 
+
+</li>
+</ul>
+</div>
+<div class="code">
+<span class="id" title="keyword">Section</span> <a id="DslDistrib" class="idref" href="#DslDistrib"><span class="id" title="section">DslDistrib</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab55"></a><h2 class="section">Parameters</h2>
+
+
+<div class="paragraph"> </div>
+
+      The file is parametric in everything it talks about, so
+      nothing below depends on a particular group or prime.
+
+<div class="paragraph"> </div>
+
+<ul class="doclist">
+<li> <span class="inlinecode"><span class="id" title="var">F</span></span> is the field of scalars, with its constants <span class="inlinecode"><span class="id" title="var">zero</span></span> and
+        <span class="inlinecode"><span class="id" title="var">one</span></span>, its operations <span class="inlinecode"><span class="id" title="var">add</span></span>, <span class="inlinecode"><span class="id" title="var">mul</span></span>, <span class="inlinecode"><span class="id" title="var">sub</span></span>, <span class="inlinecode"><span class="id" title="var">div</span></span>, <span class="inlinecode"><span class="id" title="var">opp</span></span> and
+        <span class="inlinecode"><span class="id" title="var">inv</span></span>, and a procedure <span class="inlinecode"><span class="id" title="var">Fdec</span></span> deciding equality on it.
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">G</span></span> is the group the protocol lives in, with identity <span class="inlinecode"><span class="id" title="var">gid</span></span>,
+        inverse <span class="inlinecode"><span class="id" title="var">ginv</span></span>, group operation <span class="inlinecode"><span class="id" title="var">gop</span></span>, exponentiation
+        <span class="inlinecode"><span class="id" title="var">gpow</span></span>, and a procedure <span class="inlinecode"><span class="id" title="var">Gdec</span></span> deciding equality.
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">V</span></span> is the type of variable names, with a procedure <span class="inlinecode"><span class="id" title="var">vdec</span></span>
+        deciding equality; this is what lets the checker compare
+        variables and compute variable sets. 
+
+</li>
+</ul>
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Context</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="DslDistrib.F" class="idref" href="#DslDistrib.F"><span class="id" title="variable">F</span></a> : <span class="id" title="keyword">Type</span>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="DslDistrib.zero" class="idref" href="#DslDistrib.zero"><span class="id" title="variable">zero</span></a> <a id="DslDistrib.one" class="idref" href="#DslDistrib.one"><span class="id" title="variable">one</span></a> : <a class="idref" href="Compiler.DslDistrib.html#F:1"><span class="id" title="variable">F</span></a>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="DslDistrib.add" class="idref" href="#DslDistrib.add"><span class="id" title="variable">add</span></a> <a id="DslDistrib.mul" class="idref" href="#DslDistrib.mul"><span class="id" title="variable">mul</span></a> <a id="DslDistrib.sub" class="idref" href="#DslDistrib.sub"><span class="id" title="variable">sub</span></a> <a id="DslDistrib.div" class="idref" href="#DslDistrib.div"><span class="id" title="variable">div</span></a> : <a class="idref" href="Compiler.DslDistrib.html#F:1"><span class="id" title="variable">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#F:1"><span class="id" title="variable">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#F:1"><span class="id" title="variable">F</span></a>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="DslDistrib.opp" class="idref" href="#DslDistrib.opp"><span class="id" title="variable">opp</span></a> <a id="DslDistrib.inv" class="idref" href="#DslDistrib.inv"><span class="id" title="variable">inv</span></a> : <a class="idref" href="Compiler.DslDistrib.html#F:1"><span class="id" title="variable">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#F:1"><span class="id" title="variable">F</span></a>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="DslDistrib.Fdec" class="idref" href="#DslDistrib.Fdec"><span class="id" title="variable">Fdec</span></a> : <span class="id" title="keyword">∀</span> <a id="x:10" class="idref" href="#x:10"><span class="id" title="binder">x</span></a> <a id="y:11" class="idref" href="#y:11"><span class="id" title="binder">y</span></a> : <a class="idref" href="Compiler.DslDistrib.html#F:1"><span class="id" title="variable">F</span></a>, <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">{</span></a><a class="idref" href="Compiler.DslDistrib.html#x:10"><span class="id" title="variable">x</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Compiler.DslDistrib.html#y:11"><span class="id" title="variable">y</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">}</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">+</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">{</span></a><a class="idref" href="Compiler.DslDistrib.html#x:10"><span class="id" title="variable">x</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;&gt;'_x"><span class="id" title="notation">≠</span></a> <a class="idref" href="Compiler.DslDistrib.html#y:11"><span class="id" title="variable">y</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">}</span></a>}.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Context</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="DslDistrib.G" class="idref" href="#DslDistrib.G"><span class="id" title="variable">G</span></a> : <span class="id" title="keyword">Type</span>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="DslDistrib.gid" class="idref" href="#DslDistrib.gid"><span class="id" title="variable">gid</span></a> : <a class="idref" href="Compiler.DslDistrib.html#G:13"><span class="id" title="variable">G</span></a>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="DslDistrib.ginv" class="idref" href="#DslDistrib.ginv"><span class="id" title="variable">ginv</span></a> : <a class="idref" href="Compiler.DslDistrib.html#G:13"><span class="id" title="variable">G</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#G:13"><span class="id" title="variable">G</span></a>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="DslDistrib.gop" class="idref" href="#DslDistrib.gop"><span class="id" title="variable">gop</span></a> : <a class="idref" href="Compiler.DslDistrib.html#G:13"><span class="id" title="variable">G</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#G:13"><span class="id" title="variable">G</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#G:13"><span class="id" title="variable">G</span></a>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="DslDistrib.gpow" class="idref" href="#DslDistrib.gpow"><span class="id" title="variable">gpow</span></a> : <a class="idref" href="Compiler.DslDistrib.html#G:13"><span class="id" title="variable">G</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.F"><span class="id" title="variable">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#G:13"><span class="id" title="variable">G</span></a>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="DslDistrib.Gdec" class="idref" href="#DslDistrib.Gdec"><span class="id" title="variable">Gdec</span></a> : <span class="id" title="keyword">∀</span> <a id="x:18" class="idref" href="#x:18"><span class="id" title="binder">x</span></a> <a id="y:19" class="idref" href="#y:19"><span class="id" title="binder">y</span></a> : <a class="idref" href="Compiler.DslDistrib.html#G:13"><span class="id" title="variable">G</span></a>, <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">{</span></a><a class="idref" href="Compiler.DslDistrib.html#x:18"><span class="id" title="variable">x</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Compiler.DslDistrib.html#y:19"><span class="id" title="variable">y</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">}</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">+</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">{</span></a><a class="idref" href="Compiler.DslDistrib.html#x:18"><span class="id" title="variable">x</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;&gt;'_x"><span class="id" title="notation">≠</span></a> <a class="idref" href="Compiler.DslDistrib.html#y:19"><span class="id" title="variable">y</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">}</span></a>}.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Context</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="DslDistrib.V" class="idref" href="#DslDistrib.V"><span class="id" title="variable">V</span></a> : <span class="id" title="keyword">Type</span>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="DslDistrib.vdec" class="idref" href="#DslDistrib.vdec"><span class="id" title="variable">vdec</span></a> : <span class="id" title="keyword">∀</span> <a id="x:22" class="idref" href="#x:22"><span class="id" title="binder">x</span></a> <a id="y:23" class="idref" href="#y:23"><span class="id" title="binder">y</span></a> : <a class="idref" href="Compiler.DslDistrib.html#V:21"><span class="id" title="variable">V</span></a>, <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">{</span></a><a class="idref" href="Compiler.DslDistrib.html#x:22"><span class="id" title="variable">x</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Compiler.DslDistrib.html#y:23"><span class="id" title="variable">y</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">}</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">+</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">{</span></a><a class="idref" href="Compiler.DslDistrib.html#x:22"><span class="id" title="variable">x</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;&gt;'_x"><span class="id" title="notation">≠</span></a> <a class="idref" href="Compiler.DslDistrib.html#y:23"><span class="id" title="variable">y</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">}</span></a>}.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Shorthands for the statement type of Dsl.v and for its purity
+      test, both already applied to this section's types.  <span class="inlinecode"><span class="id" title="var">stmtC</span></span>
+      is a statement tree.  <span class="inlinecode"><span class="id" title="var">leaves_onlyC</span></span> <span class="inlinecode"><span class="id" title="var">s</span></span> returns <span class="inlinecode"><span class="id" title="var">Some</span></span> <span class="inlinecode"><span class="id" title="var">eqs</span></span> when
+      <span class="inlinecode"><span class="id" title="var">s</span></span> is pure, that is when it is an AND-tree of equation blocks
+      that compiles into a single leaf, and <span class="inlinecode"><span class="id" title="var">None</span></span> otherwise. 
+</div>
+<div class="code">
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="stmtC" class="idref" href="#stmtC"><span class="id" title="abbreviation">stmtC</span></a> := (@<a class="idref" href="Compiler.Dsl.html#stmt"><span class="id" title="inductive">stmt</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.F"><span class="id" title="variable">F</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.V"><span class="id" title="variable">V</span></a>).<br/>
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="leaves_onlyC" class="idref" href="#leaves_onlyC"><span class="id" title="abbreviation">leaves_onlyC</span></a> := (@<a class="idref" href="Compiler.Dsl.html#leaves_only"><span class="id" title="definition">leaves_only</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.F"><span class="id" title="variable">F</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.V"><span class="id" title="variable">V</span></a>).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab56"></a><h2 class="section">The pass</h2>
+
+
+<div class="paragraph"> </div>
+
+      <span class="inlinecode"><span class="id" title="var">and_merge</span></span> <span class="inlinecode"><span class="id" title="var">a</span></span> <span class="inlinecode"><span class="id" title="var">b</span></span> builds the conjunction of <span class="inlinecode"><span class="id" title="var">a</span></span> and <span class="inlinecode"><span class="id" title="var">b</span></span>, on the
+      assumption that <span class="inlinecode"><span class="id" title="var">a</span></span> and <span class="inlinecode"><span class="id" title="var">b</span></span> have already been normalised.
+
+<div class="paragraph"> </div>
+
+      If both are pure, their equation lists are concatenated with
+      <span class="inlinecode"><span class="id" title="var">List.app</span></span> into one block <span class="inlinecode"><span class="id" title="var">SEqs</span></span>.  That is the step that
+      matters: one block is one leaf, one leaf is one witness
+      vector, and a private variable occurring in both <span class="inlinecode"><span class="id" title="var">a</span></span> and <span class="inlinecode"><span class="id" title="var">b</span></span>
+      now has a single value.
+
+<div class="paragraph"> </div>
+
+      If either side is not pure, for instance because it is an OR
+      that could not be distributed away, or a threshold node, then
+      there is nothing to merge and the node <span class="inlinecode"><span class="id" title="var">SAnd</span></span> <span class="inlinecode"><span class="id" title="var">a</span></span> <span class="inlinecode"><span class="id" title="var">b</span></span> is kept as
+      it is. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="and_merge" class="idref" href="#and_merge"><span class="id" title="definition">and_merge</span></a> (<a id="a:25" class="idref" href="#a:25"><span class="id" title="binder">a</span></a> <a id="b:26" class="idref" href="#b:26"><span class="id" title="binder">b</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a>) : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Compiler.DslDistrib.html#leaves_onlyC"><span class="id" title="abbreviation">leaves_onlyC</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:25"><span class="id" title="variable">a</span></a>, <a class="idref" href="Compiler.DslDistrib.html#leaves_onlyC"><span class="id" title="abbreviation">leaves_onlyC</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:26"><span class="id" title="variable">b</span></a> <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#Some"><span class="id" title="constructor">Some</span></a> <span class="id" title="var">la</span>, <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#Some"><span class="id" title="constructor">Some</span></a> <span class="id" title="var">lb</span> ⇒ <a class="idref" href="Compiler.Dsl.html#SEqs"><span class="id" title="constructor">SEqs</span></a> (<span class="id" title="abbreviation">List.app</span> <span class="id" title="var">la</span> <span class="id" title="var">lb</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <span class="id" title="var">_</span>, <span class="id" title="var">_</span> ⇒ <a class="idref" href="Compiler.Dsl.html#SAnd"><span class="id" title="constructor">SAnd</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:25"><span class="id" title="variable">a</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:26"><span class="id" title="variable">b</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">end</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<span class="inlinecode"><span class="id" title="var">and_distrib_r</span></span> <span class="inlinecode"><span class="id" title="var">a</span></span> <span class="inlinecode"><span class="id" title="var">b</span></span> conjoins <span class="inlinecode"><span class="id" title="var">a</span></span> with <span class="inlinecode"><span class="id" title="var">b</span></span> while pushing the
+      conjunction through every OR at the top of <span class="inlinecode"><span class="id" title="var">b</span></span>.
+
+<div class="paragraph"> </div>
+
+      Here <span class="inlinecode"><span class="id" title="var">a</span></span> is a side that is already free of top-level ORs.  The
+      recursion walks down the OR spine of <span class="inlinecode"><span class="id" title="var">b</span></span>: an <span class="inlinecode"><span class="id" title="var">SOr</span></span> <span class="inlinecode"><span class="id" title="var">b₁</span></span> <span class="inlinecode"><span class="id" title="var">b₂</span></span>
+      becomes the OR of <span class="inlinecode"><span class="id" title="var">a</span></span> with <span class="inlinecode"><span class="id" title="var">b₁</span></span> and of <span class="inlinecode"><span class="id" title="var">a</span></span> with <span class="inlinecode"><span class="id" title="var">b₂</span></span>, so <span class="inlinecode"><span class="id" title="var">a</span></span>
+      is duplicated once per branch.  Anything that is not an OR,
+      that is an equation block, an AND or a threshold, is a place
+      where the recursion stops and <span class="inlinecode"><span class="id" title="var">and_merge</span></span> takes over.
+
+<div class="paragraph"> </div>
+
+      The recursion is structural in <span class="inlinecode"><span class="id" title="var">b</span></span>, which is why Rocq accepts
+      it as a <span class="inlinecode"><span class="id" title="keyword">Fixpoint</span></span> with no termination argument. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Fixpoint</span> <a id="and_distrib_r" class="idref" href="#and_distrib_r"><span class="id" title="definition">and_distrib_r</span></a> (<a id="a:27" class="idref" href="#a:27"><span class="id" title="binder">a</span></a> <a id="b:28" class="idref" href="#b:28"><span class="id" title="binder">b</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a>) {<span class="id" title="keyword">struct</span> <span class="id" title="var">b</span>} : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Compiler.DslDistrib.html#b:28"><span class="id" title="variable">b</span></a> <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="Compiler.Dsl.html#SOr"><span class="id" title="constructor">SOr</span></a> <span class="id" title="var">b₁</span> <span class="id" title="var">b₂</span> ⇒ <a class="idref" href="Compiler.Dsl.html#SOr"><span class="id" title="constructor">SOr</span></a> (<a class="idref" href="Compiler.DslDistrib.html#and_distrib_r:29"><span class="id" title="definition">and_distrib_r</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:27"><span class="id" title="variable">a</span></a> <span class="id" title="var">b₁</span>) (<a class="idref" href="Compiler.DslDistrib.html#and_distrib_r:29"><span class="id" title="definition">and_distrib_r</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:27"><span class="id" title="variable">a</span></a> <span class="id" title="var">b₂</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <span class="id" title="var">_</span> ⇒ <a class="idref" href="Compiler.DslDistrib.html#and_merge"><span class="id" title="definition">and_merge</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:27"><span class="id" title="variable">a</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:28"><span class="id" title="variable">b</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">end</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<span class="inlinecode"><span class="id" title="var">and_distrib</span></span> <span class="inlinecode"><span class="id" title="var">a</span></span> <span class="inlinecode"><span class="id" title="var">b</span></span> conjoins <span class="inlinecode"><span class="id" title="var">a</span></span> and <span class="inlinecode"><span class="id" title="var">b</span></span>, pushing the
+      conjunction through the ORs of both sides.
+
+<div class="paragraph"> </div>
+
+      It first walks down the OR spine of <span class="inlinecode"><span class="id" title="var">a</span></span>, duplicating <span class="inlinecode"><span class="id" title="var">b</span></span> once
+      per branch, and then hands each OR-free piece of <span class="inlinecode"><span class="id" title="var">a</span></span> to
+      <span class="inlinecode"><span class="id" title="var">and_distrib_r</span></span>, which does the same for <span class="inlinecode"><span class="id" title="var">b</span></span>.  Splitting the
+      job in two like this is what keeps both definitions
+      structurally recursive.
+
+<div class="paragraph"> </div>
+
+      This is the function other passes call: DslRepair.v builds its
+      repaired statements with it, and reasons about them with
+      <span class="inlinecode"><span class="id" title="var">and_distrib_denote</span></span> and <span class="inlinecode"><span class="id" title="var">and_distrib_vars_incl</span></span> below. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Fixpoint</span> <a id="and_distrib" class="idref" href="#and_distrib"><span class="id" title="definition">and_distrib</span></a> (<a id="a:31" class="idref" href="#a:31"><span class="id" title="binder">a</span></a> <a id="b:32" class="idref" href="#b:32"><span class="id" title="binder">b</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a>) {<span class="id" title="keyword">struct</span> <span class="id" title="var">a</span>} : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Compiler.DslDistrib.html#a:31"><span class="id" title="variable">a</span></a> <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="Compiler.Dsl.html#SOr"><span class="id" title="constructor">SOr</span></a> <span class="id" title="var">a₁</span> <span class="id" title="var">a₂</span> ⇒ <a class="idref" href="Compiler.Dsl.html#SOr"><span class="id" title="constructor">SOr</span></a> (<a class="idref" href="Compiler.DslDistrib.html#and_distrib:33"><span class="id" title="definition">and_distrib</span></a> <span class="id" title="var">a₁</span> <a class="idref" href="Compiler.DslDistrib.html#b:32"><span class="id" title="variable">b</span></a>) (<a class="idref" href="Compiler.DslDistrib.html#and_distrib:33"><span class="id" title="definition">and_distrib</span></a> <span class="id" title="var">a₂</span> <a class="idref" href="Compiler.DslDistrib.html#b:32"><span class="id" title="variable">b</span></a>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <span class="id" title="var">_</span> ⇒ <a class="idref" href="Compiler.DslDistrib.html#and_distrib_r"><span class="id" title="definition">and_distrib_r</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:31"><span class="id" title="variable">a</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:32"><span class="id" title="variable">b</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">end</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<span class="inlinecode"><span class="id" title="var">distrib</span></span> <span class="inlinecode"><span class="id" title="var">s</span></span> normalises a whole statement.
+
+<div class="paragraph"> </div>
+
+      It rebuilds <span class="inlinecode"><span class="id" title="var">s</span></span> from the bottom up.  An equation block is
+      already normal.  An OR keeps its shape and both children are
+      normalised.  An AND normalises both children first and then
+      calls <span class="inlinecode"><span class="id" title="var">and_distrib</span></span>, which is where the distribution law is
+      applied and where two pure children get merged into one block.
+
+<div class="paragraph"> </div>
+
+      At a threshold node the node itself is left in place and only
+      its children are normalised.  The inner <span class="inlinecode"><span class="id" title="keyword">fix</span></span> <span class="inlinecode"><span class="id" title="var">go</span></span> is that
+      recursion over the list of children, written out by hand
+      because <span class="inlinecode"><span class="id" title="var">SThresh</span></span> nests a list of statements inside the
+      statement type and the guard checker of Rocq needs to see the
+      recursion on that list.  <span class="inlinecode"><span class="id" title="var">distrib_thresh</span></span> below restates this
+      case with <span class="inlinecode"><span class="id" title="var">List.map</span></span>, which is easier to reason with.
+
+<div class="paragraph"> </div>
+
+      Because <span class="inlinecode"><span class="id" title="var">and_distrib</span></span> duplicates one side of each AND once per
+      OR branch below it, the output can be exponentially larger
+      than the input in the depth of OR nesting. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Fixpoint</span> <a id="distrib" class="idref" href="#distrib"><span class="id" title="definition">distrib</span></a> (<a id="s:35" class="idref" href="#s:35"><span class="id" title="binder">s</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a>) : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Compiler.DslDistrib.html#s:35"><span class="id" title="variable">s</span></a> <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="Compiler.Dsl.html#SEqs"><span class="id" title="constructor">SEqs</span></a> <span class="id" title="var">eqs</span> ⇒ <a class="idref" href="Compiler.Dsl.html#SEqs"><span class="id" title="constructor">SEqs</span></a> <span class="id" title="var">eqs</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="Compiler.Dsl.html#SAnd"><span class="id" title="constructor">SAnd</span></a> <span class="id" title="var">a</span> <span class="id" title="var">b</span> ⇒ <a class="idref" href="Compiler.DslDistrib.html#and_distrib"><span class="id" title="definition">and_distrib</span></a> (<a class="idref" href="Compiler.DslDistrib.html#distrib:36"><span class="id" title="definition">distrib</span></a> <span class="id" title="var">a</span>) (<a class="idref" href="Compiler.DslDistrib.html#distrib:36"><span class="id" title="definition">distrib</span></a> <span class="id" title="var">b</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="Compiler.Dsl.html#SOr"><span class="id" title="constructor">SOr</span></a> <span class="id" title="var">a</span> <span class="id" title="var">b</span> ⇒ <a class="idref" href="Compiler.Dsl.html#SOr"><span class="id" title="constructor">SOr</span></a> (<a class="idref" href="Compiler.DslDistrib.html#distrib:36"><span class="id" title="definition">distrib</span></a> <span class="id" title="var">a</span>) (<a class="idref" href="Compiler.DslDistrib.html#distrib:36"><span class="id" title="definition">distrib</span></a> <span class="id" title="var">b</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="Compiler.Dsl.html#SThresh"><span class="id" title="constructor">SThresh</span></a> <span class="id" title="var">t</span> <span class="id" title="var">l</span> ⇒<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.Dsl.html#SThresh"><span class="id" title="constructor">SThresh</span></a> <span class="id" title="var">t</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;((<span class="id" title="keyword">fix</span> <span class="id" title="var">go</span> (<a id="l:38" class="idref" href="#l:38"><span class="id" title="binder">l</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Compiler.DslDistrib.html#l:38"><span class="id" title="variable">l</span></a> <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| <span class="id" title="abbreviation">List.nil</span> ⇒ <span class="id" title="abbreviation">List.nil</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| <span class="id" title="abbreviation">List.cons</span> <span class="id" title="var">s'</span> <span class="id" title="var">l'</span> ⇒ <span class="id" title="abbreviation">List.cons</span> (<a class="idref" href="Compiler.DslDistrib.html#distrib:36"><span class="id" title="definition">distrib</span></a> <span class="id" title="var">s'</span>) (<a class="idref" href="Compiler.DslDistrib.html#go:39"><span class="id" title="variable">go</span></a> <span class="id" title="var">l'</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">end</span>) <span class="id" title="var">l</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">end</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<span class="inlinecode"><span class="id" title="var">thresh_free</span></span> <span class="inlinecode"><span class="id" title="var">s</span></span> tests whether <span class="inlinecode"><span class="id" title="var">s</span></span> contains no threshold node
+      anywhere.
+
+<div class="paragraph"> </div>
+
+      It is the side condition of the normal-form results.  The pass
+      does not distribute over a threshold, so only on a
+      threshold-free statement can the output be guaranteed to be a
+      plain OR-tree of equation blocks. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Fixpoint</span> <a id="thresh_free" class="idref" href="#thresh_free"><span class="id" title="definition">thresh_free</span></a> (<a id="s:41" class="idref" href="#s:41"><span class="id" title="binder">s</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#bool"><span class="id" title="inductive">bool</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Compiler.DslDistrib.html#s:41"><span class="id" title="variable">s</span></a> <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="Compiler.Dsl.html#SEqs"><span class="id" title="constructor">SEqs</span></a> <span class="id" title="var">_</span> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="Compiler.Dsl.html#SAnd"><span class="id" title="constructor">SAnd</span></a> <span class="id" title="var">a</span> <span class="id" title="var">b</span> ⇒ <a class="idref" href="Compiler.DslDistrib.html#thresh_free:42"><span class="id" title="definition">thresh_free</span></a> <span class="id" title="var">a</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::bool_scope:x_'&amp;&amp;'_x"><span class="id" title="notation">&amp;&amp;</span></a> <a class="idref" href="Compiler.DslDistrib.html#thresh_free:42"><span class="id" title="definition">thresh_free</span></a> <span class="id" title="var">b</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="Compiler.Dsl.html#SOr"><span class="id" title="constructor">SOr</span></a> <span class="id" title="var">a</span> <span class="id" title="var">b</span> ⇒ <a class="idref" href="Compiler.DslDistrib.html#thresh_free:42"><span class="id" title="definition">thresh_free</span></a> <span class="id" title="var">a</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::bool_scope:x_'&amp;&amp;'_x"><span class="id" title="notation">&amp;&amp;</span></a> <a class="idref" href="Compiler.DslDistrib.html#thresh_free:42"><span class="id" title="definition">thresh_free</span></a> <span class="id" title="var">b</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="Compiler.Dsl.html#SThresh"><span class="id" title="constructor">SThresh</span></a> <span class="id" title="var">_</span> <span class="id" title="var">_</span> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#false"><span class="id" title="constructor">false</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">end</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<span class="inlinecode"><span class="id" title="var">dnf</span></span> <span class="inlinecode"><span class="id" title="var">s</span></span> tests whether <span class="inlinecode"><span class="id" title="var">s</span></span> is already in disjunctive normal
+      form, in the strong sense used here: <span class="inlinecode"><span class="id" title="var">s</span></span> is an OR-tree all of
+      whose leaves are equation blocks, with no AND and no threshold
+      anywhere inside.
+
+<div class="paragraph"> </div>
+
+      Any AND has by then been merged into a single block, so a
+      statement passing <span class="inlinecode"><span class="id" title="var">dnf</span></span> is a disjunction of single leaves.
+      That is the shape which makes the disjunction invariant hold
+      for free, which is <span class="inlinecode"><span class="id" title="var">dnf_disj_inv</span></span> below. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Fixpoint</span> <a id="dnf" class="idref" href="#dnf"><span class="id" title="definition">dnf</span></a> (<a id="s:44" class="idref" href="#s:44"><span class="id" title="binder">s</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#bool"><span class="id" title="inductive">bool</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Compiler.DslDistrib.html#s:44"><span class="id" title="variable">s</span></a> <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="Compiler.Dsl.html#SEqs"><span class="id" title="constructor">SEqs</span></a> <span class="id" title="var">_</span> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="Compiler.Dsl.html#SOr"><span class="id" title="constructor">SOr</span></a> <span class="id" title="var">a</span> <span class="id" title="var">b</span> ⇒ <a class="idref" href="Compiler.DslDistrib.html#dnf:45"><span class="id" title="definition">dnf</span></a> <span class="id" title="var">a</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::bool_scope:x_'&amp;&amp;'_x"><span class="id" title="notation">&amp;&amp;</span></a> <a class="idref" href="Compiler.DslDistrib.html#dnf:45"><span class="id" title="definition">dnf</span></a> <span class="id" title="var">b</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <span class="id" title="var">_</span> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#false"><span class="id" title="constructor">false</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">end</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab57"></a><h2 class="section">Semantics and invariants</h2>
+
+
+<div class="paragraph"> </div>
+
+      Everything above is pure syntax.  To say what the pass
+      preserves we need an interpretation of statements, and that is
+      what this section fixes. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Section</span> <a id="DslDistrib.Spec" class="idref" href="#DslDistrib.Spec"><span class="id" title="section">Spec</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The data needed to read a statement:
+
+<div class="paragraph"> </div>
+
+<ul class="doclist">
+<li> <span class="inlinecode"><span class="id" title="var">privs</span></span> is the vector of the <span class="inlinecode"><span class="id" title="var">n</span></span> declared private
+          variables; a statement is well formed only when every
+          variable it uses is one of these;
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">genv</span></span> maps a variable name to the group element it names,
+          which is how the base of an exponentiation is resolved;
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">penv</span></span> maps a variable name to the public scalar it names,
+          which is how a public coefficient is evaluated. 
+
+</li>
+</ul>
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Context</span> {<a id="DslDistrib.Spec.n" class="idref" href="#DslDistrib.Spec.n"><span class="id" title="variable">n</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>}.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Variable</span> <a id="DslDistrib.Spec.privs" class="idref" href="#DslDistrib.Spec.privs"><span class="id" title="variable">privs</span></a> : <span class="id" title="inductive">Vector.t</span> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.V"><span class="id" title="variable">V</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.Spec.n"><span class="id" title="variable">n</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Variable</span> <a id="DslDistrib.Spec.genv" class="idref" href="#DslDistrib.Spec.genv"><span class="id" title="variable">genv</span></a> : <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.V"><span class="id" title="variable">V</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.G"><span class="id" title="variable">G</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Variable</span> <a id="DslDistrib.Spec.penv" class="idref" href="#DslDistrib.Spec.penv"><span class="id" title="variable">penv</span></a> : <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.V"><span class="id" title="variable">V</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.F"><span class="id" title="variable">F</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Shorthands, all applied to the parameters just fixed.
+
+<div class="paragraph"> </div>
+
+<ul class="doclist">
+<li> <span class="inlinecode"><span class="id" title="var">stmt_denoteC</span></span> <span class="inlinecode"><span class="id" title="var">wenv</span></span> <span class="inlinecode"><span class="id" title="var">s</span></span> is the meaning of <span class="inlinecode"><span class="id" title="var">s</span></span> under the
+          witness assignment <span class="inlinecode"><span class="id" title="var">wenv</span></span>, a proposition saying that the
+          equations of <span class="inlinecode"><span class="id" title="var">s</span></span> really hold at those secret values.
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">wf_stmtC</span></span> <span class="inlinecode"><span class="id" title="var">s</span></span> is the boolean well-formedness test: every
+          private variable mentioned by <span class="inlinecode"><span class="id" title="var">s</span></span> is declared in <span class="inlinecode"><span class="id" title="var">privs</span></span>.
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">disj_invC</span></span> <span class="inlinecode"><span class="id" title="var">s</span></span> is the disjunction-invariant checker of
+          Dsl.v. 
+
+</li>
+</ul>
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="stmt_denoteC" class="idref" href="#stmt_denoteC"><span class="id" title="abbreviation">stmt_denoteC</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(@<a class="idref" href="Compiler.Dsl.html#stmt_denote"><span class="id" title="definition">stmt_denote</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.F"><span class="id" title="variable">F</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.add"><span class="id" title="variable">add</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.mul"><span class="id" title="variable">mul</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.opp"><span class="id" title="variable">opp</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.G"><span class="id" title="variable">G</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.gid"><span class="id" title="variable">gid</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.gop"><span class="id" title="variable">gop</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.gpow"><span class="id" title="variable">gpow</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.V"><span class="id" title="variable">V</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.Spec.genv"><span class="id" title="variable">genv</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.Spec.penv"><span class="id" title="variable">penv</span></a>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="wf_stmtC" class="idref" href="#wf_stmtC"><span class="id" title="abbreviation">wf_stmtC</span></a> := (@<a class="idref" href="Compiler.Dsl.html#wf_stmt"><span class="id" title="definition">wf_stmt</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.F"><span class="id" title="variable">F</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.V"><span class="id" title="variable">V</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.vdec"><span class="id" title="variable">vdec</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.Spec.n"><span class="id" title="variable">n</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.Spec.privs"><span class="id" title="variable">privs</span></a>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="disj_invC" class="idref" href="#disj_invC"><span class="id" title="abbreviation">disj_invC</span></a> := (@<a class="idref" href="Compiler.Dsl.html#disj_inv"><span class="id" title="definition">disj_inv</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.F"><span class="id" title="variable">F</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.V"><span class="id" title="variable">V</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.vdec"><span class="id" title="variable">vdec</span></a>).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab58"></a><h2 class="section">Proofs</h2>
+
+
+<div class="paragraph"> </div>
+
+        The definitions above are syntactic and need no algebra, but
+        the meaning of a statement is written with group
+        exponentiation, so the proofs about meaning need the group
+        and the field to fit together.  <span class="inlinecode"><span class="id" title="var">Hvec</span></span> is that assumption:
+        the group <span class="inlinecode"><span class="id" title="var">G</span></span> is a vector space over the field <span class="inlinecode"><span class="id" title="var">F</span></span>, with
+        <span class="inlinecode"><span class="id" title="var">gpow</span></span> as the scalar action. 
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Section</span> <a id="DslDistrib.Spec.Proofs" class="idref" href="#DslDistrib.Spec.Proofs"><span class="id" title="section">Proofs</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Context</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<a id="DslDistrib.Spec.Proofs.Hvec" class="idref" href="#DslDistrib.Spec.Proofs.Hvec"><span class="id" title="variable">Hvec</span></a> : @<span class="id" title="class">vector_space</span> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.F"><span class="id" title="variable">F</span></a> (@<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#eq"><span class="id" title="inductive">eq</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.F"><span class="id" title="variable">F</span></a>) <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.zero"><span class="id" title="variable">zero</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.one"><span class="id" title="variable">one</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.add"><span class="id" title="variable">add</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.mul"><span class="id" title="variable">mul</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.sub"><span class="id" title="variable">sub</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.DslDistrib.html#DslDistrib.div"><span class="id" title="variable">div</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.opp"><span class="id" title="variable">opp</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.inv"><span class="id" title="variable">inv</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.G"><span class="id" title="variable">G</span></a> (@<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#eq"><span class="id" title="inductive">eq</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.G"><span class="id" title="variable">G</span></a>) <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.gid"><span class="id" title="variable">gid</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.ginv"><span class="id" title="variable">ginv</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.gop"><span class="id" title="variable">gop</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.gpow"><span class="id" title="variable">gpow</span></a>}.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab59"></a><h2 class="section">The pass preserves meaning</h2>
+
+
+<div class="paragraph"> </div>
+
+          Merging two statements means conjunction: <span class="inlinecode"><span class="id" title="var">and_merge</span></span> <span class="inlinecode"><span class="id" title="var">a</span></span> <span class="inlinecode"><span class="id" title="var">b</span></span>
+          holds under a witness assignment <span class="inlinecode"><span class="id" title="var">wenv</span></span> exactly when <span class="inlinecode"><span class="id" title="var">a</span></span>
+          and <span class="inlinecode"><span class="id" title="var">b</span></span> both hold under it.
+
+<div class="paragraph"> </div>
+
+          In the interesting case both sides are pure, so
+          <span class="inlinecode"><span class="id" title="var">and_merge</span></span> has concatenated their equation lists, and the
+          proof only has to know that all equations of an appended
+          list hold exactly when all equations of each part hold;
+          that is <span class="inlinecode"><span class="id" title="var">List.Forall_app</span></span>, together with
+          <span class="inlinecode"><span class="id" title="var">leaves_only_denote</span></span> of Dsl.v, which says that a pure
+          statement means exactly that its extracted equations hold.
+          In the other cases <span class="inlinecode"><span class="id" title="var">and_merge</span></span> returns <span class="inlinecode"><span class="id" title="var">SAnd</span></span> <span class="inlinecode"><span class="id" title="var">a</span></span> <span class="inlinecode"><span class="id" title="var">b</span></span> and the
+          claim holds by definition. 
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="and_merge_denote" class="idref" href="#and_merge_denote"><span class="id" title="lemma">and_merge_denote</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="wenv:55" class="idref" href="#wenv:55"><span class="id" title="binder">wenv</span></a> : <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.V"><span class="id" title="variable">V</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.F"><span class="id" title="variable">F</span></a>) (<a id="a:56" class="idref" href="#a:56"><span class="id" title="binder">a</span></a> <a id="b:57" class="idref" href="#b:57"><span class="id" title="binder">b</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.DslDistrib.html#stmt_denoteC"><span class="id" title="abbreviation">stmt_denoteC</span></a> <a class="idref" href="Compiler.DslDistrib.html#wenv:55"><span class="id" title="variable">wenv</span></a> (<a class="idref" href="Compiler.DslDistrib.html#and_merge"><span class="id" title="definition">and_merge</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:56"><span class="id" title="variable">a</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:57"><span class="id" title="variable">b</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;-&gt;'_x"><span class="id" title="notation">↔</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.DslDistrib.html#stmt_denoteC"><span class="id" title="abbreviation">stmt_denoteC</span></a> <a class="idref" href="Compiler.DslDistrib.html#wenv:55"><span class="id" title="variable">wenv</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:56"><span class="id" title="variable">a</span></a> <span class="id" title="notation">∧</span> <a class="idref" href="Compiler.DslDistrib.html#stmt_denoteC"><span class="id" title="abbreviation">stmt_denoteC</span></a> <a class="idref" href="Compiler.DslDistrib.html#wenv:55"><span class="id" title="variable">wenv</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:57"><span class="id" title="variable">b</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">wenv</span> <span class="id" title="var">a</span> <span class="id" title="var">b</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">unfold</span> <a class="idref" href="Compiler.DslDistrib.html#and_merge"><span class="id" title="definition">and_merge</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> (<a class="idref" href="Compiler.DslDistrib.html#leaves_onlyC"><span class="id" title="abbreviation">leaves_onlyC</span></a> <span class="id" title="var">a</span>) <span class="id" title="keyword">as</span> [<span class="id" title="var">la</span> |] <span class="id" title="var">eqn</span>:<span class="id" title="var">ha</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<span class="id" title="tactic">destruct</span> (<a class="idref" href="Compiler.DslDistrib.html#leaves_onlyC"><span class="id" title="abbreviation">leaves_onlyC</span></a> <span class="id" title="var">b</span>) <span class="id" title="keyword">as</span> [<span class="id" title="var">lb</span> |] <span class="id" title="var">eqn</span>:<span class="id" title="var">hb</span> |].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> (<a class="idref" href="Compiler.Dsl.html#leaves_only_denote"><span class="id" title="lemma">leaves_only_denote</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.Spec.genv"><span class="id" title="variable">genv</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.Spec.penv"><span class="id" title="variable">penv</span></a> <span class="id" title="var">a</span> <span class="id" title="var">la</span> <span class="id" title="var">wenv</span> <span class="id" title="var">ha</span>),<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<a class="idref" href="Compiler.Dsl.html#leaves_only_denote"><span class="id" title="lemma">leaves_only_denote</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.Spec.genv"><span class="id" title="variable">genv</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.Spec.penv"><span class="id" title="variable">penv</span></a> <span class="id" title="var">b</span> <span class="id" title="var">lb</span> <span class="id" title="var">wenv</span> <span class="id" title="var">hb</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <span class="id" title="lemma">List.Forall_app</span>. <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="var">cbn</span>. <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="var">cbn</span>. <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Distributing over the ORs of <span class="inlinecode"><span class="id" title="var">b</span></span> does not change the
+          meaning: <span class="inlinecode"><span class="id" title="var">and_distrib_r</span></span> <span class="inlinecode"><span class="id" title="var">a</span></span> <span class="inlinecode"><span class="id" title="var">b</span></span> holds exactly when <span class="inlinecode"><span class="id" title="var">a</span></span> and
+          <span class="inlinecode"><span class="id" title="var">b</span></span> both hold.
+
+<div class="paragraph"> </div>
+
+          The proof is induction on <span class="inlinecode"><span class="id" title="var">b</span></span>.  When <span class="inlinecode"><span class="id" title="var">b</span></span> is an <span class="inlinecode"><span class="id" title="var">SOr</span></span>, the
+          goal is that <span class="inlinecode"><span class="id" title="var">a</span></span> together with one of <span class="inlinecode"><span class="id" title="var">b₁</span></span>, <span class="inlinecode"><span class="id" title="var">b₂</span></span> is the
+          same as <span class="inlinecode"><span class="id" title="var">a</span></span> together with the disjunction of <span class="inlinecode"><span class="id" title="var">b₁</span></span> and
+          <span class="inlinecode"><span class="id" title="var">b₂</span></span>; that is the distribution law of conjunction over
+          disjunction, which <span class="inlinecode"><span class="id" title="tactic">tauto</span></span> settles once the two induction
+          hypotheses have been rewritten in.  Every other shape of
+          <span class="inlinecode"><span class="id" title="var">b</span></span> is a use of <span class="inlinecode"><span class="id" title="var">and_merge_denote</span></span>. 
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="and_distrib_r_denote" class="idref" href="#and_distrib_r_denote"><span class="id" title="lemma">and_distrib_r_denote</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="wenv:58" class="idref" href="#wenv:58"><span class="id" title="binder">wenv</span></a> : <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.V"><span class="id" title="variable">V</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.F"><span class="id" title="variable">F</span></a>) (<a id="a:59" class="idref" href="#a:59"><span class="id" title="binder">a</span></a> <a id="b:60" class="idref" href="#b:60"><span class="id" title="binder">b</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.DslDistrib.html#stmt_denoteC"><span class="id" title="abbreviation">stmt_denoteC</span></a> <a class="idref" href="Compiler.DslDistrib.html#wenv:58"><span class="id" title="variable">wenv</span></a> (<a class="idref" href="Compiler.DslDistrib.html#and_distrib_r"><span class="id" title="definition">and_distrib_r</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:59"><span class="id" title="variable">a</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:60"><span class="id" title="variable">b</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;-&gt;'_x"><span class="id" title="notation">↔</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.DslDistrib.html#stmt_denoteC"><span class="id" title="abbreviation">stmt_denoteC</span></a> <a class="idref" href="Compiler.DslDistrib.html#wenv:58"><span class="id" title="variable">wenv</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:59"><span class="id" title="variable">a</span></a> <span class="id" title="notation">∧</span> <a class="idref" href="Compiler.DslDistrib.html#stmt_denoteC"><span class="id" title="abbreviation">stmt_denoteC</span></a> <a class="idref" href="Compiler.DslDistrib.html#wenv:58"><span class="id" title="variable">wenv</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:60"><span class="id" title="variable">b</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">wenv</span> <span class="id" title="var">a</span> <span class="id" title="var">b</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">induction</span> <span class="id" title="var">b</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">eqs</span> | <span class="id" title="var">b₁</span> <span class="id" title="var">b₂</span> <span class="id" title="var">ih₁</span> <span class="id" title="var">ih₂</span> | <span class="id" title="var">b₁</span> <span class="id" title="var">b₂</span> <span class="id" title="var">ih₁</span> <span class="id" title="var">ih₂</span> | <span class="id" title="var">t</span> <span class="id" title="var">l</span> <span class="id" title="var">ihl</span>]<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">using</span> <a class="idref" href="Compiler.Dsl.html#stmt_ind'"><span class="id" title="definition">stmt_ind'</span></a>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">try</span> (<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.DslDistrib.html#and_distrib_r"><span class="id" title="definition">and_distrib_r</span></a>]; <span class="id" title="tactic">eapply</span> <a class="idref" href="Compiler.DslDistrib.html#and_merge_denote"><span class="id" title="lemma">and_merge_denote</span></a>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.DslDistrib.html#and_distrib_r"><span class="id" title="definition">and_distrib_r</span></a> <a class="idref" href="Compiler.Dsl.html#stmt_denote"><span class="id" title="definition">stmt_denote</span></a>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <span class="id" title="var">ih₁</span>, <span class="id" title="var">ih₂</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">tauto</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Distributing over the ORs of both sides does not change the
+          meaning either.
+
+<div class="paragraph"> </div>
+
+          The same argument, now by induction on <span class="inlinecode"><span class="id" title="var">a</span></span>, with
+          <span class="inlinecode"><span class="id" title="var">and_distrib_r_denote</span></span> doing the work in the non-OR cases.
+          This is the reusable form, applied directly by
+          DslRepair.v. 
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="and_distrib_denote" class="idref" href="#and_distrib_denote"><span class="id" title="lemma">and_distrib_denote</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="wenv:61" class="idref" href="#wenv:61"><span class="id" title="binder">wenv</span></a> : <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.V"><span class="id" title="variable">V</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.F"><span class="id" title="variable">F</span></a>) (<a id="a:62" class="idref" href="#a:62"><span class="id" title="binder">a</span></a> <a id="b:63" class="idref" href="#b:63"><span class="id" title="binder">b</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.DslDistrib.html#stmt_denoteC"><span class="id" title="abbreviation">stmt_denoteC</span></a> <a class="idref" href="Compiler.DslDistrib.html#wenv:61"><span class="id" title="variable">wenv</span></a> (<a class="idref" href="Compiler.DslDistrib.html#and_distrib"><span class="id" title="definition">and_distrib</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:62"><span class="id" title="variable">a</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:63"><span class="id" title="variable">b</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;-&gt;'_x"><span class="id" title="notation">↔</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.DslDistrib.html#stmt_denoteC"><span class="id" title="abbreviation">stmt_denoteC</span></a> <a class="idref" href="Compiler.DslDistrib.html#wenv:61"><span class="id" title="variable">wenv</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:62"><span class="id" title="variable">a</span></a> <span class="id" title="notation">∧</span> <a class="idref" href="Compiler.DslDistrib.html#stmt_denoteC"><span class="id" title="abbreviation">stmt_denoteC</span></a> <a class="idref" href="Compiler.DslDistrib.html#wenv:61"><span class="id" title="variable">wenv</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:63"><span class="id" title="variable">b</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">wenv</span> <span class="id" title="var">a</span> <span class="id" title="var">b</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">induction</span> <span class="id" title="var">a</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">eqs</span> | <span class="id" title="var">a₁</span> <span class="id" title="var">a₂</span> <span class="id" title="var">ih₁</span> <span class="id" title="var">ih₂</span> | <span class="id" title="var">a₁</span> <span class="id" title="var">a₂</span> <span class="id" title="var">ih₁</span> <span class="id" title="var">ih₂</span> | <span class="id" title="var">t</span> <span class="id" title="var">l</span> <span class="id" title="var">ihl</span>]<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">using</span> <a class="idref" href="Compiler.Dsl.html#stmt_ind'"><span class="id" title="definition">stmt_ind'</span></a>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">try</span> (<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.DslDistrib.html#and_distrib"><span class="id" title="definition">and_distrib</span></a>]; <span class="id" title="tactic">eapply</span> <a class="idref" href="Compiler.DslDistrib.html#and_distrib_r_denote"><span class="id" title="lemma">and_distrib_r_denote</span></a>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.DslDistrib.html#and_distrib"><span class="id" title="definition">and_distrib</span></a> <a class="idref" href="Compiler.Dsl.html#stmt_denote"><span class="id" title="definition">stmt_denote</span></a>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <span class="id" title="var">ih₁</span>, <span class="id" title="var">ih₂</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">tauto</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<span class="inlinecode"><span class="id" title="var">distrib</span></span> at a threshold node is exactly <span class="inlinecode"><span class="id" title="var">List.map</span></span> over
+          the children.
+
+<div class="paragraph"> </div>
+
+          The definition of <span class="inlinecode"><span class="id" title="var">distrib</span></span> writes that recursion out by
+          hand to satisfy the guard checker.  This lemma says the
+          hand-written version and <span class="inlinecode"><span class="id" title="var">List.map</span></span> <span class="inlinecode"><span class="id" title="var">distrib</span></span> are the same
+          term, so later proofs can work with <span class="inlinecode"><span class="id" title="var">List.map</span></span> and use the
+          ordinary library lemmas about it.  It holds by
+          computation. 
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="distrib_thresh" class="idref" href="#distrib_thresh"><span class="id" title="lemma">distrib_thresh</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="t:64" class="idref" href="#t:64"><span class="id" title="binder">t</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) (<a id="l:65" class="idref" href="#l:65"><span class="id" title="binder">l</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.DslDistrib.html#distrib"><span class="id" title="definition">distrib</span></a> (<a class="idref" href="Compiler.Dsl.html#SThresh"><span class="id" title="constructor">SThresh</span></a> <a class="idref" href="Compiler.DslDistrib.html#t:64"><span class="id" title="variable">t</span></a> <a class="idref" href="Compiler.DslDistrib.html#l:65"><span class="id" title="variable">l</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Compiler.Dsl.html#SThresh"><span class="id" title="constructor">SThresh</span></a> <a class="idref" href="Compiler.DslDistrib.html#t:64"><span class="id" title="variable">t</span></a> (<span class="id" title="abbreviation">List.map</span> <a class="idref" href="Compiler.DslDistrib.html#distrib"><span class="id" title="definition">distrib</span></a> <a class="idref" href="Compiler.DslDistrib.html#l:65"><span class="id" title="variable">l</span></a>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span>; <span class="id" title="var">cbn</span>; <span class="id" title="tactic">f_equal</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The pass is exact: a normalised statement holds under a
+          witness assignment exactly when the original does.
+
+<div class="paragraph"> </div>
+
+          Nothing is lost and nothing is gained, which is what the
+          if and only if buys.  Any witness for the original is a
+          witness for the output and the other way round, so a
+          verifier convinced by a proof about the output is
+          convinced of the statement the user actually wrote.
+
+<div class="paragraph"> </div>
+
+          The proof is structural induction on <span class="inlinecode"><span class="id" title="var">s</span></span>.  The equation
+          and OR cases are immediate.  The AND case is
+          <span class="inlinecode"><span class="id" title="var">and_distrib_denote</span></span> followed by the two induction
+          hypotheses.  The threshold case is the only laborious one.
+          By <span class="inlinecode"><span class="id" title="var">stmt_denote_thresh</span></span> the meaning of a threshold node is
+          the existence of a list of boolean flags <span class="inlinecode"><span class="id" title="var">bs</span></span> marking
+          which children are claimed, of the right length and with
+          at least <span class="inlinecode"><span class="id" title="var">t</span></span> flags set.  Mapping <span class="inlinecode"><span class="id" title="var">distrib</span></span> over the
+          children changes neither that length nor that count, and
+          by the induction hypotheses it changes no child's meaning,
+          so the very same <span class="inlinecode"><span class="id" title="var">bs</span></span> works on both sides. 
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="distrib_denote" class="idref" href="#distrib_denote"><span class="id" title="lemma">distrib_denote</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="wenv:66" class="idref" href="#wenv:66"><span class="id" title="binder">wenv</span></a> : <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.V"><span class="id" title="variable">V</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.F"><span class="id" title="variable">F</span></a>) (<a id="s:67" class="idref" href="#s:67"><span class="id" title="binder">s</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.DslDistrib.html#stmt_denoteC"><span class="id" title="abbreviation">stmt_denoteC</span></a> <a class="idref" href="Compiler.DslDistrib.html#wenv:66"><span class="id" title="variable">wenv</span></a> (<a class="idref" href="Compiler.DslDistrib.html#distrib"><span class="id" title="definition">distrib</span></a> <a class="idref" href="Compiler.DslDistrib.html#s:67"><span class="id" title="variable">s</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;-&gt;'_x"><span class="id" title="notation">↔</span></a> <a class="idref" href="Compiler.DslDistrib.html#stmt_denoteC"><span class="id" title="abbreviation">stmt_denoteC</span></a> <a class="idref" href="Compiler.DslDistrib.html#wenv:66"><span class="id" title="variable">wenv</span></a> <a class="idref" href="Compiler.DslDistrib.html#s:67"><span class="id" title="variable">s</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">wenv</span> <span class="id" title="var">s</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">induction</span> <span class="id" title="var">s</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">eqs</span> | <span class="id" title="var">a</span> <span class="id" title="var">b</span> <span class="id" title="var">iha</span> <span class="id" title="var">ihb</span> | <span class="id" title="var">a</span> <span class="id" title="var">b</span> <span class="id" title="var">iha</span> <span class="id" title="var">ihb</span> | <span class="id" title="var">t</span> <span class="id" title="var">l</span> <span class="id" title="var">ihl</span>]<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">using</span> <a class="idref" href="Compiler.Dsl.html#stmt_ind'"><span class="id" title="definition">stmt_ind'</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.DslDistrib.html#distrib"><span class="id" title="definition">distrib</span></a>]. <span class="id" title="tactic">rewrite</span> <a class="idref" href="Compiler.DslDistrib.html#and_distrib_denote"><span class="id" title="lemma">and_distrib_denote</span></a>, <span class="id" title="var">iha</span>, <span class="id" title="var">ihb</span>. <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.DslDistrib.html#distrib"><span class="id" title="definition">distrib</span></a> <a class="idref" href="Compiler.Dsl.html#stmt_denote"><span class="id" title="definition">stmt_denote</span></a>]. <span class="id" title="tactic">rewrite</span> <span class="id" title="var">iha</span>, <span class="id" title="var">ihb</span>. <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <a class="idref" href="Compiler.DslDistrib.html#distrib_thresh"><span class="id" title="lemma">distrib_thresh</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> !(<a class="idref" href="Compiler.Dsl.html#stmt_denote_thresh"><span class="id" title="lemma">stmt_denote_thresh</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.Spec.genv"><span class="id" title="variable">genv</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.Spec.penv"><span class="id" title="variable">penv</span></a>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">assert</span> (<span class="id" title="var">hfl</span> : <span class="id" title="notation">∀</span> <a id="bs:68" class="idref" href="#bs:68"><span class="id" title="binder"><span id="bs:69" class="id">bs</span></span></a><span class="id" title="notation">,</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;@<a class="idref" href="Compiler.Dsl.html#flagged_denote"><span class="id" title="definition">flagged_denote</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.F"><span class="id" title="variable">F</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.add"><span class="id" title="variable">add</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.mul"><span class="id" title="variable">mul</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.opp"><span class="id" title="variable">opp</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.G"><span class="id" title="variable">G</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.gid"><span class="id" title="variable">gid</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.gop"><span class="id" title="variable">gop</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.gpow"><span class="id" title="variable">gpow</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.V"><span class="id" title="variable">V</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.Spec.genv"><span class="id" title="variable">genv</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.Spec.penv"><span class="id" title="variable">penv</span></a> <span class="id" title="var">wenv</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="abbreviation">List.map</span> <a class="idref" href="Compiler.DslDistrib.html#distrib"><span class="id" title="definition">distrib</span></a> <span class="id" title="var">l</span>) <a class="idref" href="Compiler.DslDistrib.html#bs:68"><span class="id" title="variable">bs</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;-&gt;'_x"><span class="id" title="notation">↔</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;@<a class="idref" href="Compiler.Dsl.html#flagged_denote"><span class="id" title="definition">flagged_denote</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.F"><span class="id" title="variable">F</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.add"><span class="id" title="variable">add</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.mul"><span class="id" title="variable">mul</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.opp"><span class="id" title="variable">opp</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.G"><span class="id" title="variable">G</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.gid"><span class="id" title="variable">gid</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.gop"><span class="id" title="variable">gop</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.gpow"><span class="id" title="variable">gpow</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.V"><span class="id" title="variable">V</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.Spec.genv"><span class="id" title="variable">genv</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.Spec.penv"><span class="id" title="variable">penv</span></a> <span class="id" title="var">wenv</span> <span class="id" title="var">l</span> <a class="idref" href="Compiler.DslDistrib.html#bs:68"><span class="id" title="variable">bs</span></a>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ <span class="id" title="tactic">induction</span> <span class="id" title="var">l</span> <span class="id" title="keyword">as</span> [|<span class="id" title="var">s</span> <span class="id" title="var">l</span> <span class="id" title="var">ih</span>]; <span class="id" title="tactic">intros</span> [|<span class="id" title="var">b</span> <span class="id" title="var">bs</span>]; <span class="id" title="var">cbn</span>; <span class="id" title="tactic">try</span> <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">inversion</span> <span class="id" title="var">ihl</span> <span class="id" title="keyword">as</span> [| ? ? <span class="id" title="var">hs</span> <span class="id" title="var">hl</span>]; <span class="id" title="tactic">subst</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> (<span class="id" title="var">ih</span> <span class="id" title="var">hl</span> <span class="id" title="var">bs</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> <span class="id" title="var">b</span>; [<span class="id" title="tactic">rewrite</span> <span class="id" title="var">hs</span> |]; <span class="id" title="tactic">reflexivity</span>. }<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">split</span>; <span class="id" title="tactic">intros</span> (<span class="id" title="var">bs</span> &amp; <span class="id" title="var">hlen</span> &amp; <span class="id" title="var">hcnt</span> &amp; <span class="id" title="var">hf</span>); <span class="id" title="tactic">∃</span> <span class="id" title="var">bs</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">rewrite</span> <span class="id" title="lemma">List.length_map</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hlen</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">split</span>; [<span class="id" title="tactic">exact</span> <span class="id" title="var">hlen</span> | <span class="id" title="tactic">split</span>; [<span class="id" title="tactic">exact</span> <span class="id" title="var">hcnt</span> | <span class="id" title="tactic">eapply</span> <span class="id" title="var">hfl</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hf</span>]].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">split</span>; [<span class="id" title="tactic">rewrite</span> <span class="id" title="lemma">List.length_map</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hlen</span> |<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">split</span>; [<span class="id" title="tactic">exact</span> <span class="id" title="var">hcnt</span> | <span class="id" title="tactic">eapply</span> <span class="id" title="var">hfl</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hf</span>]].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab60"></a><h2 class="section">The pass preserves well-formedness</h2>
+
+
+<div class="paragraph"> </div>
+
+          A statement is well formed when every private variable it
+          mentions is one of the variables declared in <span class="inlinecode"><span class="id" title="var">privs</span></span>.  The
+          pass only rearranges and copies equations that were
+          already there, so it cannot introduce an undeclared
+          variable.  This matters because compilation is defined,
+          and proved correct, only for well-formed statements.
+
+<div class="paragraph"> </div>
+
+          For <span class="inlinecode"><span class="id" title="var">and_merge</span></span>: if <span class="inlinecode"><span class="id" title="var">a</span></span> and <span class="inlinecode"><span class="id" title="var">b</span></span> are well formed then so is
+          the merge.  When both are pure their equation lists are
+          appended, and <span class="inlinecode"><span class="id" title="var">List.forallb</span></span> over an append is the
+          conjunction of the two halves; <span class="inlinecode"><span class="id" title="var">leaves_only_wf</span></span> of Dsl.v
+          supplies the missing step, that the equations extracted
+          from a well-formed pure statement are themselves well
+          formed. 
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="and_merge_wf" class="idref" href="#and_merge_wf"><span class="id" title="lemma">and_merge_wf</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="a:70" class="idref" href="#a:70"><span class="id" title="binder">a</span></a> <a id="b:71" class="idref" href="#b:71"><span class="id" title="binder">b</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.DslDistrib.html#wf_stmtC"><span class="id" title="abbreviation">wf_stmtC</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:70"><span class="id" title="variable">a</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#wf_stmtC"><span class="id" title="abbreviation">wf_stmtC</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:71"><span class="id" title="variable">b</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#wf_stmtC"><span class="id" title="abbreviation">wf_stmtC</span></a> (<a class="idref" href="Compiler.DslDistrib.html#and_merge"><span class="id" title="definition">and_merge</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:70"><span class="id" title="variable">a</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:71"><span class="id" title="variable">b</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">a</span> <span class="id" title="var">b</span> <span class="id" title="var">ha</span> <span class="id" title="var">hb</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">unfold</span> <a class="idref" href="Compiler.DslDistrib.html#and_merge"><span class="id" title="definition">and_merge</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> (<a class="idref" href="Compiler.DslDistrib.html#leaves_onlyC"><span class="id" title="abbreviation">leaves_onlyC</span></a> <span class="id" title="var">a</span>) <span class="id" title="keyword">as</span> [<span class="id" title="var">la</span> |] <span class="id" title="var">eqn</span>:<span class="id" title="var">hla</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<span class="id" title="tactic">destruct</span> (<a class="idref" href="Compiler.DslDistrib.html#leaves_onlyC"><span class="id" title="abbreviation">leaves_onlyC</span></a> <span class="id" title="var">b</span>) <span class="id" title="keyword">as</span> [<span class="id" title="var">lb</span> |] <span class="id" title="var">eqn</span>:<span class="id" title="var">hlb</span> |].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span>. <span class="id" title="tactic">rewrite</span> <span class="id" title="lemma">List.forallb_app</span>. <span class="id" title="tactic">eapply</span> <span class="id" title="lemma">andb_true_iff</span>; <span class="id" title="tactic">split</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">eapply</span> (<a class="idref" href="Compiler.Dsl.html#leaves_only_wf"><span class="id" title="lemma">leaves_only_wf</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.Spec.privs"><span class="id" title="variable">privs</span></a> <span class="id" title="var">a</span> <span class="id" title="var">la</span> <span class="id" title="var">hla</span> <span class="id" title="var">ha</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">eapply</span> (<a class="idref" href="Compiler.Dsl.html#leaves_only_wf"><span class="id" title="lemma">leaves_only_wf</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.Spec.privs"><span class="id" title="variable">privs</span></a> <span class="id" title="var">b</span> <span class="id" title="var">lb</span> <span class="id" title="var">hlb</span> <span class="id" title="var">hb</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="var">cbn</span>. <span class="id" title="tactic">rewrite</span> <span class="id" title="var">ha</span>, <span class="id" title="var">hb</span>. <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="var">cbn</span>. <span class="id" title="tactic">rewrite</span> <span class="id" title="var">ha</span>, <span class="id" title="var">hb</span>. <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Distributing over the ORs of <span class="inlinecode"><span class="id" title="var">b</span></span> preserves well
+          formedness.  Induction on <span class="inlinecode"><span class="id" title="var">b</span></span>: at an <span class="inlinecode"><span class="id" title="var">SOr</span></span> node each copy
+          of <span class="inlinecode"><span class="id" title="var">a</span></span> is combined with a well-formed branch, and
+          everywhere else <span class="inlinecode"><span class="id" title="var">and_merge_wf</span></span> applies. 
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="and_distrib_r_wf" class="idref" href="#and_distrib_r_wf"><span class="id" title="lemma">and_distrib_r_wf</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="a:72" class="idref" href="#a:72"><span class="id" title="binder">a</span></a> <a id="b:73" class="idref" href="#b:73"><span class="id" title="binder">b</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.DslDistrib.html#wf_stmtC"><span class="id" title="abbreviation">wf_stmtC</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:72"><span class="id" title="variable">a</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#wf_stmtC"><span class="id" title="abbreviation">wf_stmtC</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:73"><span class="id" title="variable">b</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#wf_stmtC"><span class="id" title="abbreviation">wf_stmtC</span></a> (<a class="idref" href="Compiler.DslDistrib.html#and_distrib_r"><span class="id" title="definition">and_distrib_r</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:72"><span class="id" title="variable">a</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:73"><span class="id" title="variable">b</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">a</span> <span class="id" title="var">b</span> <span class="id" title="var">ha</span> <span class="id" title="var">hb</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">induction</span> <span class="id" title="var">b</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">eqs</span> | <span class="id" title="var">b₁</span> <span class="id" title="var">b₂</span> <span class="id" title="var">ih₁</span> <span class="id" title="var">ih₂</span> | <span class="id" title="var">b₁</span> <span class="id" title="var">b₂</span> <span class="id" title="var">ih₁</span> <span class="id" title="var">ih₂</span> | <span class="id" title="var">t</span> <span class="id" title="var">l</span> <span class="id" title="var">ihl</span>]<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">using</span> <a class="idref" href="Compiler.Dsl.html#stmt_ind'"><span class="id" title="definition">stmt_ind'</span></a>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">try</span> (<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.DslDistrib.html#and_distrib_r"><span class="id" title="definition">and_distrib_r</span></a>]; <span class="id" title="tactic">eapply</span> <a class="idref" href="Compiler.DslDistrib.html#and_merge_wf"><span class="id" title="lemma">and_merge_wf</span></a>; <span class="id" title="tactic">assumption</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.DslDistrib.html#and_distrib_r"><span class="id" title="definition">and_distrib_r</span></a> <a class="idref" href="Compiler.Dsl.html#wf_stmt"><span class="id" title="definition">wf_stmt</span></a>] <span class="id" title="tactic">in</span> ×.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">andb_true_iff</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hb</span>; <span class="id" title="tactic">destruct</span> <span class="id" title="var">hb</span> <span class="id" title="keyword">as</span> (<span class="id" title="var">hb₁</span> &amp; <span class="id" title="var">hb₂</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> (<span class="id" title="var">ih₁</span> <span class="id" title="var">hb₁</span>), (<span class="id" title="var">ih₂</span> <span class="id" title="var">hb₂</span>). <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Distributing over the ORs of both sides preserves well
+          formedness.  Induction on <span class="inlinecode"><span class="id" title="var">a</span></span>, with <span class="inlinecode"><span class="id" title="var">and_distrib_r_wf</span></span> in
+          the non-OR cases. 
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="and_distrib_wf" class="idref" href="#and_distrib_wf"><span class="id" title="lemma">and_distrib_wf</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="a:74" class="idref" href="#a:74"><span class="id" title="binder">a</span></a> <a id="b:75" class="idref" href="#b:75"><span class="id" title="binder">b</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.DslDistrib.html#wf_stmtC"><span class="id" title="abbreviation">wf_stmtC</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:74"><span class="id" title="variable">a</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#wf_stmtC"><span class="id" title="abbreviation">wf_stmtC</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:75"><span class="id" title="variable">b</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#wf_stmtC"><span class="id" title="abbreviation">wf_stmtC</span></a> (<a class="idref" href="Compiler.DslDistrib.html#and_distrib"><span class="id" title="definition">and_distrib</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:74"><span class="id" title="variable">a</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:75"><span class="id" title="variable">b</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">a</span> <span class="id" title="var">b</span> <span class="id" title="var">ha</span> <span class="id" title="var">hb</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">induction</span> <span class="id" title="var">a</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">eqs</span> | <span class="id" title="var">a₁</span> <span class="id" title="var">a₂</span> <span class="id" title="var">ih₁</span> <span class="id" title="var">ih₂</span> | <span class="id" title="var">a₁</span> <span class="id" title="var">a₂</span> <span class="id" title="var">ih₁</span> <span class="id" title="var">ih₂</span> | <span class="id" title="var">t</span> <span class="id" title="var">l</span> <span class="id" title="var">ihl</span>]<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">using</span> <a class="idref" href="Compiler.Dsl.html#stmt_ind'"><span class="id" title="definition">stmt_ind'</span></a>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">try</span> (<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.DslDistrib.html#and_distrib"><span class="id" title="definition">and_distrib</span></a>]; <span class="id" title="tactic">eapply</span> <a class="idref" href="Compiler.DslDistrib.html#and_distrib_r_wf"><span class="id" title="lemma">and_distrib_r_wf</span></a>; <span class="id" title="tactic">assumption</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.DslDistrib.html#and_distrib"><span class="id" title="definition">and_distrib</span></a> <a class="idref" href="Compiler.Dsl.html#wf_stmt"><span class="id" title="definition">wf_stmt</span></a>] <span class="id" title="tactic">in</span> ×.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">andb_true_iff</span> <span class="id" title="tactic">in</span> <span class="id" title="var">ha</span>; <span class="id" title="tactic">destruct</span> <span class="id" title="var">ha</span> <span class="id" title="keyword">as</span> (<span class="id" title="var">ha₁</span> &amp; <span class="id" title="var">ha₂</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> (<span class="id" title="var">ih₁</span> <span class="id" title="var">ha₁</span>), (<span class="id" title="var">ih₂</span> <span class="id" title="var">ha₂</span>). <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The whole pass preserves well formedness.
+
+<div class="paragraph"> </div>
+
+          Structural induction on <span class="inlinecode"><span class="id" title="var">s</span></span>, using <span class="inlinecode"><span class="id" title="var">and_distrib_wf</span></span> at an
+          AND node and, at a threshold node, a second induction over
+          the list of children after rewriting with
+          <span class="inlinecode"><span class="id" title="var">distrib_thresh</span></span>. 
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="distrib_wf" class="idref" href="#distrib_wf"><span class="id" title="lemma">distrib_wf</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="s:76" class="idref" href="#s:76"><span class="id" title="binder">s</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a><span class="id" title="notation">),</span> <a class="idref" href="Compiler.DslDistrib.html#wf_stmtC"><span class="id" title="abbreviation">wf_stmtC</span></a> <a class="idref" href="Compiler.DslDistrib.html#s:76"><span class="id" title="variable">s</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#wf_stmtC"><span class="id" title="abbreviation">wf_stmtC</span></a> (<a class="idref" href="Compiler.DslDistrib.html#distrib"><span class="id" title="definition">distrib</span></a> <a class="idref" href="Compiler.DslDistrib.html#s:76"><span class="id" title="variable">s</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intro</span> <span class="id" title="var">s</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">induction</span> <span class="id" title="var">s</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">eqs</span> | <span class="id" title="var">a</span> <span class="id" title="var">b</span> <span class="id" title="var">iha</span> <span class="id" title="var">ihb</span> | <span class="id" title="var">a</span> <span class="id" title="var">b</span> <span class="id" title="var">iha</span> <span class="id" title="var">ihb</span> | <span class="id" title="var">t</span> <span class="id" title="var">l</span> <span class="id" title="var">ihl</span>]<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">using</span> <a class="idref" href="Compiler.Dsl.html#stmt_ind'"><span class="id" title="definition">stmt_ind'</span></a>; <span class="id" title="tactic">intro</span> <span class="id" title="var">h</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="tactic">exact</span> <span class="id" title="var">h</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.Dsl.html#wf_stmt"><span class="id" title="definition">wf_stmt</span></a> <a class="idref" href="Compiler.DslDistrib.html#distrib"><span class="id" title="definition">distrib</span></a>] <span class="id" title="tactic">in</span> ×.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">andb_true_iff</span> <span class="id" title="tactic">in</span> <span class="id" title="var">h</span>; <span class="id" title="tactic">destruct</span> <span class="id" title="var">h</span> <span class="id" title="keyword">as</span> (<span class="id" title="var">ha</span> &amp; <span class="id" title="var">hb</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <a class="idref" href="Compiler.DslDistrib.html#and_distrib_wf"><span class="id" title="lemma">and_distrib_wf</span></a>; [<span class="id" title="tactic">eapply</span> <span class="id" title="var">iha</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">ha</span> | <span class="id" title="tactic">eapply</span> <span class="id" title="var">ihb</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hb</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.Dsl.html#wf_stmt"><span class="id" title="definition">wf_stmt</span></a> <a class="idref" href="Compiler.DslDistrib.html#distrib"><span class="id" title="definition">distrib</span></a>] <span class="id" title="tactic">in</span> ×.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">andb_true_iff</span> <span class="id" title="tactic">in</span> <span class="id" title="var">h</span>; <span class="id" title="tactic">destruct</span> <span class="id" title="var">h</span> <span class="id" title="keyword">as</span> (<span class="id" title="var">ha</span> &amp; <span class="id" title="var">hb</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> (<span class="id" title="var">iha</span> <span class="id" title="var">ha</span>), (<span class="id" title="var">ihb</span> <span class="id" title="var">hb</span>). <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <a class="idref" href="Compiler.DslDistrib.html#distrib_thresh"><span class="id" title="lemma">distrib_thresh</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span> <span class="id" title="tactic">in</span> <span class="id" title="var">h</span> |- ×.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">induction</span> <span class="id" title="var">l</span> <span class="id" title="keyword">as</span> [|<span class="id" title="var">s</span> <span class="id" title="var">l</span> <span class="id" title="var">ih</span>]; <span class="id" title="var">cbn</span> <span class="id" title="tactic">in</span> <span class="id" title="var">h</span> |- *; [<span class="id" title="tactic">reflexivity</span> |].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">inversion</span> <span class="id" title="var">ihl</span> <span class="id" title="keyword">as</span> [| ? ? <span class="id" title="var">hs</span> <span class="id" title="var">hl</span>]; <span class="id" title="tactic">subst</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">andb_true_iff</span> <span class="id" title="tactic">in</span> <span class="id" title="var">h</span>; <span class="id" title="tactic">destruct</span> <span class="id" title="var">h</span> <span class="id" title="keyword">as</span> (<span class="id" title="var">h₁</span> &amp; <span class="id" title="var">h₂</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> (<span class="id" title="var">hs</span> <span class="id" title="var">h₁</span>), (<span class="id" title="var">ih</span> <span class="id" title="var">hl</span> <span class="id" title="var">h₂</span>). <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab61"></a><h2 class="section">The output is in disjunctive normal form</h2>
+
+
+<div class="paragraph"> </div>
+
+          On threshold-free input the pass returns an OR-tree of
+          single equation blocks, which is the shape the checker
+          accepts with no disjointness condition to verify.
+
+<div class="paragraph"> </div>
+
+          The first step: if <span class="inlinecode"><span class="id" title="var">a</span></span> is pure, so that <span class="inlinecode"><span class="id" title="var">leaves_onlyC</span></span> <span class="inlinecode"><span class="id" title="var">a</span></span>
+          is not <span class="inlinecode"><span class="id" title="var">None</span></span>, and <span class="inlinecode"><span class="id" title="var">b</span></span> is already in disjunctive normal
+          form, then so is <span class="inlinecode"><span class="id" title="var">and_distrib_r</span></span> <span class="inlinecode"><span class="id" title="var">a</span></span> <span class="inlinecode"><span class="id" title="var">b</span></span>.  The reason is that
+          every leaf of the OR-tree of <span class="inlinecode"><span class="id" title="var">b</span></span> is an equation block,
+          hence pure, so at every leaf <span class="inlinecode"><span class="id" title="var">and_merge</span></span> finds two pure
+          sides and produces a single block instead of an <span class="inlinecode"><span class="id" title="var">SAnd</span></span>.
+          The hypothesis on <span class="inlinecode"><span class="id" title="var">a</span></span> is exactly what rules out that
+          <span class="inlinecode"><span class="id" title="var">SAnd</span></span> case. 
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="and_distrib_r_dnf" class="idref" href="#and_distrib_r_dnf"><span class="id" title="lemma">and_distrib_r_dnf</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="a:77" class="idref" href="#a:77"><span class="id" title="binder">a</span></a> <a id="b:78" class="idref" href="#b:78"><span class="id" title="binder">b</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.DslDistrib.html#leaves_onlyC"><span class="id" title="abbreviation">leaves_onlyC</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:77"><span class="id" title="variable">a</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;&gt;'_x"><span class="id" title="notation">≠</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#None"><span class="id" title="constructor">None</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#dnf"><span class="id" title="definition">dnf</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:78"><span class="id" title="variable">b</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#dnf"><span class="id" title="definition">dnf</span></a> (<a class="idref" href="Compiler.DslDistrib.html#and_distrib_r"><span class="id" title="definition">and_distrib_r</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:77"><span class="id" title="variable">a</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:78"><span class="id" title="variable">b</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">a</span> <span class="id" title="var">b</span> <span class="id" title="var">ha</span> <span class="id" title="var">hb</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">induction</span> <span class="id" title="var">b</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">eqs</span> | <span class="id" title="var">b₁</span> <span class="id" title="var">b₂</span> <span class="id" title="var">ih₁</span> <span class="id" title="var">ih₂</span> | <span class="id" title="var">b₁</span> <span class="id" title="var">b₂</span> <span class="id" title="var">ih₁</span> <span class="id" title="var">ih₂</span> | <span class="id" title="var">t</span> <span class="id" title="var">l</span> <span class="id" title="var">ihl</span>]<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">using</span> <a class="idref" href="Compiler.Dsl.html#stmt_ind'"><span class="id" title="definition">stmt_ind'</span></a>; <span class="id" title="var">cbn</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hb</span>; <span class="id" title="tactic">try</span> <span class="id" title="tactic">discriminate</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.DslDistrib.html#and_distrib_r"><span class="id" title="definition">and_distrib_r</span></a>]. <span class="id" title="tactic">unfold</span> <a class="idref" href="Compiler.DslDistrib.html#and_merge"><span class="id" title="definition">and_merge</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> (<a class="idref" href="Compiler.DslDistrib.html#leaves_onlyC"><span class="id" title="abbreviation">leaves_onlyC</span></a> <span class="id" title="var">a</span>) <span class="id" title="keyword">as</span> [<span class="id" title="var">la</span> |]; [<span class="id" title="tactic">reflexivity</span> | <span class="id" title="tactic">congruence</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.DslDistrib.html#and_distrib_r"><span class="id" title="definition">and_distrib_r</span></a> <a class="idref" href="Compiler.DslDistrib.html#dnf"><span class="id" title="definition">dnf</span></a>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">andb_true_iff</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hb</span>; <span class="id" title="tactic">destruct</span> <span class="id" title="var">hb</span> <span class="id" title="keyword">as</span> (<span class="id" title="var">hb₁</span> &amp; <span class="id" title="var">hb₂</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> (<span class="id" title="var">ih₁</span> <span class="id" title="var">hb₁</span>), (<span class="id" title="var">ih₂</span> <span class="id" title="var">hb₂</span>). <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+If both sides are in disjunctive normal form then so is
+          their distributed conjunction.
+
+<div class="paragraph"> </div>
+
+          Induction on <span class="inlinecode"><span class="id" title="var">a</span></span>.  If <span class="inlinecode"><span class="id" title="var">a</span></span> is an equation block it is pure,
+          so <span class="inlinecode"><span class="id" title="var">and_distrib_r_dnf</span></span> applies directly.  If <span class="inlinecode"><span class="id" title="var">a</span></span> is an OR,
+          the two branches are handled by the induction hypotheses.
+          No other shape of <span class="inlinecode"><span class="id" title="var">a</span></span> can satisfy <span class="inlinecode"><span class="id" title="var">dnf</span></span> <span class="inlinecode"><span class="id" title="var">a</span></span> <span class="inlinecode">=</span> <span class="inlinecode"><span class="id" title="var">true</span></span>. 
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="and_distrib_dnf" class="idref" href="#and_distrib_dnf"><span class="id" title="lemma">and_distrib_dnf</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="a:79" class="idref" href="#a:79"><span class="id" title="binder">a</span></a> <a id="b:80" class="idref" href="#b:80"><span class="id" title="binder">b</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.DslDistrib.html#dnf"><span class="id" title="definition">dnf</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:79"><span class="id" title="variable">a</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#dnf"><span class="id" title="definition">dnf</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:80"><span class="id" title="variable">b</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#dnf"><span class="id" title="definition">dnf</span></a> (<a class="idref" href="Compiler.DslDistrib.html#and_distrib"><span class="id" title="definition">and_distrib</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:79"><span class="id" title="variable">a</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:80"><span class="id" title="variable">b</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">a</span> <span class="id" title="var">b</span> <span class="id" title="var">ha</span> <span class="id" title="var">hb</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">induction</span> <span class="id" title="var">a</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">eqs</span> | <span class="id" title="var">a₁</span> <span class="id" title="var">a₂</span> <span class="id" title="var">ih₁</span> <span class="id" title="var">ih₂</span> | <span class="id" title="var">a₁</span> <span class="id" title="var">a₂</span> <span class="id" title="var">ih₁</span> <span class="id" title="var">ih₂</span> | <span class="id" title="var">t</span> <span class="id" title="var">l</span> <span class="id" title="var">ihl</span>]<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">using</span> <a class="idref" href="Compiler.Dsl.html#stmt_ind'"><span class="id" title="definition">stmt_ind'</span></a>; <span class="id" title="var">cbn</span> <span class="id" title="tactic">in</span> <span class="id" title="var">ha</span>; <span class="id" title="tactic">try</span> <span class="id" title="tactic">discriminate</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.DslDistrib.html#and_distrib"><span class="id" title="definition">and_distrib</span></a>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <a class="idref" href="Compiler.DslDistrib.html#and_distrib_r_dnf"><span class="id" title="lemma">and_distrib_r_dnf</span></a>; [<span class="id" title="var">cbn</span>; <span class="id" title="tactic">congruence</span> | <span class="id" title="tactic">exact</span> <span class="id" title="var">hb</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.DslDistrib.html#and_distrib"><span class="id" title="definition">and_distrib</span></a> <a class="idref" href="Compiler.DslDistrib.html#dnf"><span class="id" title="definition">dnf</span></a>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">andb_true_iff</span> <span class="id" title="tactic">in</span> <span class="id" title="var">ha</span>; <span class="id" title="tactic">destruct</span> <span class="id" title="var">ha</span> <span class="id" title="keyword">as</span> (<span class="id" title="var">ha₁</span> &amp; <span class="id" title="var">ha₂</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> (<span class="id" title="var">ih₁</span> <span class="id" title="var">ha₁</span>), (<span class="id" title="var">ih₂</span> <span class="id" title="var">ha₂</span>). <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+On a threshold-free statement the pass produces
+          disjunctive normal form.
+
+<div class="paragraph"> </div>
+
+          Structural induction on <span class="inlinecode"><span class="id" title="var">s</span></span>: an equation block is already
+          normal, an OR is normal when both children are, and an AND
+          is handled by <span class="inlinecode"><span class="id" title="var">and_distrib_dnf</span></span> applied to the two
+          normalised children.  The hypothesis <span class="inlinecode"><span class="id" title="var">thresh_free</span></span> <span class="inlinecode"><span class="id" title="var">s</span></span> <span class="inlinecode">=</span> <span class="inlinecode"><span class="id" title="var">true</span></span>
+          rules out the one remaining case, the one the pass cannot
+          normalise, and it passes down to the children, since a
+          statement is threshold free exactly when all of its parts
+          are. 
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="distrib_dnf" class="idref" href="#distrib_dnf"><span class="id" title="lemma">distrib_dnf</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="s:81" class="idref" href="#s:81"><span class="id" title="binder">s</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a><span class="id" title="notation">),</span> <a class="idref" href="Compiler.DslDistrib.html#thresh_free"><span class="id" title="definition">thresh_free</span></a> <a class="idref" href="Compiler.DslDistrib.html#s:81"><span class="id" title="variable">s</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#dnf"><span class="id" title="definition">dnf</span></a> (<a class="idref" href="Compiler.DslDistrib.html#distrib"><span class="id" title="definition">distrib</span></a> <a class="idref" href="Compiler.DslDistrib.html#s:81"><span class="id" title="variable">s</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intro</span> <span class="id" title="var">s</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">induction</span> <span class="id" title="var">s</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">eqs</span> | <span class="id" title="var">a</span> <span class="id" title="var">b</span> <span class="id" title="var">iha</span> <span class="id" title="var">ihb</span> | <span class="id" title="var">a</span> <span class="id" title="var">b</span> <span class="id" title="var">iha</span> <span class="id" title="var">ihb</span> | <span class="id" title="var">t</span> <span class="id" title="var">l</span> <span class="id" title="var">ihl</span>]<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">using</span> <a class="idref" href="Compiler.Dsl.html#stmt_ind'"><span class="id" title="definition">stmt_ind'</span></a>; <span class="id" title="tactic">intro</span> <span class="id" title="var">h</span>; <span class="id" title="var">cbn</span> <span class="id" title="tactic">in</span> <span class="id" title="var">h</span>; <span class="id" title="tactic">try</span> <span class="id" title="tactic">discriminate</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">andb_true_iff</span> <span class="id" title="tactic">in</span> <span class="id" title="var">h</span>; <span class="id" title="tactic">destruct</span> <span class="id" title="var">h</span> <span class="id" title="keyword">as</span> (<span class="id" title="var">ha</span> &amp; <span class="id" title="var">hb</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.DslDistrib.html#distrib"><span class="id" title="definition">distrib</span></a>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <a class="idref" href="Compiler.DslDistrib.html#and_distrib_dnf"><span class="id" title="lemma">and_distrib_dnf</span></a>; [<span class="id" title="tactic">eapply</span> <span class="id" title="var">iha</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">ha</span> | <span class="id" title="tactic">eapply</span> <span class="id" title="var">ihb</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hb</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">andb_true_iff</span> <span class="id" title="tactic">in</span> <span class="id" title="var">h</span>; <span class="id" title="tactic">destruct</span> <span class="id" title="var">h</span> <span class="id" title="keyword">as</span> (<span class="id" title="var">ha</span> &amp; <span class="id" title="var">hb</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.DslDistrib.html#distrib"><span class="id" title="definition">distrib</span></a> <a class="idref" href="Compiler.DslDistrib.html#dnf"><span class="id" title="definition">dnf</span></a>]. <span class="id" title="tactic">rewrite</span> (<span class="id" title="var">iha</span> <span class="id" title="var">ha</span>), (<span class="id" title="var">ihb</span> <span class="id" title="var">hb</span>). <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+A statement in disjunctive normal form always satisfies the
+          disjunction invariant.
+
+<div class="paragraph"> </div>
+
+          This is where the work pays off.  <span class="inlinecode"><span class="id" title="var">disj_inv</span></span> demands
+          something only at an AND node, where it wants the two
+          sides to be pure or their variable sets to be disjoint,
+          and at a threshold node, where it wants the children to
+          have pairwise disjoint variable sets.  A statement passing
+          <span class="inlinecode"><span class="id" title="var">dnf</span></span> has neither kind of node: it is an OR-tree of
+          equation blocks, and <span class="inlinecode"><span class="id" title="var">disj_inv</span></span> holds unconditionally on
+          an equation block and asks only that both children pass at
+          an OR.  So the induction goes through with nothing left to
+          check. 
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="dnf_disj_inv" class="idref" href="#dnf_disj_inv"><span class="id" title="lemma">dnf_disj_inv</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="s:82" class="idref" href="#s:82"><span class="id" title="binder">s</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a><span class="id" title="notation">),</span> <a class="idref" href="Compiler.DslDistrib.html#dnf"><span class="id" title="definition">dnf</span></a> <a class="idref" href="Compiler.DslDistrib.html#s:82"><span class="id" title="variable">s</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#disj_invC"><span class="id" title="abbreviation">disj_invC</span></a> <a class="idref" href="Compiler.DslDistrib.html#s:82"><span class="id" title="variable">s</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intro</span> <span class="id" title="var">s</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">induction</span> <span class="id" title="var">s</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">eqs</span> | <span class="id" title="var">a</span> <span class="id" title="var">b</span> <span class="id" title="var">iha</span> <span class="id" title="var">ihb</span> | <span class="id" title="var">a</span> <span class="id" title="var">b</span> <span class="id" title="var">iha</span> <span class="id" title="var">ihb</span> | <span class="id" title="var">t</span> <span class="id" title="var">l</span> <span class="id" title="var">ihl</span>]<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">using</span> <a class="idref" href="Compiler.Dsl.html#stmt_ind'"><span class="id" title="definition">stmt_ind'</span></a>; <span class="id" title="tactic">intro</span> <span class="id" title="var">h</span>; <span class="id" title="var">cbn</span> <span class="id" title="tactic">in</span> <span class="id" title="var">h</span>; <span class="id" title="tactic">try</span> <span class="id" title="tactic">discriminate</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">andb_true_iff</span> <span class="id" title="tactic">in</span> <span class="id" title="var">h</span>; <span class="id" title="tactic">destruct</span> <span class="id" title="var">h</span> <span class="id" title="keyword">as</span> (<span class="id" title="var">ha</span> &amp; <span class="id" title="var">hb</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span>. <span class="id" title="tactic">rewrite</span> (<span class="id" title="var">iha</span> <span class="id" title="var">ha</span>), (<span class="id" title="var">ihb</span> <span class="id" title="var">hb</span>). <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab62"></a><h2 class="section">Variable sets</h2>
+
+
+<div class="paragraph"> </div>
+
+          <span class="inlinecode"><span class="id" title="var">stmt_vars</span></span> <span class="inlinecode"><span class="id" title="var">s</span></span> is the list of all occurrences of private
+          variables in <span class="inlinecode"><span class="id" title="var">s</span></span>.  The lemmas below record that the pass
+          never invents a variable: whatever <span class="inlinecode"><span class="id" title="var">and_merge</span></span>,
+          <span class="inlinecode"><span class="id" title="var">and_distrib_r</span></span> or <span class="inlinecode"><span class="id" title="var">and_distrib</span></span> produce, its variables
+          all come from the two inputs.
+
+<div class="paragraph"> </div>
+
+          They are not needed for <span class="inlinecode"><span class="id" title="var">distrib_disj_inv</span></span>, which takes
+          the shorter route through <span class="inlinecode"><span class="id" title="var">dnf</span></span>.  They exist because any
+          argument about disjointness after distribution has to
+          start from them, and DslRepair.v does exactly that: it
+          uses <span class="inlinecode"><span class="id" title="var">and_distrib_vars_incl</span></span> to keep the variables of its
+          own repaired statements under control. 
+<div class="paragraph"> </div>
+
+ Flattening a pure statement into one equation block keeps
+          exactly the same variable occurrences.
+
+<div class="paragraph"> </div>
+
+          If <span class="inlinecode"><span class="id" title="var">leaves_onlyC</span></span> <span class="inlinecode"><span class="id" title="var">s</span></span> returns <span class="inlinecode"><span class="id" title="var">Some</span></span> <span class="inlinecode"><span class="id" title="var">eqs</span></span>, then the variables
+          of <span class="inlinecode"><span class="id" title="var">SEqs</span></span> <span class="inlinecode"><span class="id" title="var">eqs</span></span> are literally the variables of <span class="inlinecode"><span class="id" title="var">s</span></span>, as
+          lists.  The reason is that <span class="inlinecode"><span class="id" title="var">leaves_only</span></span> on an AND appends
+          the two equation lists while <span class="inlinecode"><span class="id" title="var">stmt_vars</span></span> on an AND appends
+          the two variable lists, and collecting variables commutes
+          with appending (<span class="inlinecode"><span class="id" title="var">List.flat_map_app</span></span>). 
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="leaves_only_vars" class="idref" href="#leaves_only_vars"><span class="id" title="lemma">leaves_only_vars</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="s:83" class="idref" href="#s:83"><span class="id" title="binder">s</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a>) (<a id="eqs:84" class="idref" href="#eqs:84"><span class="id" title="binder">eqs</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> (@<a class="idref" href="Compiler.Dsl.html#equation"><span class="id" title="record">equation</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.F"><span class="id" title="variable">F</span></a> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.V"><span class="id" title="variable">V</span></a>)<span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.DslDistrib.html#leaves_onlyC"><span class="id" title="abbreviation">leaves_onlyC</span></a> <a class="idref" href="Compiler.DslDistrib.html#s:83"><span class="id" title="variable">s</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#Some"><span class="id" title="constructor">Some</span></a> <a class="idref" href="Compiler.DslDistrib.html#eqs:84"><span class="id" title="variable">eqs</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.Dsl.html#stmt_vars"><span class="id" title="definition">stmt_vars</span></a> (<a class="idref" href="Compiler.Dsl.html#SEqs"><span class="id" title="constructor">SEqs</span></a> <a class="idref" href="Compiler.DslDistrib.html#eqs:84"><span class="id" title="variable">eqs</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Compiler.Dsl.html#stmt_vars"><span class="id" title="definition">stmt_vars</span></a> <a class="idref" href="Compiler.DslDistrib.html#s:83"><span class="id" title="variable">s</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intro</span> <span class="id" title="var">s</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">induction</span> <span class="id" title="var">s</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">eqs0</span> | <span class="id" title="var">a</span> <span class="id" title="var">b</span> <span class="id" title="var">iha</span> <span class="id" title="var">ihb</span> | <span class="id" title="var">a</span> <span class="id" title="var">b</span> <span class="id" title="var">iha</span> <span class="id" title="var">ihb</span> | <span class="id" title="var">t</span> <span class="id" title="var">l</span> <span class="id" title="var">ihl</span>]<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">using</span> <a class="idref" href="Compiler.Dsl.html#stmt_ind'"><span class="id" title="definition">stmt_ind'</span></a>; <span class="id" title="tactic">intros</span> <span class="id" title="var">eqs</span> <span class="id" title="var">h</span>; <span class="id" title="var">cbn</span> <span class="id" title="tactic">in</span> <span class="id" title="var">h</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="tactic">injection</span> <span class="id" title="var">h</span> <span class="id" title="keyword">as</span> <span class="id" title="var">h</span>; <span class="id" title="tactic">subst</span>; <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> (<a class="idref" href="Compiler.DslDistrib.html#leaves_onlyC"><span class="id" title="abbreviation">leaves_onlyC</span></a> <span class="id" title="var">a</span>) <span class="id" title="keyword">as</span> [<span class="id" title="var">la</span> |] <span class="id" title="var">eqn</span>:<span class="id" title="var">ha</span>; [| <span class="id" title="tactic">congruence</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> (<a class="idref" href="Compiler.DslDistrib.html#leaves_onlyC"><span class="id" title="abbreviation">leaves_onlyC</span></a> <span class="id" title="var">b</span>) <span class="id" title="keyword">as</span> [<span class="id" title="var">lb</span> |] <span class="id" title="var">eqn</span>:<span class="id" title="var">hb</span>; [| <span class="id" title="tactic">congruence</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">injection</span> <span class="id" title="var">h</span> <span class="id" title="keyword">as</span> <span class="id" title="var">h</span>; <span class="id" title="tactic">subst</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span>. <span class="id" title="tactic">rewrite</span> <span class="id" title="lemma">List.flat_map_app</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> &lt;-(<span class="id" title="var">iha</span> <span class="id" title="var">la</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#eq_refl"><span class="id" title="constructor">eq_refl</span></a>), &lt;-(<span class="id" title="var">ihb</span> <span class="id" title="var">lb</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#eq_refl"><span class="id" title="constructor">eq_refl</span></a>). <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="tactic">congruence</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="tactic">congruence</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The variables of a merge are among the variables of the two
+          sides.
+
+<div class="paragraph"> </div>
+
+          <span class="inlinecode"><span class="id" title="var">List.incl</span></span> means that every element of the first list
+          occurs in the second.  In the pure case the merge is a
+          single block whose variables, by <span class="inlinecode"><span class="id" title="var">leaves_only_vars</span></span>, are
+          those of <span class="inlinecode"><span class="id" title="var">a</span></span> followed by those of <span class="inlinecode"><span class="id" title="var">b</span></span>, so the inclusion is
+          reflexivity.  In the other cases <span class="inlinecode"><span class="id" title="var">and_merge</span></span> returns
+          <span class="inlinecode"><span class="id" title="var">SAnd</span></span> <span class="inlinecode"><span class="id" title="var">a</span></span> <span class="inlinecode"><span class="id" title="var">b</span></span>, whose variables are that very same append. 
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="and_merge_vars_incl" class="idref" href="#and_merge_vars_incl"><span class="id" title="lemma">and_merge_vars_incl</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="a:85" class="idref" href="#a:85"><span class="id" title="binder">a</span></a> <a id="b:86" class="idref" href="#b:86"><span class="id" title="binder">b</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="definition">List.incl</span> (<a class="idref" href="Compiler.Dsl.html#stmt_vars"><span class="id" title="definition">stmt_vars</span></a> (<a class="idref" href="Compiler.DslDistrib.html#and_merge"><span class="id" title="definition">and_merge</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:85"><span class="id" title="variable">a</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:86"><span class="id" title="variable">b</span></a>)) (<span class="id" title="abbreviation">List.app</span> (<a class="idref" href="Compiler.Dsl.html#stmt_vars"><span class="id" title="definition">stmt_vars</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:85"><span class="id" title="variable">a</span></a>) (<a class="idref" href="Compiler.Dsl.html#stmt_vars"><span class="id" title="definition">stmt_vars</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:86"><span class="id" title="variable">b</span></a>)).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">a</span> <span class="id" title="var">b</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">unfold</span> <a class="idref" href="Compiler.DslDistrib.html#and_merge"><span class="id" title="definition">and_merge</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> (<a class="idref" href="Compiler.DslDistrib.html#leaves_onlyC"><span class="id" title="abbreviation">leaves_onlyC</span></a> <span class="id" title="var">a</span>) <span class="id" title="keyword">as</span> [<span class="id" title="var">la</span> |] <span class="id" title="var">eqn</span>:<span class="id" title="var">ha</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<span class="id" title="tactic">destruct</span> (<a class="idref" href="Compiler.DslDistrib.html#leaves_onlyC"><span class="id" title="abbreviation">leaves_onlyC</span></a> <span class="id" title="var">b</span>) <span class="id" title="keyword">as</span> [<span class="id" title="var">lb</span> |] <span class="id" title="var">eqn</span>:<span class="id" title="var">hb</span> |].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span>. <span class="id" title="tactic">rewrite</span> <span class="id" title="lemma">List.flat_map_app</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">change</span> (<span class="id" title="definition">List.flat_map</span> (<span class="id" title="keyword">fun</span> <a id="e:87" class="idref" href="#e:87"><span class="id" title="binder"><span id="e:88" class="id">e</span></span></a> ⇒ <span class="id" title="abbreviation">List.map</span> <a class="idref" href="Compiler.Dsl.html#t_var"><span class="id" title="projection">t_var</span></a> (<a class="idref" href="Compiler.Dsl.html#eq_rhs"><span class="id" title="projection">eq_rhs</span></a> <a class="idref" href="Compiler.DslDistrib.html#e:87"><span class="id" title="variable">e</span></a>)) <span class="id" title="var">la</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">with</span> (<a class="idref" href="Compiler.Dsl.html#stmt_vars"><span class="id" title="definition">stmt_vars</span></a> (<a class="idref" href="Compiler.Dsl.html#SEqs"><span class="id" title="constructor">SEqs</span></a> <span class="id" title="var">la</span>)).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">change</span> (<span class="id" title="definition">List.flat_map</span> (<span class="id" title="keyword">fun</span> <a id="e:89" class="idref" href="#e:89"><span class="id" title="binder"><span id="e:90" class="id">e</span></span></a> ⇒ <span class="id" title="abbreviation">List.map</span> <a class="idref" href="Compiler.Dsl.html#t_var"><span class="id" title="projection">t_var</span></a> (<a class="idref" href="Compiler.Dsl.html#eq_rhs"><span class="id" title="projection">eq_rhs</span></a> <a class="idref" href="Compiler.DslDistrib.html#e:89"><span class="id" title="variable">e</span></a>)) <span class="id" title="var">lb</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">with</span> (<a class="idref" href="Compiler.Dsl.html#stmt_vars"><span class="id" title="definition">stmt_vars</span></a> (<a class="idref" href="Compiler.Dsl.html#SEqs"><span class="id" title="constructor">SEqs</span></a> <span class="id" title="var">lb</span>)).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> (<a class="idref" href="Compiler.DslDistrib.html#leaves_only_vars"><span class="id" title="lemma">leaves_only_vars</span></a> <span class="id" title="var">a</span> <span class="id" title="var">la</span> <span class="id" title="var">ha</span>), (<a class="idref" href="Compiler.DslDistrib.html#leaves_only_vars"><span class="id" title="lemma">leaves_only_vars</span></a> <span class="id" title="var">b</span> <span class="id" title="var">lb</span> <span class="id" title="var">hb</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.incl_refl</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="var">cbn</span>. <span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.incl_refl</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="var">cbn</span>. <span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.incl_refl</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The variables of <span class="inlinecode"><span class="id" title="var">and_distrib_r</span></span> <span class="inlinecode"><span class="id" title="var">a</span></span> <span class="inlinecode"><span class="id" title="var">b</span></span> are among those of <span class="inlinecode"><span class="id" title="var">a</span></span>
+          and <span class="inlinecode"><span class="id" title="var">b</span></span>.
+
+<div class="paragraph"> </div>
+
+          Induction on <span class="inlinecode"><span class="id" title="var">b</span></span>.  At an <span class="inlinecode"><span class="id" title="var">SOr</span></span> node the copies of <span class="inlinecode"><span class="id" title="var">a</span></span> in
+          the two branches contribute only variables of <span class="inlinecode"><span class="id" title="var">a</span></span>, and
+          each branch contributes only its own, so every variable of
+          the result comes from <span class="inlinecode"><span class="id" title="var">a</span></span> or from <span class="inlinecode"><span class="id" title="var">b</span></span>.  The proof body is
+          the bookkeeping that turns that sentence into memberships
+          in appended lists. 
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="and_distrib_r_vars_incl" class="idref" href="#and_distrib_r_vars_incl"><span class="id" title="lemma">and_distrib_r_vars_incl</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="a:91" class="idref" href="#a:91"><span class="id" title="binder">a</span></a> <a id="b:92" class="idref" href="#b:92"><span class="id" title="binder">b</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="definition">List.incl</span> (<a class="idref" href="Compiler.Dsl.html#stmt_vars"><span class="id" title="definition">stmt_vars</span></a> (<a class="idref" href="Compiler.DslDistrib.html#and_distrib_r"><span class="id" title="definition">and_distrib_r</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:91"><span class="id" title="variable">a</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:92"><span class="id" title="variable">b</span></a>)) (<span class="id" title="abbreviation">List.app</span> (<a class="idref" href="Compiler.Dsl.html#stmt_vars"><span class="id" title="definition">stmt_vars</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:91"><span class="id" title="variable">a</span></a>) (<a class="idref" href="Compiler.Dsl.html#stmt_vars"><span class="id" title="definition">stmt_vars</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:92"><span class="id" title="variable">b</span></a>)).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">a</span> <span class="id" title="var">b</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">induction</span> <span class="id" title="var">b</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">eqs</span> | <span class="id" title="var">b₁</span> <span class="id" title="var">b₂</span> <span class="id" title="var">ih₁</span> <span class="id" title="var">ih₂</span> | <span class="id" title="var">b₁</span> <span class="id" title="var">b₂</span> <span class="id" title="var">ih₁</span> <span class="id" title="var">ih₂</span> | <span class="id" title="var">t</span> <span class="id" title="var">l</span> <span class="id" title="var">ihl</span>]<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">using</span> <a class="idref" href="Compiler.Dsl.html#stmt_ind'"><span class="id" title="definition">stmt_ind'</span></a>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">try</span> (<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.DslDistrib.html#and_distrib_r"><span class="id" title="definition">and_distrib_r</span></a>]; <span class="id" title="tactic">eapply</span> <a class="idref" href="Compiler.DslDistrib.html#and_merge_vars_incl"><span class="id" title="lemma">and_merge_vars_incl</span></a>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.DslDistrib.html#and_distrib_r"><span class="id" title="definition">and_distrib_r</span></a> <a class="idref" href="Compiler.Dsl.html#stmt_vars"><span class="id" title="definition">stmt_vars</span></a>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">v</span> <span class="id" title="var">hv</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.in_app_or</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hv</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> <span class="id" title="var">hv</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">hv</span> | <span class="id" title="var">hv</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="tactic">eapply</span> <span class="id" title="var">ih₁</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hv</span>. <span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.in_app_or</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hv</span>. <span class="id" title="tactic">destruct</span> <span class="id" title="var">hv</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">hv</span> | <span class="id" title="var">hv</span>];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.in_or_app</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<span class="id" title="tactic">left</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hv</span> | <span class="id" title="tactic">right</span>; <span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.in_or_app</span>; <span class="id" title="tactic">left</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hv</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="tactic">eapply</span> <span class="id" title="var">ih₂</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hv</span>. <span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.in_app_or</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hv</span>. <span class="id" title="tactic">destruct</span> <span class="id" title="var">hv</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">hv</span> | <span class="id" title="var">hv</span>];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.in_or_app</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<span class="id" title="tactic">left</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hv</span> | <span class="id" title="tactic">right</span>; <span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.in_or_app</span>; <span class="id" title="tactic">right</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hv</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The variables of <span class="inlinecode"><span class="id" title="var">and_distrib</span></span> <span class="inlinecode"><span class="id" title="var">a</span></span> <span class="inlinecode"><span class="id" title="var">b</span></span> are among those of <span class="inlinecode"><span class="id" title="var">a</span></span>
+          and <span class="inlinecode"><span class="id" title="var">b</span></span>.  The same argument, now by induction on <span class="inlinecode"><span class="id" title="var">a</span></span>, with
+          <span class="inlinecode"><span class="id" title="var">and_distrib_r_vars_incl</span></span> at the leaves.  This is the form
+          DslRepair.v reuses. 
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="and_distrib_vars_incl" class="idref" href="#and_distrib_vars_incl"><span class="id" title="lemma">and_distrib_vars_incl</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="a:93" class="idref" href="#a:93"><span class="id" title="binder">a</span></a> <a id="b:94" class="idref" href="#b:94"><span class="id" title="binder">b</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="definition">List.incl</span> (<a class="idref" href="Compiler.Dsl.html#stmt_vars"><span class="id" title="definition">stmt_vars</span></a> (<a class="idref" href="Compiler.DslDistrib.html#and_distrib"><span class="id" title="definition">and_distrib</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:93"><span class="id" title="variable">a</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:94"><span class="id" title="variable">b</span></a>)) (<span class="id" title="abbreviation">List.app</span> (<a class="idref" href="Compiler.Dsl.html#stmt_vars"><span class="id" title="definition">stmt_vars</span></a> <a class="idref" href="Compiler.DslDistrib.html#a:93"><span class="id" title="variable">a</span></a>) (<a class="idref" href="Compiler.Dsl.html#stmt_vars"><span class="id" title="definition">stmt_vars</span></a> <a class="idref" href="Compiler.DslDistrib.html#b:94"><span class="id" title="variable">b</span></a>)).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">a</span> <span class="id" title="var">b</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">induction</span> <span class="id" title="var">a</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">eqs</span> | <span class="id" title="var">a₁</span> <span class="id" title="var">a₂</span> <span class="id" title="var">ih₁</span> <span class="id" title="var">ih₂</span> | <span class="id" title="var">a₁</span> <span class="id" title="var">a₂</span> <span class="id" title="var">ih₁</span> <span class="id" title="var">ih₂</span> | <span class="id" title="var">t</span> <span class="id" title="var">l</span> <span class="id" title="var">ihl</span>]<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">using</span> <a class="idref" href="Compiler.Dsl.html#stmt_ind'"><span class="id" title="definition">stmt_ind'</span></a>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">try</span> (<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.DslDistrib.html#and_distrib"><span class="id" title="definition">and_distrib</span></a>]; <span class="id" title="tactic">eapply</span> <a class="idref" href="Compiler.DslDistrib.html#and_distrib_r_vars_incl"><span class="id" title="lemma">and_distrib_r_vars_incl</span></a>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.DslDistrib.html#and_distrib"><span class="id" title="definition">and_distrib</span></a> <a class="idref" href="Compiler.Dsl.html#stmt_vars"><span class="id" title="definition">stmt_vars</span></a>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">v</span> <span class="id" title="var">hv</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.in_app_or</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hv</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> <span class="id" title="var">hv</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">hv</span> | <span class="id" title="var">hv</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="tactic">eapply</span> <span class="id" title="var">ih₁</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hv</span>. <span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.in_app_or</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hv</span>. <span class="id" title="tactic">destruct</span> <span class="id" title="var">hv</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">hv</span> | <span class="id" title="var">hv</span>];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.in_or_app</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<span class="id" title="tactic">left</span>; <span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.in_or_app</span>; <span class="id" title="tactic">left</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hv</span> | <span class="id" title="tactic">right</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hv</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="tactic">eapply</span> <span class="id" title="var">ih₂</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hv</span>. <span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.in_app_or</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hv</span>. <span class="id" title="tactic">destruct</span> <span class="id" title="var">hv</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">hv</span> | <span class="id" title="var">hv</span>];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.in_or_app</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<span class="id" title="tactic">left</span>; <span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.in_or_app</span>; <span class="id" title="tactic">right</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hv</span> | <span class="id" title="tactic">right</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hv</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab63"></a><h2 class="section">The output passes the checker</h2>
+
+
+<div class="paragraph"> </div>
+
+          On a threshold-free statement the pass produces something
+          <span class="inlinecode"><span class="id" title="var">disj_inv</span></span> accepts.
+
+<div class="paragraph"> </div>
+
+          This is the second main result of the file, and the reason
+          the pass exists.  Read together with <span class="inlinecode"><span class="id" title="var">distrib_denote</span></span> it
+          says: take a threshold-free statement the checker refused,
+          normalise it, and you get a statement with the very same
+          meaning which the checker now accepts, so it can be
+          compiled.  No assumption is needed; the only cost is the
+          size of the output.
+
+<div class="paragraph"> </div>
+
+          The proof is two steps: <span class="inlinecode"><span class="id" title="var">distrib_dnf</span></span> puts the output into
+          disjunctive normal form, and <span class="inlinecode"><span class="id" title="var">dnf_disj_inv</span></span> observes that
+          such statements satisfy the invariant. 
+</div>
+<div class="code">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Corollary</span> <a id="distrib_disj_inv" class="idref" href="#distrib_disj_inv"><span class="id" title="lemma">distrib_disj_inv</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="s:95" class="idref" href="#s:95"><span class="id" title="binder">s</span></a> : <a class="idref" href="Compiler.DslDistrib.html#stmtC"><span class="id" title="abbreviation">stmtC</span></a><span class="id" title="notation">),</span> <a class="idref" href="Compiler.DslDistrib.html#thresh_free"><span class="id" title="definition">thresh_free</span></a> <a class="idref" href="Compiler.DslDistrib.html#s:95"><span class="id" title="variable">s</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslDistrib.html#disj_invC"><span class="id" title="abbreviation">disj_invC</span></a> (<a class="idref" href="Compiler.DslDistrib.html#distrib"><span class="id" title="definition">distrib</span></a> <a class="idref" href="Compiler.DslDistrib.html#s:95"><span class="id" title="variable">s</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">s</span> <span class="id" title="var">h</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <a class="idref" href="Compiler.DslDistrib.html#dnf_disj_inv"><span class="id" title="lemma">dnf_disj_inv</span></a>, <a class="idref" href="Compiler.DslDistrib.html#distrib_dnf"><span class="id" title="lemma">distrib_dnf</span></a>; <span class="id" title="tactic">exact</span> <span class="id" title="var">h</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">End</span> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.Spec.Proofs"><span class="id" title="section">Proofs</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">End</span> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib.Spec"><span class="id" title="section">Spec</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">End</span> <a class="idref" href="Compiler.DslDistrib.html#DslDistrib"><span class="id" title="section">DslDistrib</span></a>.<br/>
+</div>
+</div>
+
+<div id="footer">
+<hr/><a href="index.html">Index</a><hr/>This page has been generated by <a href="http://rocq-prover.org/">coqdoc</a>
+</div>
+
+</div>
+
+</body>
+</html>

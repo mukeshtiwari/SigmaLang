@@ -1,0 +1,802 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<title>Table of contents</title>
+</head>
+
+<body>
+
+<div id="page">
+
+<div id="header">
+</div>
+
+<div id="main">
+
+<div id="toc">
+<h2><a href="Compiler.Composition.html">Library Compiler.Composition</a></h2>
+<ul class="doclist">
+<li><a href="Compiler.Composition.html#lab1">Composition: building large sigma protocols out of small ones</a>
+<ul class="doclist">
+<li><a href="Compiler.Composition.html#lab2">What a sigma protocol is</a>
+
+</li>
+<li><a href="Compiler.Composition.html#lab3">What this file composes</a>
+
+</li>
+<li><a href="Compiler.Composition.html#lab4">How the types are built</a>
+
+</li>
+<li><a href="Compiler.Composition.html#lab5">Two forms of zero knowledge</a>
+
+</li>
+<li><a href="Compiler.Composition.html#lab6">Generic list lemmas</a>
+
+</li>
+<li><a href="Compiler.Composition.html#lab7">The ambient algebra</a>
+
+</li>
+<li><a href="Compiler.Composition.html#lab8">The statement tree, and the types computed from it</a>
+
+</li>
+<li><a href="Compiler.Composition.html#lab9">Structural induction over the statement tree</a>
+
+</li>
+<li><a href="Compiler.Composition.html#lab10">Generic walkers over the children of a threshold node</a>
+
+</li>
+<li><a href="Compiler.Composition.html#lab11">Sharing the challenge at a threshold node</a>
+
+</li>
+<li><a href="Compiler.Composition.html#lab12">The walkers, instantiated</a>
+
+</li>
+<li><a href="Compiler.Composition.html#lab13">The proofs</a>
+
+</li>
+<li><a href="Compiler.Composition.html#lab14">Bookkeeping for the threshold node</a>
+
+</li>
+<li><a href="Compiler.Composition.html#lab15">The simulator always convinces the verifier</a>
+
+</li>
+<li><a href="Compiler.Composition.html#lab16">Completeness</a>
+
+</li>
+<li><a href="Compiler.Composition.html#lab17">Special soundness</a>
+
+</li>
+<li><a href="Compiler.Composition.html#lab18">Zero knowledge, accept-bit form</a>
+
+</li>
+<li><a href="Compiler.Composition.html#lab19">Zero knowledge as equality of distributions</a>
+
+</li>
+<li><a href="Compiler.Composition.html#lab20">Uniform multidraws and bijections of the randomness</a>
+
+</li>
+<li><a href="Compiler.Composition.html#lab21">The Shamir share bijection</a>
+
+</li>
+<li><a href="Compiler.Composition.html#lab22">Normal forms of the two distributions at each node</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<h2><a href="Compiler.Decide.html">Library Compiler.Decide</a></h2>
+<ul class="doclist">
+<li><a href="Compiler.Decide.html#lab23">Decide: establishing the composed relation by computation</a>
+<ul class="doclist">
+<li><a href="Compiler.Decide.html#lab24">Why a boolean version is needed</a>
+
+</li>
+<li><a href="Compiler.Decide.html#lab25">What is here</a>
+
+</li>
+<li><a href="Compiler.Decide.html#lab26">Parameters</a>
+
+</li>
+<li><a href="Compiler.Decide.html#lab27">Shorthands</a>
+
+</li>
+<li><a href="Compiler.Decide.html#lab28">The boolean test</a>
+
+</li>
+<li><a href="Compiler.Decide.html#lab29">Soundness</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<h2><a href="Compiler.Dsl.html">Library Compiler.Dsl</a></h2>
+<ul class="doclist">
+<li><a href="Compiler.Dsl.html#lab30">Dsl: the core statement language and its compiler</a>
+<ul class="doclist">
+<li><a href="Compiler.Dsl.html#lab31">Sigma protocols in one paragraph</a>
+
+</li>
+<li><a href="Compiler.Dsl.html#lab32">What a statement looks like</a>
+
+</li>
+<li><a href="Compiler.Dsl.html#lab33">What one equation means</a>
+
+</li>
+<li><a href="Compiler.Dsl.html#lab34">Three environments, and why the formula carries none of them</a>
+
+</li>
+<li><a href="Compiler.Dsl.html#lab35">What compilation produces</a>
+
+</li>
+<li><a href="Compiler.Dsl.html#lab36">The two main theorems</a>
+
+</li>
+<li><a href="Compiler.Dsl.html#lab37">Parameters</a>
+
+</li>
+<li><a href="Compiler.Dsl.html#lab38">Syntax</a>
+
+</li>
+<li><a href="Compiler.Dsl.html#lab39">Semantics</a>
+
+</li>
+<li><a href="Compiler.Dsl.html#lab40">Well-formedness</a>
+
+</li>
+<li><a href="Compiler.Dsl.html#lab41">Compilation</a>
+
+</li>
+<li><a href="Compiler.Dsl.html#lab42">The disjunction invariant</a>
+
+</li>
+<li><a href="Compiler.Dsl.html#lab43">Correctness</a>
+<ul class="doclist">
+<li><a href="Compiler.Dsl.html#lab44">Leaf algebra</a>
+
+</li>
+<li><a href="Compiler.Dsl.html#lab45">From relations to protocols</a>
+
+</li>
+<li><a href="Compiler.Dsl.html#lab46">Reading a compiled witness back</a>
+
+</li>
+<li><a href="Compiler.Dsl.html#lab47">Frame lemmas</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<h2><a href="Compiler.DslDistrib.html">Library Compiler.DslDistrib</a></h2>
+<ul class="doclist">
+<li><a href="Compiler.DslDistrib.html#lab48">DslDistrib: distributing AND over OR</a>
+<ul class="doclist">
+<li><a href="Compiler.DslDistrib.html#lab49">Vocabulary</a>
+
+</li>
+<li><a href="Compiler.DslDistrib.html#lab50">Why a shared private variable is a problem</a>
+
+</li>
+<li><a href="Compiler.DslDistrib.html#lab51">What this pass does</a>
+
+</li>
+<li><a href="Compiler.DslDistrib.html#lab52">Cost</a>
+
+</li>
+<li><a href="Compiler.DslDistrib.html#lab53">Thresholds are left alone</a>
+
+</li>
+<li><a href="Compiler.DslDistrib.html#lab54">The two main results</a>
+
+</li>
+<li><a href="Compiler.DslDistrib.html#lab55">Parameters</a>
+
+</li>
+<li><a href="Compiler.DslDistrib.html#lab56">The pass</a>
+
+</li>
+<li><a href="Compiler.DslDistrib.html#lab57">Semantics and invariants</a>
+
+</li>
+<li><a href="Compiler.DslDistrib.html#lab58">Proofs</a>
+
+</li>
+<li><a href="Compiler.DslDistrib.html#lab59">The pass preserves meaning</a>
+
+</li>
+<li><a href="Compiler.DslDistrib.html#lab60">The pass preserves well-formedness</a>
+
+</li>
+<li><a href="Compiler.DslDistrib.html#lab61">The output is in disjunctive normal form</a>
+
+</li>
+<li><a href="Compiler.DslDistrib.html#lab62">Variable sets</a>
+
+</li>
+<li><a href="Compiler.DslDistrib.html#lab63">The output passes the checker</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<h2><a href="Compiler.DslNecessity.html">Library Compiler.DslNecessity</a></h2>
+<ul class="doclist">
+<li><a href="Compiler.DslNecessity.html#lab64">DslNecessity: why the disjunction checker cannot be dropped</a>
+<ul class="doclist">
+<li><a href="Compiler.DslNecessity.html#lab65">The checker in question</a>
+
+</li>
+<li><a href="Compiler.DslNecessity.html#lab66">The counterexample</a>
+
+</li>
+<li><a href="Compiler.DslNecessity.html#lab67">Why this makes the checker necessary</a>
+
+</li>
+<li><a href="Compiler.DslNecessity.html#lab68">Parameters</a>
+
+</li>
+<li><a href="Compiler.DslNecessity.html#lab69">The instance</a>
+
+</li>
+<li><a href="Compiler.DslNecessity.html#lab70">The statement</a>
+
+</li>
+<li><a href="Compiler.DslNecessity.html#lab71">What the checkers say about it</a>
+
+</li>
+<li><a href="Compiler.DslNecessity.html#lab72">The compiled relation</a>
+
+</li>
+<li><a href="Compiler.DslNecessity.html#lab73">The main theorem</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<h2><a href="Compiler.DslNeq.html">Library Compiler.DslNeq</a></h2>
+<ul class="doclist">
+<li><a href="Compiler.DslNeq.html#lab74">DslNeq: the not-equals gadget</a>
+<ul class="doclist">
+<li><a href="Compiler.DslNeq.html#lab75">What is proven, and why it is hard</a>
+
+</li>
+<li><a href="Compiler.DslNeq.html#lab76">Moving the multiplication into the exponent</a>
+
+</li>
+<li><a href="Compiler.DslNeq.html#lab77">The names used</a>
+
+</li>
+<li><a href="Compiler.DslNeq.html#lab78">Soundness and completeness</a>
+
+</li>
+<li><a href="Compiler.DslNeq.html#lab79">Limitation</a>
+
+</li>
+<li><a href="Compiler.DslNeq.html#lab80">Parameters</a>
+
+</li>
+<li><a href="Compiler.DslNeq.html#lab81">The two equations of the gadget</a>
+
+</li>
+<li><a href="Compiler.DslNeq.html#lab82">Semantics</a>
+
+</li>
+<li><a href="Compiler.DslNeq.html#lab83">The two theorems</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<h2><a href="Compiler.DslRange.html">Library Compiler.DslRange</a></h2>
+<ul class="doclist">
+<li><a href="Compiler.DslRange.html#lab84">DslRange: proving that a secret lies in an interval</a>
+<ul class="doclist">
+<li><a href="Compiler.DslRange.html#lab85">Why a range proof needs a gadget at all</a>
+
+</li>
+<li><a href="Compiler.DslRange.html#lab86">The idea: decompose the secret into bits</a>
+
+</li>
+<li><a href="Compiler.DslRange.html#lab87">The equations</a>
+
+</li>
+<li><a href="Compiler.DslRange.html#lab88">What is proven</a>
+
+</li>
+<li><a href="Compiler.DslRange.html#lab89">Parameters of the gadget</a>
+
+</li>
+<li><a href="Compiler.DslRange.html#lab90">Semantics: what it means to satisfy the gadget</a>
+
+</li>
+<li><a href="Compiler.DslRange.html#lab91">Soundness</a>
+<ul class="doclist">
+<li><a href="Compiler.DslRange.html#lab92">Arithmetic of the embedding</a>
+
+</li>
+<li><a href="Compiler.DslRange.html#lab93">One bit is really a bit, or the setup is broken</a>
+
+</li>
+<li><a href="Compiler.DslRange.html#lab94">The linking equation</a>
+
+</li>
+<li><a href="Compiler.DslRange.html#lab95">Counting on the natural number side</a>
+
+</li>
+<li><a href="Compiler.DslRange.html#lab96">Assembling soundness</a>
+
+</li>
+</ul>
+
+</li>
+<li><a href="Compiler.DslRange.html#lab97">Soundness of the range gadget</a>
+
+</li>
+<li><a href="Compiler.DslRange.html#lab98">Completeness</a>
+<ul class="doclist">
+<li><a href="Compiler.DslRange.html#lab99">Every value below the bound has a bit vector</a>
+
+</li>
+<li><a href="Compiler.DslRange.html#lab100">Extending the environments at the new names</a>
+
+</li>
+</ul>
+
+</li>
+<li><a href="Compiler.DslRange.html#lab101">Completeness of the range gadget</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<h2><a href="Compiler.DslRename.html">Library Compiler.DslRename</a></h2>
+<ul class="doclist">
+<li><a href="Compiler.DslRename.html#lab102">DslRename: renaming a private variable, and frame lemmas</a>
+<ul class="doclist">
+<li><a href="Compiler.DslRename.html#lab103">Vocabulary</a>
+
+</li>
+<li><a href="Compiler.DslRename.html#lab104">Why renaming is needed</a>
+
+</li>
+<li><a href="Compiler.DslRename.html#lab105">Why the frame lemmas are needed</a>
+
+</li>
+<li><a href="Compiler.DslRename.html#lab106">Parameters</a>
+
+</li>
+<li><a href="Compiler.DslRename.html#lab107">Renaming a private variable</a>
+
+</li>
+<li><a href="Compiler.DslRename.html#lab108">Changing one entry of an environment</a>
+
+</li>
+<li><a href="Compiler.DslRename.html#lab109">The point names of a statement</a>
+
+</li>
+<li><a href="Compiler.DslRename.html#lab110">Semantics</a>
+
+</li>
+<li><a href="Compiler.DslRename.html#lab111">Frame lemmas for the point environment</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<h2><a href="Compiler.DslRepair.html">Library Compiler.DslRepair</a></h2>
+<ul class="doclist">
+<li><a href="Compiler.DslRepair.html#lab112">DslRepair: repairing a shared private variable with a Pedersen commitment</a>
+<ul class="doclist">
+<li><a href="Compiler.DslRepair.html#lab113">Background: statements, witnesses, environments</a>
+
+</li>
+<li><a href="Compiler.DslRepair.html#lab114">The problem this pass solves</a>
+
+</li>
+<li><a href="Compiler.DslRepair.html#lab115">Pedersen commitments</a>
+
+</li>
+<li><a href="Compiler.DslRepair.html#lab116">The repair</a>
+
+</li>
+<li><a href="Compiler.DslRepair.html#lab117">What is proven</a>
+
+</li>
+<li><a href="Compiler.DslRepair.html#lab118">Parameters</a>
+
+</li>
+<li><a href="Compiler.DslRepair.html#lab119">The repaired statement</a>
+
+</li>
+<li><a href="Compiler.DslRepair.html#lab120">Semantics</a>
+
+</li>
+<li><a href="Compiler.DslRepair.html#lab121">Proofs</a>
+
+</li>
+<li><a href="Compiler.DslRepair.html#lab122">Soundness</a>
+
+</li>
+<li><a href="Compiler.DslRepair.html#lab123">Completeness</a>
+
+</li>
+<li><a href="Compiler.DslRepair.html#lab124">The output passes the checker</a>
+
+</li>
+<li><a href="Compiler.DslRepair.html#lab125">Bookkeeping on the new names</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<h2><a href="Compiler.DslSubst.html">Library Compiler.DslSubst</a></h2>
+<ul class="doclist">
+<li><a href="Compiler.DslSubst.html#lab126">DslSubst: eliminating a private variable defined by a linear form</a>
+<ul class="doclist">
+<li><a href="Compiler.DslSubst.html#lab127">What this file is for</a>
+
+</li>
+<li><a href="Compiler.DslSubst.html#lab128">Vocabulary</a>
+
+</li>
+<li><a href="Compiler.DslSubst.html#lab129">Linear forms</a>
+
+</li>
+<li><a href="Compiler.DslSubst.html#lab130">What substitution does to a term</a>
+
+</li>
+<li><a href="Compiler.DslSubst.html#lab131">The main theorem</a>
+
+</li>
+<li><a href="Compiler.DslSubst.html#lab132">Parameters</a>
+
+</li>
+<li><a href="Compiler.DslSubst.html#lab133">Linear forms and the substitution itself</a>
+
+</li>
+<li><a href="Compiler.DslSubst.html#lab134">Semantics</a>
+
+</li>
+<li><a href="Compiler.DslSubst.html#lab135">The main theorem</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<h2><a href="Compiler.Lagrange.html">Library Compiler.Lagrange</a></h2>
+<ul class="doclist">
+<li><a href="Compiler.Lagrange.html#lab136">Lagrange: interpolation over an abstract field</a>
+<ul class="doclist">
+<li><a href="Compiler.Lagrange.html#lab137">Two halves, two representations</a>
+
+</li>
+<li><a href="Compiler.Lagrange.html#lab138">Where this is used</a>
+
+</li>
+<li><a href="Compiler.Lagrange.html#lab139">Parameters</a>
+
+</li>
+<li><a href="Compiler.Lagrange.html#lab140">Interpolation in evaluation form</a>
+
+</li>
+<li><a href="Compiler.Lagrange.html#lab141">Polynomials as coefficient lists</a>
+
+</li>
+<li><a href="Compiler.Lagrange.html#lab142">The root bound</a>
+
+</li>
+<li><a href="Compiler.Lagrange.html#lab143">Uniqueness of low-degree polynomials</a>
+
+</li>
+<li><a href="Compiler.Lagrange.html#lab144">The interpolant as a coefficient polynomial</a>
+
+</li>
+<li><a href="Compiler.Lagrange.html#lab145">Uniqueness of Lagrange interpolants</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<h2><a href="Compiler.LinearRelation.html">Library Compiler.LinearRelation</a></h2>
+<ul class="doclist">
+<li><a href="Compiler.LinearRelation.html#lab146">LinearRelation: one proof for a whole system of linear group equations</a>
+<ul class="doclist">
+<li><a href="Compiler.LinearRelation.html#lab147">The statement being proven</a>
+
+</li>
+<li><a href="Compiler.LinearRelation.html#lab148">The three moves of the protocol</a>
+
+</li>
+<li><a href="Compiler.LinearRelation.html#lab149">What is proven about it</a>
+
+</li>
+<li><a href="Compiler.LinearRelation.html#lab150">Why this single leaf is enough</a>
+
+</li>
+<li><a href="Compiler.LinearRelation.html#lab151">Parameters</a>
+
+</li>
+<li><a href="Compiler.LinearRelation.html#lab152">The protocol</a>
+
+</li>
+<li><a href="Compiler.LinearRelation.html#lab153">Properties of the protocol</a>
+
+</li>
+<li><a href="Compiler.LinearRelation.html#lab154">Building matrices out of blocks</a>
+
+</li>
+<li><a href="Compiler.LinearRelation.html#lab155">Completeness</a>
+
+</li>
+<li><a href="Compiler.LinearRelation.html#lab156">The simulator produces accepting transcripts</a>
+
+</li>
+<li><a href="Compiler.LinearRelation.html#lab157">Special soundness</a>
+
+</li>
+<li><a href="Compiler.LinearRelation.html#lab158">Special honest-verifier zero knowledge</a>
+
+</li>
+<li><a href="Compiler.LinearRelation.html#lab159">Instances</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<h2><a href="Compiler.Nizk.html">Library Compiler.Nizk</a></h2>
+<ul class="doclist">
+<li><a href="Compiler.Nizk.html#lab160">Nizk: making the composed protocol non-interactive</a>
+<ul class="doclist">
+<li><a href="Compiler.Nizk.html#lab161">The interactive protocol, recalled</a>
+
+</li>
+<li><a href="Compiler.Nizk.html#lab162">What Fiat-Shamir does</a>
+
+</li>
+<li><a href="Compiler.Nizk.html#lab163">Weak versus strong Fiat-Shamir</a>
+
+</li>
+<li><a href="Compiler.Nizk.html#lab164">Why the transform is well defined at all</a>
+
+</li>
+<li><a href="Compiler.Nizk.html#lab165">What is proven here, and what is not</a>
+
+</li>
+<li><a href="Compiler.Nizk.html#lab166">The compact wire format</a>
+
+</li>
+<li><a href="Compiler.Nizk.html#lab167">Parameters</a>
+
+</li>
+<li><a href="Compiler.Nizk.html#lab168">Shorthands</a>
+
+</li>
+<li><a href="Compiler.Nizk.html#lab169">Definitions: the announcement, the hash input, and the</a>
+
+</li>
+<li><a href="Compiler.Nizk.html#lab170">Flattening the announcement tree</a>
+
+</li>
+<li><a href="Compiler.Nizk.html#lab171">The non-interactive protocol</a>
+
+</li>
+<li><a href="Compiler.Nizk.html#lab172">Proofs</a>
+
+</li>
+<li><a href="Compiler.Nizk.html#lab173">The flattening loses nothing</a>
+
+</li>
+<li><a href="Compiler.Nizk.html#lab174">Challenge independence</a>
+
+</li>
+<li><a href="Compiler.Nizk.html#lab175">Completeness of the non-interactive protocol</a>
+
+</li>
+<li><a href="Compiler.Nizk.html#lab176">The compact wire format</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<h2><a href="Compiler.Serialization.html">Library Compiler.Serialization</a></h2>
+<ul class="doclist">
+<li><a href="Compiler.Serialization.html#lab177">Serialization: the wire format for composed transcripts</a>
+<ul class="doclist">
+<li><a href="Compiler.Serialization.html#lab178">What a wire format is</a>
+
+</li>
+<li><a href="Compiler.Serialization.html#lab179">Vocabulary</a>
+
+</li>
+<li><a href="Compiler.Serialization.html#lab180">The tagged encoding</a>
+
+</li>
+<li><a href="Compiler.Serialization.html#lab181">Decoding is driven by the statement tree</a>
+
+</li>
+<li><a href="Compiler.Serialization.html#lab182">The one side condition</a>
+
+</li>
+<li><a href="Compiler.Serialization.html#lab183">Results</a>
+
+</li>
+<li><a href="Compiler.Serialization.html#lab184">Parameters</a>
+
+</li>
+<li><a href="Compiler.Serialization.html#lab185">Tagged values on the wire</a>
+
+</li>
+<li><a href="Compiler.Serialization.html#lab186">Well-formed transcripts</a>
+
+</li>
+<li><a href="Compiler.Serialization.html#lab187">Encoding and decoding</a>
+
+</li>
+<li><a href="Compiler.Serialization.html#lab188">The round trip</a>
+
+</li>
+<li><a href="Compiler.Serialization.html#lab189">Everyone who matters produces well-formed transcripts</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<h2><a href="Compiler.Shamir.html">Library Compiler.Shamir</a></h2>
+<ul class="doclist">
+<li><a href="Compiler.Shamir.html#lab190">Shamir: the counting argument behind threshold soundness</a>
+<ul class="doclist">
+<li><a href="Compiler.Shamir.html#lab191">The setting, in words</a>
+
+</li>
+<li><a href="Compiler.Shamir.html#lab192">What is proven here</a>
+
+</li>
+<li><a href="Compiler.Shamir.html#lab193">Why it is true</a>
+
+</li>
+<li><a href="Compiler.Shamir.html#lab194">Parameters</a>
+
+</li>
+<li><a href="Compiler.Shamir.html#lab195">Comparing two challenge lists</a>
+
+</li>
+<li><a href="Compiler.Shamir.html#lab196">Helper facts about lists</a>
+
+</li>
+<li><a href="Compiler.Shamir.html#lab197">The main theorem</a>
+
+</li>
+<li><a href="Compiler.Shamir.html#lab198">Note on where the threshold protocol itself lives</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<h2><a href="Compiler.Surface.html">Library Compiler.Surface</a></h2>
+<ul class="doclist">
+<li><a href="Compiler.Surface.html#lab199">Surface: the language people write, and how it becomes the core</a>
+<ul class="doclist">
+<li><a href="Compiler.Surface.html#lab200">What a surface language is</a>
+
+</li>
+<li><a href="Compiler.Surface.html#lab201">The surface language</a>
+
+</li>
+<li><a href="Compiler.Surface.html#lab202">What elaboration does</a>
+
+</li>
+<li><a href="Compiler.Surface.html#lab203">The two theorems</a>
+
+</li>
+<li><a href="Compiler.Surface.html#lab204">Generic list facts</a>
+
+</li>
+<li><a href="Compiler.Surface.html#lab205">Parameters</a>
+
+</li>
+<li><a href="Compiler.Surface.html#lab206">Syntax of the surface language</a>
+
+</li>
+<li><a href="Compiler.Surface.html#lab207">Induction over statements</a>
+
+</li>
+<li><a href="Compiler.Surface.html#lab208">The names a piece of syntax mentions</a>
+
+</li>
+<li><a href="Compiler.Surface.html#lab209">What the surface language means</a>
+
+</li>
+<li><a href="Compiler.Surface.html#lab210">Linear forms</a>
+
+</li>
+<li><a href="Compiler.Surface.html#lab211">Flattening a point expression</a>
+
+</li>
+<li><a href="Compiler.Surface.html#lab212">Elaborating statements into the core</a>
+
+</li>
+<li><a href="Compiler.Surface.html#lab213">Linear forms compute what they should</a>
+
+</li>
+<li><a href="Compiler.Surface.html#lab214">Flattening preserves meaning</a>
+
+</li>
+<li><a href="Compiler.Surface.html#lab215">The meaning of a statement is local</a>
+
+</li>
+<li><a href="Compiler.Surface.html#lab216">Where the names of an elaborated statement come from</a>
+
+</li>
+<li><a href="Compiler.Surface.html#lab217">Which names the gadgets use</a>
+
+</li>
+<li><a href="Compiler.Surface.html#lab218">Soundness</a>
+
+</li>
+<li><a href="Compiler.Surface.html#lab219">Completeness</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+<h2><a href="Compiler.VarType.html">Library Compiler.VarType</a></h2>
+<ul class="doclist">
+<li><a href="Compiler.VarType.html#lab220">VarType: variables that can be compared and extended</a>
+<ul class="doclist">
+<li><a href="Compiler.VarType.html#lab221">Why fresh names are needed</a>
+
+</li>
+<li><a href="Compiler.VarType.html#lab222">Why a type class</a>
+
+</li>
+<li><a href="Compiler.VarType.html#lab223">The two instances</a>
+
+</li>
+<li><a href="Compiler.VarType.html#lab224">The arithmetic fact both instances need</a>
+
+</li>
+<li><a href="Compiler.VarType.html#lab225">Numbers: the fresh name is bigger</a>
+
+</li>
+<li><a href="Compiler.VarType.html#lab226">Strings: the fresh name is longer</a>
+
+</li>
+<li><a href="Compiler.VarType.html#lab227">What the class buys</a>
+
+</li>
+<li><a href="Compiler.VarType.html#lab228">Several fresh names at once</a>
+
+</li>
+</ul>
+
+</li>
+</ul>
+</div>
+<hr/>This page has been generated by <a href="http://rocq-prover.org/">coqdoc</a>
+</div>
+
+</div>
+
+</body>
+</html>

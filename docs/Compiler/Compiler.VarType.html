@@ -1,0 +1,514 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<title>Compiler.VarType</title>
+</head>
+
+<body>
+
+<div id="page">
+
+<div id="header">
+</div>
+
+<div id="main">
+
+<h1 class="libtitle">Library Compiler.VarType</h1>
+
+<div class="code">
+<span class="id" title="keyword">From</span> <span class="id" title="var">Stdlib</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <span class="id" title="library">Utf8</span> <span class="id" title="library">List</span> <span class="id" title="library">Lia</span> <span class="id" title="library">String</span> <span class="id" title="library">Ascii</span>.<br/>
+
+<br/>
+<span class="id" title="keyword">Import</span> <span class="id" title="module">ListNotations</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab220"></a><h1 class="section">VarType: variables that can be compared and extended</h1>
+
+
+<div class="paragraph"> </div>
+
+<a id="lab221"></a><h2 class="section">Why fresh names are needed</h2>
+
+
+<div class="paragraph"> </div>
+
+    Almost every pass of the compiler introduces new variables.  The
+    repair pass of Dsl.v adds names when it has to rewrite a
+    statement; the linearisation pass adds one name per intermediate
+    product; the not-equals gadget of DslNeq.v adds two names, one
+    for the claimed inverse and one for the blinding correction.  In
+    every case the new name must not collide with a name the user
+    already wrote.  If it did, the pass would silently tie together
+    two quantities that have nothing to do with each other, and the
+    resulting protocol would prove the wrong thing.
+
+<div class="paragraph"> </div>
+
+    So each pass needs a supply of fresh names, and needs a proof
+    that they really are fresh.
+
+<div class="paragraph"> </div>
+
+<a id="lab222"></a><h2 class="section">Why a type class</h2>
+
+
+<div class="paragraph"> </div>
+
+    The obligation was previously handled twice over, and badly.
+    One pass pushed it onto its caller, by taking a name generator
+    as an argument and demanding a proof that the generator is
+    injective.  Another marked every generated name with a special
+    leading character and then ran a boolean check afterwards to
+    confirm that nothing collided.  Both are sound, and neither
+    scales: every new pass pays the same cost again.
+
+<div class="paragraph"> </div>
+
+    A type class fixes this.  A type class in Rocq is a bundle of
+    operations together with the proofs they must satisfy, attached
+    to a type; writing an instance discharges the obligations once,
+    and from then on any function may simply ask for a type in the
+    class and use the operations without further argument.  Here the
+    obligation is discharged once per variable type instead of once
+    per use site.
+
+<div class="paragraph"> </div>
+
+<a id="lab223"></a><h2 class="section">The two instances</h2>
+
+
+<div class="paragraph"> </div>
+
+    Two instances are supplied, so that examples keep readable
+    string names while passes that need real freshness can be
+    written against any instance at all.
+
+<div class="paragraph"> </div>
+
+    The two freshness proofs are different in character and both are
+    short.  For numbers the fresh name is chosen larger than every
+    name in use, and no number in a list can exceed the largest
+    element of that list.  For strings the fresh name is chosen
+    longer than every name in use, and no string in a list can be
+    longer than the longest one in it.  In both cases the new name
+    differs from every old one because it differs in a measurable
+    quantity: its size, or its length. 
+<div class="paragraph"> </div>
+
+ The class itself.
+
+<div class="paragraph"> </div>
+
+    A type <span class="inlinecode"><span class="id" title="var">V</span></span> is a <span class="inlinecode"><span class="id" title="var">VarType</span></span> when it offers three things:
+
+<div class="paragraph"> </div>
+
+<ul class="doclist">
+<li> <span class="inlinecode"><span class="id" title="var">vdec</span></span> decides whether two names are equal.  This is what
+      lets environments be updated at a single name, and what lets
+      a pass test whether a variable it sees is one it introduced.
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">vfresh</span></span> takes the list of names already in use and returns
+      one name.
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">vfresh_not_in</span></span> is the proof that the returned name does not
+      occur in that list.  It is part of the class, so it is
+      discharged once inside each instance and is then available
+      everywhere for free. 
+
+</li>
+</ul>
+</div>
+<div class="code">
+<span class="id" title="keyword">Class</span> <a id="VarType" class="idref" href="#VarType"><span class="id" title="record">VarType</span></a> (<a id="V:1" class="idref" href="#V:1"><span class="id" title="binder">V</span></a> : <span class="id" title="keyword">Type</span>) := {<br/>
+&nbsp;&nbsp;<a id="vdec" class="idref" href="#vdec"><span class="id" title="projection">vdec</span></a> : <span class="id" title="notation">∀</span> <a id="x:3" class="idref" href="#x:3"><span class="id" title="binder">x</span></a> <a id="y:4" class="idref" href="#y:4"><span class="id" title="binder">y</span></a> : <a class="idref" href="Compiler.VarType.html#V:1"><span class="id" title="variable">V</span></a><span class="id" title="notation">,</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">{</span></a><a class="idref" href="Compiler.VarType.html#x:3"><span class="id" title="variable">x</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Compiler.VarType.html#y:4"><span class="id" title="variable">y</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">}</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">+</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">{</span></a><a class="idref" href="Compiler.VarType.html#x:3"><span class="id" title="variable">x</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;&gt;'_x"><span class="id" title="notation">≠</span></a> <a class="idref" href="Compiler.VarType.html#y:4"><span class="id" title="variable">y</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">}</span></a>;<br/>
+&nbsp;&nbsp;<a id="vfresh" class="idref" href="#vfresh"><span class="id" title="projection">vfresh</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Compiler.VarType.html#V:1"><span class="id" title="variable">V</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.VarType.html#V:1"><span class="id" title="variable">V</span></a>;<br/>
+&nbsp;&nbsp;<a id="vfresh_not_in" class="idref" href="#vfresh_not_in"><span class="id" title="projection">vfresh_not_in</span></a> : <span class="id" title="notation">∀</span> <a id="l:7" class="idref" href="#l:7"><span class="id" title="binder">l</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Compiler.VarType.html#V:1"><span class="id" title="variable">V</span></a><span class="id" title="notation">,</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#63a68285c81db8f9bc456233bb9ed181"><span class="id" title="notation">¬</span></a> <span class="id" title="definition">List.In</span> (<a class="idref" href="Compiler.VarType.html#vfresh:6"><span class="id" title="method">vfresh</span></a> <a class="idref" href="Compiler.VarType.html#l:7"><span class="id" title="variable">l</span></a>) <a class="idref" href="Compiler.VarType.html#l:7"><span class="id" title="variable">l</span></a><br/>
+}.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab224"></a><h2 class="section">The arithmetic fact both instances need</h2>
+
+<div class="paragraph"> </div>
+
+ Every element of a list of numbers is at most the largest
+    element of that list.
+
+<div class="paragraph"> </div>
+
+    This is the single arithmetic fact behind both instances.  For
+    numbers it is used directly: the fresh name is one more than the
+    largest name in use, so it cannot be in the list.  For strings
+    it is used on the list of lengths: the fresh string is longer
+    than the longest string in use, so it cannot be in the list
+    either.
+
+<div class="paragraph"> </div>
+
+    It is true because <span class="inlinecode"><span class="id" title="var">List.list_max</span></span> is by construction an upper
+    bound of the list, which the standard lemma <span class="inlinecode"><span class="id" title="var">List.list_max_le</span></span>
+    expresses in the form of a <span class="inlinecode"><span class="id" title="var">Forall</span></span>. 
+</div>
+<div class="code">
+<span class="id" title="keyword">Lemma</span> <a id="in_le_list_max" class="idref" href="#in_le_list_max"><span class="id" title="lemma">in_le_list_max</span></a> :<br/>
+&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="l:9" class="idref" href="#l:9"><span class="id" title="binder">l</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) (<a id="x:10" class="idref" href="#x:10"><span class="id" title="binder">x</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a><span class="id" title="notation">),</span> <span class="id" title="definition">List.In</span> <a class="idref" href="Compiler.VarType.html#x:10"><span class="id" title="variable">x</span></a> <a class="idref" href="Compiler.VarType.html#l:9"><span class="id" title="variable">l</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> (<a class="idref" href="Compiler.VarType.html#x:10"><span class="id" title="variable">x</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#cb53cf0ee22c036a03b4a9281c68b5a3"><span class="id" title="notation">≤</span></a> <span class="id" title="definition">List.list_max</span> <a class="idref" href="Compiler.VarType.html#l:9"><span class="id" title="variable">l</span></a>)%<span class="id" title="var">nat</span>.<br/>
+<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">l</span> <span class="id" title="var">x</span> <span class="id" title="var">hx</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">assert</span> (<span class="id" title="var">h</span> : (<span class="id" title="definition">List.list_max</span> <span class="id" title="var">l</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#cb53cf0ee22c036a03b4a9281c68b5a3"><span class="id" title="notation">≤</span></a> <span class="id" title="definition">List.list_max</span> <span class="id" title="var">l</span>)%<span class="id" title="var">nat</span>) <span class="id" title="tactic">by</span> <span class="id" title="var">lia</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.list_max_le</span> <span class="id" title="tactic">in</span> <span class="id" title="var">h</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <span class="id" title="lemma">List.Forall_forall</span> <span class="id" title="tactic">in</span> <span class="id" title="var">h</span>; <span class="id" title="tactic">eapply</span> <span class="id" title="var">h</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hx</span>.<br/>
+<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab225"></a><h2 class="section">Numbers: the fresh name is bigger</h2>
+
+<div class="paragraph"> </div>
+
+ Natural numbers as variable names.
+
+<div class="paragraph"> </div>
+
+    Equality of numbers is decidable, and the fresh name for a list
+    is one more than the largest number in the list.  That name
+    cannot already be in the list: if it were, it would be at most
+    the largest element, by <span class="inlinecode"><span class="id" title="var">in_le_list_max</span></span>, and a number cannot be
+    at most one less than itself.
+
+<div class="paragraph"> </div>
+
+    This is the instance that passes should use internally, where
+    names only have to be distinct and never have to be read. 
+</div>
+<div class="code">
+#[<span class="id" title="var">export</span>] <span class="id" title="keyword">Instance</span> <a id="VarTypeNat" class="idref" href="#VarTypeNat"><span class="id" title="instance">VarTypeNat</span></a> : <a class="idref" href="Compiler.VarType.html#VarType"><span class="id" title="class">VarType</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>.<br/>
+<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">refine</span> {| <a class="idref" href="Compiler.VarType.html#vdec"><span class="id" title="method">vdec</span></a> := <span class="id" title="lemma">PeanoNat.Nat.eq_dec</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.VarType.html#vfresh"><span class="id" title="method">vfresh</span></a> := <span class="id" title="keyword">fun</span> <a id="l:11" class="idref" href="#l:11"><span class="id" title="binder"><span id="l:12" class="id">l</span></span></a> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#S"><span class="id" title="constructor">S</span></a> (<span class="id" title="definition">List.list_max</span> <a class="idref" href="Compiler.VarType.html#l:11"><span class="id" title="variable">l</span></a>) |}.<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">l</span> <span class="id" title="var">h</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">pose</span> <span class="id" title="var">proof</span> (<a class="idref" href="Compiler.VarType.html#in_le_list_max"><span class="id" title="lemma">in_le_list_max</span></a> <span class="id" title="var">l</span> (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#S"><span class="id" title="constructor">S</span></a> (<span class="id" title="definition">List.list_max</span> <span class="id" title="var">l</span>)) <span class="id" title="var">h</span>); <span class="id" title="var">lia</span>.<br/>
+<span class="id" title="keyword">Defined</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab226"></a><h2 class="section">Strings: the fresh name is longer</h2>
+
+<div class="paragraph"> </div>
+
+ <span class="inlinecode"><span class="id" title="var">ticks</span></span> <span class="inlinecode"><span class="id" title="var">n</span></span> is the string made of <span class="inlinecode"><span class="id" title="var">n</span></span> copies of the prime
+    character, the single closing quote mark used to decorate a
+    name.  So <span class="inlinecode"><span class="id" title="var">ticks</span></span> applied to zero is the empty string, and each
+    step prepends one more prime.
+
+<div class="paragraph"> </div>
+
+    It exists only as a way to manufacture a string of any
+    prescribed length out of nothing.  The particular character does
+    not matter; what matters is that the length is controlled
+    exactly, which is what <span class="inlinecode"><span class="id" title="var">ticks_length</span></span> records. 
+</div>
+<div class="code">
+<span class="id" title="keyword">Fixpoint</span> <a id="ticks" class="idref" href="#ticks"><span class="id" title="definition">ticks</span></a> (<a id="n:13" class="idref" href="#n:13"><span class="id" title="binder">n</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <span class="id" title="inductive">string</span> :=<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Compiler.VarType.html#n:13"><span class="id" title="variable">n</span></a> <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;| 0%<span class="id" title="var">nat</span> ⇒ <span class="id" title="constructor">EmptyString</span><br/>
+&nbsp;&nbsp;| <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#S"><span class="id" title="constructor">S</span></a> <span class="id" title="var">m</span> ⇒ <span class="id" title="constructor">String</span> "'"%<span class="id" title="var">char</span> (<a class="idref" href="Compiler.VarType.html#ticks:14"><span class="id" title="definition">ticks</span></a> <span class="id" title="var">m</span>)<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">end</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<span class="inlinecode"><span class="id" title="var">ticks</span></span> <span class="inlinecode"><span class="id" title="var">n</span></span> has length exactly <span class="inlinecode"><span class="id" title="var">n</span></span>.
+
+<div class="paragraph"> </div>
+
+    An immediate induction: the empty string has length zero, and
+    prepending one character to a string of length <span class="inlinecode"><span class="id" title="var">n</span></span> gives one of
+    length <span class="inlinecode"><span class="id" title="var">n</span></span> plus one.  It is stated separately because it is the
+    only property of <span class="inlinecode"><span class="id" title="var">ticks</span></span> that the string instance uses. 
+</div>
+<div class="code">
+<span class="id" title="keyword">Lemma</span> <a id="ticks_length" class="idref" href="#ticks_length"><span class="id" title="lemma">ticks_length</span></a> : <span class="id" title="notation">∀</span> <a id="n:16" class="idref" href="#n:16"><span class="id" title="binder">n</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a><span class="id" title="notation">,</span> <span class="id" title="definition">String.length</span> (<a class="idref" href="Compiler.VarType.html#ticks"><span class="id" title="definition">ticks</span></a> <a class="idref" href="Compiler.VarType.html#n:16"><span class="id" title="variable">n</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Compiler.VarType.html#n:16"><span class="id" title="variable">n</span></a>.<br/>
+<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">induction</span> <span class="id" title="var">n</span> <span class="id" title="keyword">as</span> [| <span class="id" title="var">n</span> <span class="id" title="var">ih</span>]; <span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.VarType.html#ticks"><span class="id" title="definition">ticks</span></a> <span class="id" title="definition">String.length</span>]; [<span class="id" title="tactic">reflexivity</span> |].<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <span class="id" title="var">ih</span>; <span class="id" title="tactic">reflexivity</span>.<br/>
+<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Strings as variable names.
+
+<div class="paragraph"> </div>
+
+    Equality of strings is decidable, and the fresh name for a list
+    is a run of prime characters one longer than the longest string
+    in the list.
+
+<div class="paragraph"> </div>
+
+    The freshness proof measures instead of comparing.  Suppose the
+    new string did occur in the list.  Then its length would occur
+    in the list of lengths, so by <span class="inlinecode"><span class="id" title="var">in_le_list_max</span></span> that length would
+    be at most the largest length in use.  But <span class="inlinecode"><span class="id" title="var">ticks_length</span></span> says
+    the new string is exactly one longer than that maximum, which is
+    a contradiction.
+
+<div class="paragraph"> </div>
+
+    This instance is what keeps examples readable: a user writes
+    names like the string for a public key or a bid, and the passes
+    can still manufacture names that are guaranteed not to clash
+    with them. 
+</div>
+<div class="code">
+#[<span class="id" title="var">export</span>] <span class="id" title="keyword">Instance</span> <a id="VarTypeString" class="idref" href="#VarTypeString"><span class="id" title="instance">VarTypeString</span></a> : <a class="idref" href="Compiler.VarType.html#VarType"><span class="id" title="class">VarType</span></a> <span class="id" title="inductive">string</span>.<br/>
+<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">refine</span> {| <a class="idref" href="Compiler.VarType.html#vdec"><span class="id" title="method">vdec</span></a> := <span class="id" title="definition">String.string_dec</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.VarType.html#vfresh"><span class="id" title="method">vfresh</span></a> := <span class="id" title="keyword">fun</span> <a id="l:17" class="idref" href="#l:17"><span class="id" title="binder"><span id="l:18" class="id">l</span></span></a> ⇒<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.VarType.html#ticks"><span class="id" title="definition">ticks</span></a> (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#S"><span class="id" title="constructor">S</span></a> (<span class="id" title="definition">List.list_max</span> (<span class="id" title="abbreviation">List.map</span> <span class="id" title="definition">String.length</span> <a class="idref" href="Compiler.VarType.html#l:17"><span class="id" title="variable">l</span></a>))) |}.<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">l</span> <span class="id" title="var">h</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">set</span> (<span class="id" title="var">m</span> := <span class="id" title="definition">List.list_max</span> (<span class="id" title="abbreviation">List.map</span> <span class="id" title="definition">String.length</span> <span class="id" title="var">l</span>)) <span class="id" title="tactic">in</span> ×.<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">assert</span> (<span class="id" title="var">hin</span> : <span class="id" title="definition">List.In</span> (<span class="id" title="definition">String.length</span> (<a class="idref" href="Compiler.VarType.html#ticks"><span class="id" title="definition">ticks</span></a> (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#S"><span class="id" title="constructor">S</span></a> <span class="id" title="var">m</span>)))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="abbreviation">List.map</span> <span class="id" title="definition">String.length</span> <span class="id" title="var">l</span>))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">by</span> (<span class="id" title="tactic">eapply</span> (<span class="id" title="lemma">List.in_map</span> <span class="id" title="definition">String.length</span> <span class="id" title="var">l</span> <span class="id" title="var">_</span> <span class="id" title="var">h</span>)).<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <a class="idref" href="Compiler.VarType.html#ticks_length"><span class="id" title="lemma">ticks_length</span></a> <span class="id" title="tactic">in</span> <span class="id" title="var">hin</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">pose</span> <span class="id" title="var">proof</span> (<a class="idref" href="Compiler.VarType.html#in_le_list_max"><span class="id" title="lemma">in_le_list_max</span></a> (<span class="id" title="abbreviation">List.map</span> <span class="id" title="definition">String.length</span> <span class="id" title="var">l</span>) (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#S"><span class="id" title="constructor">S</span></a> <span class="id" title="var">m</span>) <span class="id" title="var">hin</span>).<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">subst</span> <span class="id" title="var">m</span>; <span class="id" title="var">lia</span>.<br/>
+<span class="id" title="keyword">Defined</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab227"></a><h2 class="section">What the class buys</h2>
+
+<div class="paragraph"> </div>
+
+ A fresh name differs from any particular name in use.
+
+<div class="paragraph"> </div>
+
+    <span class="inlinecode"><span class="id" title="var">vfresh_not_in</span></span> says the fresh name is not a member of the list.
+    This restates the same fact in the form the passes actually
+    want: pick any name <span class="inlinecode"><span class="id" title="var">x</span></span> that occurs in the list, and the fresh
+    name is different from it.  Rewriting a term is done one
+    variable at a time, so a one-at-a-time statement is what fits.
+
+<div class="paragraph"> </div>
+
+    It holds at every instance, because it is proved from the class
+    field alone: if the fresh name equalled <span class="inlinecode"><span class="id" title="var">x</span></span> it would occur
+    wherever <span class="inlinecode"><span class="id" title="var">x</span></span> does, contradicting <span class="inlinecode"><span class="id" title="var">vfresh_not_in</span></span>.
+
+<div class="paragraph"> </div>
+
+    This is the lemma the earlier arrangements lacked.  One pass
+    assumed an injective generator instead; another marked the names
+    it generated with a reserved character and checked afterwards
+    that nothing clashed. 
+</div>
+<div class="code">
+<span class="id" title="keyword">Lemma</span> <a id="vfresh_neq" class="idref" href="#vfresh_neq"><span class="id" title="lemma">vfresh_neq</span></a> :<br/>
+&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="V:19" class="idref" href="#V:19"><span class="id" title="binder">V</span></a> : <span class="id" title="keyword">Type</span>) (<a id="H:20" class="idref" href="#H:20"><span class="id" title="binder">H</span></a> : <a class="idref" href="Compiler.VarType.html#VarType"><span class="id" title="class">VarType</span></a> <a class="idref" href="Compiler.VarType.html#V:19"><span class="id" title="variable">V</span></a>) (<a id="l:21" class="idref" href="#l:21"><span class="id" title="binder">l</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Compiler.VarType.html#V:19"><span class="id" title="variable">V</span></a>) (<a id="x:22" class="idref" href="#x:22"><span class="id" title="binder">x</span></a> : <a class="idref" href="Compiler.VarType.html#V:19"><span class="id" title="variable">V</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;<span class="id" title="definition">List.In</span> <a class="idref" href="Compiler.VarType.html#x:22"><span class="id" title="variable">x</span></a> <a class="idref" href="Compiler.VarType.html#l:21"><span class="id" title="variable">l</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.VarType.html#vfresh"><span class="id" title="method">vfresh</span></a> <a class="idref" href="Compiler.VarType.html#l:21"><span class="id" title="variable">l</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;&gt;'_x"><span class="id" title="notation">≠</span></a> <a class="idref" href="Compiler.VarType.html#x:22"><span class="id" title="variable">x</span></a>.<br/>
+<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">V</span> <span class="id" title="var">H</span> <span class="id" title="var">l</span> <span class="id" title="var">x</span> <span class="id" title="var">hx</span> <span class="id" title="var">he</span>; <span class="id" title="tactic">eapply</span> (<a class="idref" href="Compiler.VarType.html#vfresh_not_in"><span class="id" title="method">vfresh_not_in</span></a> <span class="id" title="var">l</span>).<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <span class="id" title="var">he</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hx</span>.<br/>
+<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Generating twice in a row gives two different names.
+
+<div class="paragraph"> </div>
+
+    A pass that needs two fresh names cannot call <span class="inlinecode"><span class="id" title="var">vfresh</span></span> twice on
+    the same list: it would get the same name twice.  The right move
+    is to add the first name to the list of names in use before
+    asking for the second.  This lemma confirms that the move works:
+    the name generated from the extended list differs from the name
+    that was added to it.
+
+<div class="paragraph"> </div>
+
+    It follows from <span class="inlinecode"><span class="id" title="var">vfresh_neq</span></span>, since the first name is by
+    construction a member of the extended list.  It is the base case
+    of the pattern that <span class="inlinecode"><span class="id" title="var">fresh_list</span></span> below generalises to any
+    number of names. 
+</div>
+<div class="code">
+<span class="id" title="keyword">Lemma</span> <a id="vfresh_cons_neq" class="idref" href="#vfresh_cons_neq"><span class="id" title="lemma">vfresh_cons_neq</span></a> :<br/>
+&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="V:23" class="idref" href="#V:23"><span class="id" title="binder">V</span></a> : <span class="id" title="keyword">Type</span>) (<a id="H:24" class="idref" href="#H:24"><span class="id" title="binder">H</span></a> : <a class="idref" href="Compiler.VarType.html#VarType"><span class="id" title="class">VarType</span></a> <a class="idref" href="Compiler.VarType.html#V:23"><span class="id" title="variable">V</span></a>) (<a id="l:25" class="idref" href="#l:25"><span class="id" title="binder">l</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Compiler.VarType.html#V:23"><span class="id" title="variable">V</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;<a class="idref" href="Compiler.VarType.html#vfresh"><span class="id" title="method">vfresh</span></a> (<a class="idref" href="Compiler.VarType.html#vfresh"><span class="id" title="method">vfresh</span></a> <a class="idref" href="Compiler.VarType.html#l:25"><span class="id" title="variable">l</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a> <a class="idref" href="Compiler.VarType.html#l:25"><span class="id" title="variable">l</span></a>)%<span class="id" title="var">list</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;&gt;'_x"><span class="id" title="notation">≠</span></a> <a class="idref" href="Compiler.VarType.html#vfresh"><span class="id" title="method">vfresh</span></a> <a class="idref" href="Compiler.VarType.html#l:25"><span class="id" title="variable">l</span></a>.<br/>
+<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">V</span> <span class="id" title="var">H</span> <span class="id" title="var">l</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <a class="idref" href="Compiler.VarType.html#vfresh_neq"><span class="id" title="lemma">vfresh_neq</span></a>; <span class="id" title="var">cbn</span> [<span class="id" title="definition">List.In</span>]; <span class="id" title="tactic">left</span>; <span class="id" title="tactic">reflexivity</span>.<br/>
+<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab228"></a><h2 class="section">Several fresh names at once</h2>
+
+<div class="paragraph"> </div>
+
+ <span class="inlinecode"><span class="id" title="var">fresh_list</span></span> <span class="inlinecode"><span class="id" title="var">l</span></span> <span class="inlinecode"><span class="id" title="var">n</span></span> produces <span class="inlinecode"><span class="id" title="var">n</span></span> new names, given the list <span class="inlinecode"><span class="id" title="var">l</span></span> of
+    names already in use.
+
+<div class="paragraph"> </div>
+
+    A pass rarely wants a single name.  Linearising a long product,
+    or lowering several inequalities, calls for a whole batch, and
+    the batch must be fresh in two senses at once: no name in it may
+    clash with an existing name, and no two names in it may clash
+    with each other.
+
+<div class="paragraph"> </div>
+
+    The definition gets both by generating one name at a time and
+    treating the names produced so far as used.  Concretely, it
+    first builds the <span class="inlinecode"><span class="id" title="var">n</span></span> minus one names recursively, then appends
+    them to <span class="inlinecode"><span class="id" title="var">l</span></span> and asks <span class="inlinecode"><span class="id" title="var">vfresh</span></span> for one more name relative to that
+    longer list.  Since the new name avoids everything in the
+    concatenation, it avoids both the original names and its own
+    siblings.
+
+<div class="paragraph"> </div>
+
+    The three lemmas that follow state exactly the three properties
+    a caller needs: the list has the requested length, none of its
+    names were already in use, and its names are pairwise
+    different. 
+</div>
+<div class="code">
+<span class="id" title="keyword">Fixpoint</span> <a id="fresh_list" class="idref" href="#fresh_list"><span class="id" title="definition">fresh_list</span></a> {<a id="V:26" class="idref" href="#V:26"><span class="id" title="binder">V</span></a> : <span class="id" title="keyword">Type</span>} {<a id="H:27" class="idref" href="#H:27"><span class="id" title="binder">H</span></a> : <a class="idref" href="Compiler.VarType.html#VarType"><span class="id" title="class">VarType</span></a> <a class="idref" href="Compiler.VarType.html#V:26"><span class="id" title="variable">V</span></a>} (<a id="l:28" class="idref" href="#l:28"><span class="id" title="binder">l</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Compiler.VarType.html#V:26"><span class="id" title="variable">V</span></a>) (<a id="n:29" class="idref" href="#n:29"><span class="id" title="binder">n</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Compiler.VarType.html#V:26"><span class="id" title="variable">V</span></a> :=<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Compiler.VarType.html#n:29"><span class="id" title="variable">n</span></a> <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;| 0%<span class="id" title="var">nat</span> ⇒ <span class="id" title="notation">[]</span><br/>
+&nbsp;&nbsp;| <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#S"><span class="id" title="constructor">S</span></a> <span class="id" title="var">m</span> ⇒ <span class="id" title="keyword">let</span> <a id="r:32" class="idref" href="#r:32"><span class="id" title="binder">r</span></a> := <a class="idref" href="Compiler.VarType.html#fresh_list:30"><span class="id" title="definition">fresh_list</span></a> <a class="idref" href="Compiler.VarType.html#l:28"><span class="id" title="variable">l</span></a> <span class="id" title="var">m</span> <span class="id" title="tactic">in</span> <a class="idref" href="Compiler.VarType.html#vfresh"><span class="id" title="method">vfresh</span></a> (<a class="idref" href="Compiler.VarType.html#l:28"><span class="id" title="variable">l</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#bc347c51eaf667706ae54503b26d52c6"><span class="id" title="notation">++</span></a> <a class="idref" href="Compiler.VarType.html#r:32"><span class="id" title="variable">r</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a> <a class="idref" href="Compiler.VarType.html#r:32"><span class="id" title="variable">r</span></a><br/>
+&nbsp;&nbsp;<span class="id" title="keyword">end</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The generated list has the requested length.
+
+<div class="paragraph"> </div>
+
+    Asking for <span class="inlinecode"><span class="id" title="var">n</span></span> names really gives <span class="inlinecode"><span class="id" title="var">n</span></span> names, never fewer.  A
+    caller that has <span class="inlinecode"><span class="id" title="var">n</span></span> holes to fill can therefore match them up
+    with the list without a side condition.
+
+<div class="paragraph"> </div>
+
+    The proof is a direct induction on <span class="inlinecode"><span class="id" title="var">n</span></span>: the empty request gives
+    the empty list, and each step adds exactly one name to the front
+    of the list produced by the smaller request. 
+</div>
+<div class="code">
+<span class="id" title="keyword">Lemma</span> <a id="fresh_list_length" class="idref" href="#fresh_list_length"><span class="id" title="lemma">fresh_list_length</span></a> :<br/>
+&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="V:33" class="idref" href="#V:33"><span class="id" title="binder">V</span></a> : <span class="id" title="keyword">Type</span>) (<a id="H:34" class="idref" href="#H:34"><span class="id" title="binder">H</span></a> : <a class="idref" href="Compiler.VarType.html#VarType"><span class="id" title="class">VarType</span></a> <a class="idref" href="Compiler.VarType.html#V:33"><span class="id" title="variable">V</span></a>) (<a id="l:35" class="idref" href="#l:35"><span class="id" title="binder">l</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Compiler.VarType.html#V:33"><span class="id" title="variable">V</span></a>) (<a id="n:36" class="idref" href="#n:36"><span class="id" title="binder">n</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;<span class="id" title="abbreviation">List.length</span> (<a class="idref" href="Compiler.VarType.html#fresh_list"><span class="id" title="definition">fresh_list</span></a> <a class="idref" href="Compiler.VarType.html#l:35"><span class="id" title="variable">l</span></a> <a class="idref" href="Compiler.VarType.html#n:36"><span class="id" title="variable">n</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Compiler.VarType.html#n:36"><span class="id" title="variable">n</span></a>.<br/>
+<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">V</span> <span class="id" title="var">H</span> <span class="id" title="var">l</span> <span class="id" title="var">n</span>; <span class="id" title="tactic">induction</span> <span class="id" title="var">n</span> <span class="id" title="keyword">as</span> [| <span class="id" title="var">n</span> <span class="id" title="var">ih</span>]; <span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.VarType.html#fresh_list"><span class="id" title="definition">fresh_list</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">List.length</span></a>];<br/>
+&nbsp;&nbsp;[<span class="id" title="tactic">reflexivity</span> | <span class="id" title="tactic">rewrite</span> <span class="id" title="var">ih</span>; <span class="id" title="tactic">reflexivity</span>].<br/>
+<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+No generated name was already in use.
+
+<div class="paragraph"> </div>
+
+    If <span class="inlinecode"><span class="id" title="var">x</span></span> is one of the names produced by <span class="inlinecode"><span class="id" title="var">fresh_list</span></span> <span class="inlinecode"><span class="id" title="var">l</span></span> <span class="inlinecode"><span class="id" title="var">n</span></span>, then
+    <span class="inlinecode"><span class="id" title="var">x</span></span> does not occur in <span class="inlinecode"><span class="id" title="var">l</span></span>.  This is what guarantees that
+    substituting the new names into a statement cannot capture a
+    variable the user wrote.
+
+<div class="paragraph"> </div>
+
+    The proof is by induction on <span class="inlinecode"><span class="id" title="var">n</span></span>.  The head of the list is
+    <span class="inlinecode"><span class="id" title="var">vfresh</span></span> applied to <span class="inlinecode"><span class="id" title="var">l</span></span> appended with the names generated so
+    far; by <span class="inlinecode"><span class="id" title="var">vfresh_not_in</span></span> it occurs nowhere in that concatenation,
+    and in particular nowhere in <span class="inlinecode"><span class="id" title="var">l</span></span>.  Every other element of the
+    list is handled by the induction hypothesis. 
+</div>
+<div class="code">
+<span class="id" title="keyword">Lemma</span> <a id="fresh_list_not_in" class="idref" href="#fresh_list_not_in"><span class="id" title="lemma">fresh_list_not_in</span></a> :<br/>
+&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="V:37" class="idref" href="#V:37"><span class="id" title="binder">V</span></a> : <span class="id" title="keyword">Type</span>) (<a id="H:38" class="idref" href="#H:38"><span class="id" title="binder">H</span></a> : <a class="idref" href="Compiler.VarType.html#VarType"><span class="id" title="class">VarType</span></a> <a class="idref" href="Compiler.VarType.html#V:37"><span class="id" title="variable">V</span></a>) (<a id="l:39" class="idref" href="#l:39"><span class="id" title="binder">l</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Compiler.VarType.html#V:37"><span class="id" title="variable">V</span></a>) (<a id="n:40" class="idref" href="#n:40"><span class="id" title="binder">n</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) (<a id="x:41" class="idref" href="#x:41"><span class="id" title="binder">x</span></a> : <a class="idref" href="Compiler.VarType.html#V:37"><span class="id" title="variable">V</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;<span class="id" title="definition">List.In</span> <a class="idref" href="Compiler.VarType.html#x:41"><span class="id" title="variable">x</span></a> (<a class="idref" href="Compiler.VarType.html#fresh_list"><span class="id" title="definition">fresh_list</span></a> <a class="idref" href="Compiler.VarType.html#l:39"><span class="id" title="variable">l</span></a> <a class="idref" href="Compiler.VarType.html#n:40"><span class="id" title="variable">n</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#63a68285c81db8f9bc456233bb9ed181"><span class="id" title="notation">¬</span></a> <span class="id" title="definition">List.In</span> <a class="idref" href="Compiler.VarType.html#x:41"><span class="id" title="variable">x</span></a> <a class="idref" href="Compiler.VarType.html#l:39"><span class="id" title="variable">l</span></a>.<br/>
+<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">V</span> <span class="id" title="var">H</span> <span class="id" title="var">l</span> <span class="id" title="var">n</span>; <span class="id" title="tactic">induction</span> <span class="id" title="var">n</span> <span class="id" title="keyword">as</span> [| <span class="id" title="var">n</span> <span class="id" title="var">ih</span>]; <span class="id" title="tactic">intros</span> <span class="id" title="var">x</span> <span class="id" title="var">hx</span>;<br/>
+&nbsp;&nbsp;<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.VarType.html#fresh_list"><span class="id" title="definition">fresh_list</span></a> <span class="id" title="definition">List.In</span>] <span class="id" title="tactic">in</span> <span class="id" title="var">hx</span>.<br/>
+&nbsp;&nbsp;+ <span class="id" title="var">contradiction</span>.<br/>
+&nbsp;&nbsp;+ <span class="id" title="tactic">destruct</span> <span class="id" title="var">hx</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">hx</span> | <span class="id" title="var">hx</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">subst</span> <span class="id" title="var">x</span>. <span class="id" title="tactic">intro</span> <span class="id" title="var">hl</span>. <span class="id" title="tactic">eapply</span> (<a class="idref" href="Compiler.VarType.html#vfresh_not_in"><span class="id" title="method">vfresh_not_in</span></a> (<span class="id" title="var">l</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#bc347c51eaf667706ae54503b26d52c6"><span class="id" title="notation">++</span></a> <a class="idref" href="Compiler.VarType.html#fresh_list"><span class="id" title="definition">fresh_list</span></a> <span class="id" title="var">l</span> <span class="id" title="var">n</span>)).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.in_or_app</span>; <span class="id" title="tactic">left</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hl</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">eapply</span> <span class="id" title="var">ih</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hx</span>.<br/>
+<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The generated names are pairwise different.
+
+<div class="paragraph"> </div>
+
+    <span class="inlinecode"><span class="id" title="var">List.NoDup</span></span> says a list has no repeated element.  Without this,
+    a pass could hand the same name to two different intermediate
+    quantities and quietly force them to be equal, which is the
+    exact failure mode that fresh names are meant to prevent.
+
+<div class="paragraph"> </div>
+
+    The proof is again by induction on <span class="inlinecode"><span class="id" title="var">n</span></span>, and it is the same
+    observation as in the previous lemma read on the other component
+    of the concatenation.  The head name avoids everything in <span class="inlinecode"><span class="id" title="var">l</span></span>
+    appended with the tail, so in particular it avoids the tail; the
+    tail has no duplicates by the induction hypothesis. 
+</div>
+<div class="code">
+<span class="id" title="keyword">Lemma</span> <a id="fresh_list_nodup" class="idref" href="#fresh_list_nodup"><span class="id" title="lemma">fresh_list_nodup</span></a> :<br/>
+&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="V:42" class="idref" href="#V:42"><span class="id" title="binder">V</span></a> : <span class="id" title="keyword">Type</span>) (<a id="H:43" class="idref" href="#H:43"><span class="id" title="binder">H</span></a> : <a class="idref" href="Compiler.VarType.html#VarType"><span class="id" title="class">VarType</span></a> <a class="idref" href="Compiler.VarType.html#V:42"><span class="id" title="variable">V</span></a>) (<a id="l:44" class="idref" href="#l:44"><span class="id" title="binder">l</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Compiler.VarType.html#V:42"><span class="id" title="variable">V</span></a>) (<a id="n:45" class="idref" href="#n:45"><span class="id" title="binder">n</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;<span class="id" title="inductive">List.NoDup</span> (<a class="idref" href="Compiler.VarType.html#fresh_list"><span class="id" title="definition">fresh_list</span></a> <a class="idref" href="Compiler.VarType.html#l:44"><span class="id" title="variable">l</span></a> <a class="idref" href="Compiler.VarType.html#n:45"><span class="id" title="variable">n</span></a>).<br/>
+<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">V</span> <span class="id" title="var">H</span> <span class="id" title="var">l</span> <span class="id" title="var">n</span>; <span class="id" title="tactic">induction</span> <span class="id" title="var">n</span> <span class="id" title="keyword">as</span> [| <span class="id" title="var">n</span> <span class="id" title="var">ih</span>]; <span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.VarType.html#fresh_list"><span class="id" title="definition">fresh_list</span></a>].<br/>
+&nbsp;&nbsp;+ <span class="id" title="tactic">constructor</span>.<br/>
+&nbsp;&nbsp;+ <span class="id" title="tactic">constructor</span>; [| <span class="id" title="tactic">exact</span> <span class="id" title="var">ih</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intro</span> <span class="id" title="var">hin</span>. <span class="id" title="tactic">eapply</span> (<a class="idref" href="Compiler.VarType.html#vfresh_not_in"><span class="id" title="method">vfresh_not_in</span></a> (<span class="id" title="var">l</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#bc347c51eaf667706ae54503b26d52c6"><span class="id" title="notation">++</span></a> <a class="idref" href="Compiler.VarType.html#fresh_list"><span class="id" title="definition">fresh_list</span></a> <span class="id" title="var">l</span> <span class="id" title="var">n</span>)).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.in_or_app</span>; <span class="id" title="tactic">right</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hin</span>.<br/>
+<span class="id" title="keyword">Qed</span>.<br/>
+</div>
+</div>
+
+<div id="footer">
+<hr/><a href="index.html">Index</a><hr/>This page has been generated by <a href="http://rocq-prover.org/">coqdoc</a>
+</div>
+
+</div>
+
+</body>
+</html>

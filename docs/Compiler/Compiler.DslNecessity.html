@@ -1,0 +1,557 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<title>Compiler.DslNecessity</title>
+</head>
+
+<body>
+
+<div id="page">
+
+<div id="header">
+</div>
+
+<div id="main">
+
+<h1 class="libtitle">Library Compiler.DslNecessity</h1>
+
+<div class="code">
+<span class="id" title="keyword">From</span> <span class="id" title="var">Stdlib</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <span class="id" title="library">Setoid</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">setoid_ring.Field</span> <span class="id" title="library">Lia</span> <span class="id" title="library">Vector</span> <span class="id" title="library">Utf8</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">Psatz</span> <span class="id" title="library">Bool</span> <span class="id" title="library">List</span> <span class="id" title="library">PeanoNat</span>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Algebra</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">Hierarchy</span> <span class="id" title="library">Group</span> <span class="id" title="library">Monoid</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">Field</span> <span class="id" title="library">Integral_domain</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">Ring</span> <span class="id" title="library">Vector_space</span>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Utility</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">Util</span>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Compiler</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span><br/>
+&nbsp;&nbsp;<a class="idref" href="Compiler.LinearRelation.html#"><span class="id" title="library">LinearRelation</span></a> <a class="idref" href="Compiler.Composition.html#"><span class="id" title="library">Composition</span></a> <a class="idref" href="Compiler.Dsl.html#"><span class="id" title="library">Dsl</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Import</span> <span class="id" title="module">VectorNotations</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab64"></a><h1 class="section">DslNecessity: why the disjunction checker cannot be dropped</h1>
+
+
+<div class="paragraph"> </div>
+
+<a id="lab65"></a><h2 class="section">The checker in question</h2>
+
+
+<div class="paragraph"> </div>
+
+    The compiler of Dsl.v does not accept every statement.  Before
+    compiling, it runs a purely syntactic test, <span class="inlinecode"><span class="id" title="var">disj_inv</span></span>.  The
+    test rejects a statement in which one private variable is shared
+    between two parts that compilation will give independent
+    witnesses: the two sides of an AND that cannot be merged into a
+    single leaf, or two children of a threshold.  Branches of an OR
+    are exempt, because only one branch's witness is ever used.
+
+<div class="paragraph"> </div>
+
+    The correctness theorem <span class="inlinecode"><span class="id" title="var">compile_stmt_reflect</span></span> carries that test
+    as a hypothesis.  It is the direction that reads a witness of
+    the compiled relation back as an environment satisfying the
+    source statement, and it holds only when <span class="inlinecode"><span class="id" title="var">disj_inv</span></span> returned
+    true.
+
+<div class="paragraph"> </div>
+
+    A hypothesis like that invites a question.  Is it a real
+    restriction, or just an artefact of how the proof was written?
+    Could the checker be relaxed, or dropped, with the theorem still
+    holding?  This file answers: no.  It exhibits one concrete
+    statement on which the conclusion is plainly false.
+
+<div class="paragraph"> </div>
+
+<a id="lab66"></a><h2 class="section">The counterexample</h2>
+
+
+<div class="paragraph"> </div>
+
+    The statement is: the point <span class="inlinecode"><span class="id" title="var">P</span></span> is <span class="inlinecode"><span class="id" title="var">g</span></span> raised to the private
+    scalar <span class="inlinecode"><span class="id" title="var">x</span></span>, and, at the same time, either the point <span class="inlinecode"><span class="id" title="var">Q</span></span> is <span class="inlinecode"><span class="id" title="var">g</span></span>
+    raised to <span class="inlinecode"><span class="id" title="var">x</span></span> or the point <span class="inlinecode"><span class="id" title="var">Q</span></span> is <span class="inlinecode"><span class="id" title="var">g</span></span> raised to <span class="inlinecode"><span class="id" title="var">x</span></span>.  The two
+    branches of the OR are deliberately the same; the OR is there
+    only to stop the right-hand side from being a plain conjunction
+    of equations.
+
+<div class="paragraph"> </div>
+
+    The same private name <span class="inlinecode"><span class="id" title="var">x</span></span> occurs on both sides of the AND.  A
+    reader takes that to mean one value: whatever <span class="inlinecode"><span class="id" title="var">x</span></span> is, it must
+    explain <span class="inlinecode"><span class="id" title="var">P</span></span> and it must explain <span class="inlinecode"><span class="id" title="var">Q</span></span>.  Since <span class="inlinecode"><span class="id" title="var">g</span></span> raised to a
+    given scalar is one definite point, this forces <span class="inlinecode"><span class="id" title="var">P</span></span> and <span class="inlinecode"><span class="id" title="var">Q</span></span> to
+    be the same point.  So if <span class="inlinecode"><span class="id" title="var">P</span></span> and <span class="inlinecode"><span class="id" title="var">Q</span></span> differ, no assignment of a
+    value to <span class="inlinecode"><span class="id" title="var">x</span></span> satisfies the statement at all.  That is the second
+    half of <span class="inlinecode"><span class="id" title="var">checker_necessary</span></span>.
+
+<div class="paragraph"> </div>
+
+    Compilation does not see it that way.  Because the right-hand
+    side is not an AND-tree of equations, the compiler cannot merge
+    the two sides into a single leaf with a shared witness vector;
+    it keeps a <span class="inlinecode"><span class="id" title="var">CAnd</span></span> node instead.  The witness of a <span class="inlinecode"><span class="id" title="var">CAnd</span></span> is a
+    pair, one witness for each side, and the two components are
+    entirely independent.  The left component may assign one value
+    to the first column and the right component another.  So if <span class="inlinecode"><span class="id" title="var">P</span></span>
+    is <span class="inlinecode"><span class="id" title="var">g</span></span> raised to <span class="inlinecode"><span class="id" title="var">a</span></span> and <span class="inlinecode"><span class="id" title="var">Q</span></span> is <span class="inlinecode"><span class="id" title="var">g</span></span> raised to <span class="inlinecode"><span class="id" title="var">b</span></span>, the pair
+    consisting of <span class="inlinecode"><span class="id" title="var">a</span></span> on the left and <span class="inlinecode"><span class="id" title="var">b</span></span> in the left branch of the
+    OR on the right satisfies the compiled relation.  That is the
+    first half of <span class="inlinecode"><span class="id" title="var">checker_necessary</span></span>.
+
+<div class="paragraph"> </div>
+
+<a id="lab67"></a><h2 class="section">Why this makes the checker necessary</h2>
+
+
+<div class="paragraph"> </div>
+
+    Put the two halves together.  Here is a statement whose compiled
+    relation has a witness even though the statement itself has
+    none.  A sigma protocol built from that relation is perfectly
+    sound for the relation: a successful prover really does know a
+    pair of independent values.  But knowing such a pair is strictly
+    weaker than knowing what the user asked for, which was one value
+    doing both jobs.
+
+<div class="paragraph"> </div>
+
+    So without the checker the compiler would be a trap.  It would
+    accept a statement, produce a protocol, and that protocol would
+    convince a verifier of something weaker than the sentence the
+    user wrote, with nothing in the output to signal the gap.  The
+    checker is the thing that closes the gap, by refusing the input
+    rather than compiling it badly.  It is a necessary condition of
+    the correctness theorem, not a convenience. 
+</div>
+<div class="code">
+
+<br/>
+<span class="id" title="keyword">Section</span> <a id="CheckerNecessity" class="idref" href="#CheckerNecessity"><span class="id" title="section">CheckerNecessity</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab68"></a><h2 class="section">Parameters</h2>
+
+
+<div class="paragraph"> </div>
+
+      The field of scalars: carrier <span class="inlinecode"><span class="id" title="var">F</span></span>, constants <span class="inlinecode"><span class="id" title="var">zero</span></span> and <span class="inlinecode"><span class="id" title="var">one</span></span>,
+      the four operations, negation <span class="inlinecode"><span class="id" title="var">opp</span></span>, inverse <span class="inlinecode"><span class="id" title="var">inv</span></span>, and
+      <span class="inlinecode"><span class="id" title="var">Fdec</span></span> deciding equality of scalars. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Context</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="CheckerNecessity.F" class="idref" href="#CheckerNecessity.F"><span class="id" title="variable">F</span></a> : <span class="id" title="keyword">Type</span>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="CheckerNecessity.zero" class="idref" href="#CheckerNecessity.zero"><span class="id" title="variable">zero</span></a> <a id="CheckerNecessity.one" class="idref" href="#CheckerNecessity.one"><span class="id" title="variable">one</span></a> : <a class="idref" href="Compiler.DslNecessity.html#F:1"><span class="id" title="variable">F</span></a>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="CheckerNecessity.add" class="idref" href="#CheckerNecessity.add"><span class="id" title="variable">add</span></a> <a id="CheckerNecessity.mul" class="idref" href="#CheckerNecessity.mul"><span class="id" title="variable">mul</span></a> <a id="CheckerNecessity.sub" class="idref" href="#CheckerNecessity.sub"><span class="id" title="variable">sub</span></a> <a id="CheckerNecessity.div" class="idref" href="#CheckerNecessity.div"><span class="id" title="variable">div</span></a> : <a class="idref" href="Compiler.DslNecessity.html#F:1"><span class="id" title="variable">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslNecessity.html#F:1"><span class="id" title="variable">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslNecessity.html#F:1"><span class="id" title="variable">F</span></a>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="CheckerNecessity.opp" class="idref" href="#CheckerNecessity.opp"><span class="id" title="variable">opp</span></a> <a id="CheckerNecessity.inv" class="idref" href="#CheckerNecessity.inv"><span class="id" title="variable">inv</span></a> : <a class="idref" href="Compiler.DslNecessity.html#F:1"><span class="id" title="variable">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslNecessity.html#F:1"><span class="id" title="variable">F</span></a>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="CheckerNecessity.Fdec" class="idref" href="#CheckerNecessity.Fdec"><span class="id" title="variable">Fdec</span></a> : <span class="id" title="keyword">∀</span> <a id="x:10" class="idref" href="#x:10"><span class="id" title="binder">x</span></a> <a id="y:11" class="idref" href="#y:11"><span class="id" title="binder">y</span></a> : <a class="idref" href="Compiler.DslNecessity.html#F:1"><span class="id" title="variable">F</span></a>, <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">{</span></a><a class="idref" href="Compiler.DslNecessity.html#x:10"><span class="id" title="variable">x</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Compiler.DslNecessity.html#y:11"><span class="id" title="variable">y</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">}</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">+</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">{</span></a><a class="idref" href="Compiler.DslNecessity.html#x:10"><span class="id" title="variable">x</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;&gt;'_x"><span class="id" title="notation">≠</span></a> <a class="idref" href="Compiler.DslNecessity.html#y:11"><span class="id" title="variable">y</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">}</span></a>}.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The group: carrier <span class="inlinecode"><span class="id" title="var">G</span></span>, identity <span class="inlinecode"><span class="id" title="var">gid</span></span>, inversion <span class="inlinecode"><span class="id" title="var">ginv</span></span>,
+      operation <span class="inlinecode"><span class="id" title="var">gop</span></span>, and <span class="inlinecode"><span class="id" title="var">gpow</span></span> for raising a group element to a
+      scalar power.  <span class="inlinecode"><span class="id" title="var">Hvec</span></span> is the assumption that scalars and group
+      together form a vector space, which is what makes powers
+      behave: it is needed to compute what the equations of the
+      counterexample actually say. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Context</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="CheckerNecessity.G" class="idref" href="#CheckerNecessity.G"><span class="id" title="variable">G</span></a> : <span class="id" title="keyword">Type</span>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="CheckerNecessity.gid" class="idref" href="#CheckerNecessity.gid"><span class="id" title="variable">gid</span></a> : <a class="idref" href="Compiler.DslNecessity.html#G:13"><span class="id" title="variable">G</span></a>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="CheckerNecessity.ginv" class="idref" href="#CheckerNecessity.ginv"><span class="id" title="variable">ginv</span></a> : <a class="idref" href="Compiler.DslNecessity.html#G:13"><span class="id" title="variable">G</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslNecessity.html#G:13"><span class="id" title="variable">G</span></a>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="CheckerNecessity.gop" class="idref" href="#CheckerNecessity.gop"><span class="id" title="variable">gop</span></a> : <a class="idref" href="Compiler.DslNecessity.html#G:13"><span class="id" title="variable">G</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslNecessity.html#G:13"><span class="id" title="variable">G</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslNecessity.html#G:13"><span class="id" title="variable">G</span></a>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="CheckerNecessity.gpow" class="idref" href="#CheckerNecessity.gpow"><span class="id" title="variable">gpow</span></a> : <a class="idref" href="Compiler.DslNecessity.html#G:13"><span class="id" title="variable">G</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.F"><span class="id" title="variable">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslNecessity.html#G:13"><span class="id" title="variable">G</span></a>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="CheckerNecessity.Gdec" class="idref" href="#CheckerNecessity.Gdec"><span class="id" title="variable">Gdec</span></a> : <span class="id" title="keyword">∀</span> <a id="x:18" class="idref" href="#x:18"><span class="id" title="binder">x</span></a> <a id="y:19" class="idref" href="#y:19"><span class="id" title="binder">y</span></a> : <a class="idref" href="Compiler.DslNecessity.html#G:13"><span class="id" title="variable">G</span></a>, <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">{</span></a><a class="idref" href="Compiler.DslNecessity.html#x:18"><span class="id" title="variable">x</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Compiler.DslNecessity.html#y:19"><span class="id" title="variable">y</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">}</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">+</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">{</span></a><a class="idref" href="Compiler.DslNecessity.html#x:18"><span class="id" title="variable">x</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;&gt;'_x"><span class="id" title="notation">≠</span></a> <a class="idref" href="Compiler.DslNecessity.html#y:19"><span class="id" title="variable">y</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">}</span></a>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="CheckerNecessity.Hvec" class="idref" href="#CheckerNecessity.Hvec"><span class="id" title="variable">Hvec</span></a> : @<span class="id" title="class">vector_space</span> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.F"><span class="id" title="variable">F</span></a> (@<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#eq"><span class="id" title="inductive">eq</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.F"><span class="id" title="variable">F</span></a>) <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.zero"><span class="id" title="variable">zero</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.one"><span class="id" title="variable">one</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.add"><span class="id" title="variable">add</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.mul"><span class="id" title="variable">mul</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.sub"><span class="id" title="variable">sub</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.div"><span class="id" title="variable">div</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.opp"><span class="id" title="variable">opp</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.inv"><span class="id" title="variable">inv</span></a> <a class="idref" href="Compiler.DslNecessity.html#G:13"><span class="id" title="variable">G</span></a> (@<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#eq"><span class="id" title="inductive">eq</span></a> <a class="idref" href="Compiler.DslNecessity.html#G:13"><span class="id" title="variable">G</span></a>) <a class="idref" href="Compiler.DslNecessity.html#gid:14"><span class="id" title="variable">gid</span></a> <a class="idref" href="Compiler.DslNecessity.html#ginv:15"><span class="id" title="variable">ginv</span></a> <a class="idref" href="Compiler.DslNecessity.html#gop:16"><span class="id" title="variable">gop</span></a> <a class="idref" href="Compiler.DslNecessity.html#gpow:17"><span class="id" title="variable">gpow</span></a>}.<br/>
+</div>
+
+<div class="doc">
+Register the field with the <span class="inlinecode"><span class="id" title="tactic">field</span></span> tactic, which here only
+      has to discharge the identity that multiplying by <span class="inlinecode"><span class="id" title="var">one</span></span>
+      changes nothing. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Add</span> <span class="id" title="var">Field</span> <span class="id" title="tactic">field</span> : (@<span class="id" title="lemma">field_theory_for_stdlib_tactic</span> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.F"><span class="id" title="variable">F</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#eq"><span class="id" title="inductive">eq</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.zero"><span class="id" title="variable">zero</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.one"><span class="id" title="variable">one</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.opp"><span class="id" title="variable">opp</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.add"><span class="id" title="variable">add</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.mul"><span class="id" title="variable">mul</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.sub"><span class="id" title="variable">sub</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.inv"><span class="id" title="variable">inv</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.div"><span class="id" title="variable">div</span></a> <span class="id" title="method">vector_space_field</span>).<br/>
+
+<br/>
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Infix</span> "^" := <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.gpow"><span class="id" title="variable">gpow</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab69"></a><h2 class="section">The instance</h2>
+
+
+<div class="paragraph"> </div>
+
+      Three group elements are fixed for the rest of the file: the
+      generator <span class="inlinecode"><span class="id" title="var">g</span></span>, and the two points <span class="inlinecode"><span class="id" title="var">P</span></span> and <span class="inlinecode"><span class="id" title="var">Q</span></span> that the
+      statement talks about.  They are arbitrary; the theorem below
+      supplies the relations between them as hypotheses. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Variable</span> <a id="CheckerNecessity.g" class="idref" href="#CheckerNecessity.g"><span class="id" title="variable">g</span></a> <a id="CheckerNecessity.P" class="idref" href="#CheckerNecessity.P"><span class="id" title="variable">P</span></a> <a id="CheckerNecessity.Q" class="idref" href="#CheckerNecessity.Q"><span class="id" title="variable">Q</span></a> : <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.G"><span class="id" title="variable">G</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Variable names are natural numbers here, since nothing needs
+      to be readable.
+
+<div class="paragraph"> </div>
+
+<ul class="doclist">
+<li> <span class="inlinecode"><span class="id" title="var">privs</span></span> declares the private variables of the statement.
+        There is exactly one, the name <span class="inlinecode">0</span>, which is the <span class="inlinecode"><span class="id" title="var">x</span></span> of the
+        discussion above.
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">genv</span></span> is the point environment: it says which group
+        element each point name stands for.  Name <span class="inlinecode">0</span> is the
+        generator, name <span class="inlinecode">1</span> is <span class="inlinecode"><span class="id" title="var">P</span></span>, and every other name is <span class="inlinecode"><span class="id" title="var">Q</span></span>, so
+        in particular name <span class="inlinecode">2</span> is <span class="inlinecode"><span class="id" title="var">Q</span></span>.
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">penv</span></span> is the public scalar environment.  The statement uses
+        no public scalars beyond the literal <span class="inlinecode"><span class="id" title="var">one</span></span>, so every name is
+        sent to <span class="inlinecode"><span class="id" title="var">zero</span></span> and the choice is irrelevant.
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">node</span></span> supplies the interpolation nodes for threshold
+        nodes.  The counterexample has no threshold, so this is
+        equally irrelevant; the compiler simply takes it as a
+        parameter. 
+
+</li>
+</ul>
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="privs" class="idref" href="#privs"><span class="id" title="definition">privs</span></a> : <span class="id" title="inductive">Vector.t</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a> 1 := <span class="id" title="notation">[</span>0<span class="id" title="notation">]</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="genv" class="idref" href="#genv"><span class="id" title="definition">genv</span></a> (<a id="v:28" class="idref" href="#v:28"><span class="id" title="binder">v</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.G"><span class="id" title="variable">G</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Compiler.DslNecessity.html#v:28"><span class="id" title="variable">v</span></a> <span class="id" title="keyword">with</span> 0 ⇒ <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.g"><span class="id" title="variable">g</span></a> | 1 ⇒ <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.P"><span class="id" title="variable">P</span></a> | <span class="id" title="var">_</span> ⇒ <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.Q"><span class="id" title="variable">Q</span></a> <span class="id" title="keyword">end</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="penv" class="idref" href="#penv"><span class="id" title="definition">penv</span></a> (<span class="id" title="var">_</span> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.F"><span class="id" title="variable">F</span></a> := <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.zero"><span class="id" title="variable">zero</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="node" class="idref" href="#node"><span class="id" title="definition">node</span></a> (<span class="id" title="var">_</span> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.F"><span class="id" title="variable">F</span></a> := <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.zero"><span class="id" title="variable">zero</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab70"></a><h2 class="section">The statement</h2>
+
+<div class="paragraph"> </div>
+
+ The single term used by both equations: the base named <span class="inlinecode">0</span>,
+      which is the generator, raised to the constant <span class="inlinecode"><span class="id" title="var">one</span></span> times the
+      private variable named <span class="inlinecode">0</span>, which is <span class="inlinecode"><span class="id" title="var">x</span></span>.  In readable form
+      this is the generator raised to <span class="inlinecode"><span class="id" title="var">x</span></span>. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="tx" class="idref" href="#tx"><span class="id" title="definition">tx</span></a> : @<a class="idref" href="Compiler.Dsl.html#term"><span class="id" title="record">term</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.F"><span class="id" title="variable">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a> := <a class="idref" href="Compiler.Dsl.html#mkterm"><span class="id" title="constructor">mkterm</span></a> (<a class="idref" href="Compiler.Dsl.html#PConst"><span class="id" title="constructor">PConst</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.one"><span class="id" title="variable">one</span></a>) 0 0.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The equation saying that the point named <span class="inlinecode">1</span>, that is <span class="inlinecode"><span class="id" title="var">P</span></span>, is
+      the generator raised to <span class="inlinecode"><span class="id" title="var">x</span></span>.  <span class="inlinecode"><span class="id" title="var">simple_eq</span></span> is the readable
+      shape in which one named point equals a product of terms. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="eqP" class="idref" href="#eqP"><span class="id" title="definition">eqP</span></a> : @<a class="idref" href="Compiler.Dsl.html#equation"><span class="id" title="record">equation</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.F"><span class="id" title="variable">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a> := <a class="idref" href="Compiler.Dsl.html#simple_eq"><span class="id" title="definition">simple_eq</span></a> (<span class="id" title="var">one</span> := <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.one"><span class="id" title="variable">one</span></a>) 1 (<span class="id" title="abbreviation">List.cons</span> <a class="idref" href="Compiler.DslNecessity.html#tx"><span class="id" title="definition">tx</span></a> <span class="id" title="abbreviation">List.nil</span>).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The equation saying that the point named <span class="inlinecode">2</span>, that is <span class="inlinecode"><span class="id" title="var">Q</span></span>, is
+      the generator raised to the same <span class="inlinecode"><span class="id" title="var">x</span></span>.  It is deliberately the
+      same equation as <span class="inlinecode"><span class="id" title="var">eqP</span></span> with a different point on the left, so
+      that the two cannot both hold unless the two points coincide. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="eqQ" class="idref" href="#eqQ"><span class="id" title="definition">eqQ</span></a> : @<a class="idref" href="Compiler.Dsl.html#equation"><span class="id" title="record">equation</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.F"><span class="id" title="variable">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a> := <a class="idref" href="Compiler.Dsl.html#simple_eq"><span class="id" title="definition">simple_eq</span></a> (<span class="id" title="var">one</span> := <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.one"><span class="id" title="variable">one</span></a>) 2 (<span class="id" title="abbreviation">List.cons</span> <a class="idref" href="Compiler.DslNecessity.html#tx"><span class="id" title="definition">tx</span></a> <span class="id" title="abbreviation">List.nil</span>).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The counterexample statement itself: <span class="inlinecode"><span class="id" title="var">eqP</span></span>, conjoined with an
+      OR whose two branches are both <span class="inlinecode"><span class="id" title="var">eqQ</span></span>.
+
+<div class="paragraph"> </div>
+
+      The duplicated branch is not an oversight.  If the right-hand
+      side were simply <span class="inlinecode"><span class="id" title="var">eqQ</span></span>, both sides would be conjunctions of
+      equations and the compiler would merge them into a single
+      leaf, giving them a shared witness vector and removing the
+      problem.  Wrapping <span class="inlinecode"><span class="id" title="var">eqQ</span></span> in an OR blocks the merge while
+      changing nothing about what the statement means, since a
+      disjunction of a sentence with itself is that sentence. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="x_shared" class="idref" href="#x_shared"><span class="id" title="definition">x_shared</span></a> : @<a class="idref" href="Compiler.Dsl.html#stmt"><span class="id" title="inductive">stmt</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.F"><span class="id" title="variable">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.Dsl.html#SAnd"><span class="id" title="constructor">SAnd</span></a> (<a class="idref" href="Compiler.Dsl.html#SEqs"><span class="id" title="constructor">SEqs</span></a> (<span class="id" title="abbreviation">List.cons</span> <a class="idref" href="Compiler.DslNecessity.html#eqP"><span class="id" title="definition">eqP</span></a> <span class="id" title="abbreviation">List.nil</span>))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<a class="idref" href="Compiler.Dsl.html#SOr"><span class="id" title="constructor">SOr</span></a> (<a class="idref" href="Compiler.Dsl.html#SEqs"><span class="id" title="constructor">SEqs</span></a> (<span class="id" title="abbreviation">List.cons</span> <a class="idref" href="Compiler.DslNecessity.html#eqQ"><span class="id" title="definition">eqQ</span></a> <span class="id" title="abbreviation">List.nil</span>)) (<a class="idref" href="Compiler.Dsl.html#SEqs"><span class="id" title="constructor">SEqs</span></a> (<span class="id" title="abbreviation">List.cons</span> <a class="idref" href="Compiler.DslNecessity.html#eqQ"><span class="id" title="definition">eqQ</span></a> <span class="id" title="abbreviation">List.nil</span>))).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Abbreviations for the compiler, the statement semantics, and
+      the relation semantics, all applied to the parameters and
+      environments fixed above. 
+</div>
+<div class="code">
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="compileC" class="idref" href="#compileC"><span class="id" title="abbreviation">compileC</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;(@<a class="idref" href="Compiler.Dsl.html#compile"><span class="id" title="definition">compile</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.F"><span class="id" title="variable">F</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.zero"><span class="id" title="variable">zero</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.add"><span class="id" title="variable">add</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.mul"><span class="id" title="variable">mul</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.opp"><span class="id" title="variable">opp</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.Fdec"><span class="id" title="variable">Fdec</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.G"><span class="id" title="variable">G</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.gid"><span class="id" title="variable">gid</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.ginv"><span class="id" title="variable">ginv</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.gop"><span class="id" title="variable">gop</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.gpow"><span class="id" title="variable">gpow</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="lemma">PeanoNat.Nat.eq_dec</span> 1 <a class="idref" href="Compiler.DslNecessity.html#privs"><span class="id" title="definition">privs</span></a> <a class="idref" href="Compiler.DslNecessity.html#genv"><span class="id" title="definition">genv</span></a> <a class="idref" href="Compiler.DslNecessity.html#penv"><span class="id" title="definition">penv</span></a> <a class="idref" href="Compiler.DslNecessity.html#node"><span class="id" title="definition">node</span></a>).<br/>
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="stmt_denoteC" class="idref" href="#stmt_denoteC"><span class="id" title="abbreviation">stmt_denoteC</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;(@<a class="idref" href="Compiler.Dsl.html#stmt_denote"><span class="id" title="definition">stmt_denote</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.F"><span class="id" title="variable">F</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.add"><span class="id" title="variable">add</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.mul"><span class="id" title="variable">mul</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.opp"><span class="id" title="variable">opp</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.G"><span class="id" title="variable">G</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.gid"><span class="id" title="variable">gid</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.gop"><span class="id" title="variable">gop</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.gpow"><span class="id" title="variable">gpow</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a> <a class="idref" href="Compiler.DslNecessity.html#genv"><span class="id" title="definition">genv</span></a> <a class="idref" href="Compiler.DslNecessity.html#penv"><span class="id" title="definition">penv</span></a>).<br/>
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="comp_rel_holdsC" class="idref" href="#comp_rel_holdsC"><span class="id" title="abbreviation">comp_rel_holdsC</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;(@<a class="idref" href="Compiler.Composition.html#comp_rel_holds"><span class="id" title="definition">comp_rel_holds</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.F"><span class="id" title="variable">F</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.zero"><span class="id" title="variable">zero</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.G"><span class="id" title="variable">G</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.gid"><span class="id" title="variable">gid</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.gop"><span class="id" title="variable">gop</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.gpow"><span class="id" title="variable">gpow</span></a>).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab71"></a><h2 class="section">What the checkers say about it</h2>
+
+<div class="paragraph"> </div>
+
+ The counterexample is well formed.
+
+<div class="paragraph"> </div>
+
+      <span class="inlinecode"><span class="id" title="var">wf_stmt</span></span> is the other syntactic check of Dsl.v: it demands
+      that every private variable occurring in a term be one of the
+      declared variables in <span class="inlinecode"><span class="id" title="var">privs</span></span>.  This statement passes it, and
+      the proof is by computation.
+
+<div class="paragraph"> </div>
+
+      The point of stating this is to isolate the blame.  The
+      statement is not rejected for some unrelated defect; every
+      check except <span class="inlinecode"><span class="id" title="var">disj_inv</span></span> is happy with it.  <span class="inlinecode"><span class="id" title="var">disj_inv</span></span> is the
+      only thing standing between it and the compiler. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="x_shared_wf" class="idref" href="#x_shared_wf"><span class="id" title="lemma">x_shared_wf</span></a> : <a class="idref" href="Compiler.Dsl.html#wf_stmt"><span class="id" title="definition">wf_stmt</span></a> (<span class="id" title="var">vdec</span> := <span class="id" title="lemma">PeanoNat.Nat.eq_dec</span>) <a class="idref" href="Compiler.DslNecessity.html#privs"><span class="id" title="definition">privs</span></a> <a class="idref" href="Compiler.DslNecessity.html#x_shared"><span class="id" title="definition">x_shared</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>. <span class="id" title="tactic">reflexivity</span>. <span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The disjunction checker rejects the counterexample.
+
+<div class="paragraph"> </div>
+
+      Again the proof is by computation: <span class="inlinecode"><span class="id" title="var">disj_inv</span></span> evaluates to
+      false on this statement.  It does so because the right-hand
+      side of the AND is not a conjunction of equations, so the
+      checker falls through to its second case and demands that the
+      two sides share no private variable, which they plainly do.
+
+<div class="paragraph"> </div>
+
+      Together with the theorem below, this is the whole argument:
+      the checker says no to a statement that the compiler would
+      otherwise handle wrongly. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="x_shared_rejected" class="idref" href="#x_shared_rejected"><span class="id" title="lemma">x_shared_rejected</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.Dsl.html#disj_inv"><span class="id" title="definition">disj_inv</span></a> (<span class="id" title="var">vdec</span> := <span class="id" title="lemma">PeanoNat.Nat.eq_dec</span>) <a class="idref" href="Compiler.DslNecessity.html#x_shared"><span class="id" title="definition">x_shared</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#false"><span class="id" title="constructor">false</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>. <span class="id" title="tactic">reflexivity</span>. <span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Abbreviation for the compilation of a conjunction of equations
+      into one leaf of the relation tree. 
+</div>
+<div class="code">
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="compile_leafC" class="idref" href="#compile_leafC"><span class="id" title="abbreviation">compile_leafC</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;(@<a class="idref" href="Compiler.Dsl.html#compile_leaf"><span class="id" title="definition">compile_leaf</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.F"><span class="id" title="variable">F</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.zero"><span class="id" title="variable">zero</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.add"><span class="id" title="variable">add</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.mul"><span class="id" title="variable">mul</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.opp"><span class="id" title="variable">opp</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.G"><span class="id" title="variable">G</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.gid"><span class="id" title="variable">gid</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.ginv"><span class="id" title="variable">ginv</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.gop"><span class="id" title="variable">gop</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.gpow"><span class="id" title="variable">gpow</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="lemma">PeanoNat.Nat.eq_dec</span> 1 <a class="idref" href="Compiler.DslNecessity.html#privs"><span class="id" title="definition">privs</span></a> <a class="idref" href="Compiler.DslNecessity.html#genv"><span class="id" title="definition">genv</span></a> <a class="idref" href="Compiler.DslNecessity.html#penv"><span class="id" title="definition">penv</span></a>).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab72"></a><h2 class="section">The compiled relation</h2>
+
+<div class="paragraph"> </div>
+
+ What the compiler produces from <span class="inlinecode"><span class="id" title="var">x_shared</span></span>, written out by
+      hand.
+
+<div class="paragraph"> </div>
+
+      It is a <span class="inlinecode"><span class="id" title="var">CAnd</span></span> node whose left child is the leaf for <span class="inlinecode"><span class="id" title="var">eqP</span></span> and
+      whose right child is a <span class="inlinecode"><span class="id" title="var">COr</span></span> of two copies of the leaf for
+      <span class="inlinecode"><span class="id" title="var">eqQ</span></span>.  The <span class="inlinecode"><span class="id" title="var">CAnd</span></span> is what does the damage.  Its witness type
+      is a pair, so the left child and the right child each carry
+      their own vector of private values and nothing ties the two
+      together.  The column standing for <span class="inlinecode"><span class="id" title="var">x</span></span> exists twice over, once
+      on each side, and the relation never asks the two copies to
+      agree. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="x_shared_rel" class="idref" href="#x_shared_rel"><span class="id" title="definition">x_shared_rel</span></a> : @<a class="idref" href="Compiler.Composition.html#comp_rel"><span class="id" title="inductive">comp_rel</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.F"><span class="id" title="variable">F</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.zero"><span class="id" title="variable">zero</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.G"><span class="id" title="variable">G</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.Composition.html#CAnd"><span class="id" title="constructor">CAnd</span></a> (<a class="idref" href="Compiler.DslNecessity.html#compile_leafC"><span class="id" title="abbreviation">compile_leafC</span></a> (<span class="id" title="abbreviation">List.cons</span> <a class="idref" href="Compiler.DslNecessity.html#eqP"><span class="id" title="definition">eqP</span></a> <span class="id" title="abbreviation">List.nil</span>))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<a class="idref" href="Compiler.Composition.html#COr"><span class="id" title="constructor">COr</span></a> (<a class="idref" href="Compiler.DslNecessity.html#compile_leafC"><span class="id" title="abbreviation">compile_leafC</span></a> (<span class="id" title="abbreviation">List.cons</span> <a class="idref" href="Compiler.DslNecessity.html#eqQ"><span class="id" title="definition">eqQ</span></a> <span class="id" title="abbreviation">List.nil</span>))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<a class="idref" href="Compiler.DslNecessity.html#compile_leafC"><span class="id" title="abbreviation">compile_leafC</span></a> (<span class="id" title="abbreviation">List.cons</span> <a class="idref" href="Compiler.DslNecessity.html#eqQ"><span class="id" title="definition">eqQ</span></a> <span class="id" title="abbreviation">List.nil</span>))).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The compiler really does produce that relation.
+
+<div class="paragraph"> </div>
+
+      Proved by computation, so the description above is not a
+      guess about what the compiler would do; it is what the
+      compiler does.  Without this lemma the counterexample would
+      say nothing about the actual pipeline. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="x_shared_compile" class="idref" href="#x_shared_compile"><span class="id" title="lemma">x_shared_compile</span></a> : <a class="idref" href="Compiler.DslNecessity.html#compileC"><span class="id" title="abbreviation">compileC</span></a> <a class="idref" href="Compiler.DslNecessity.html#x_shared"><span class="id" title="definition">x_shared</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#Some"><span class="id" title="constructor">Some</span></a> <a class="idref" href="Compiler.DslNecessity.html#x_shared_rel"><span class="id" title="definition">x_shared_rel</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>. <span class="id" title="tactic">reflexivity</span>. <span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab73"></a><h2 class="section">The main theorem</h2>
+
+<div class="paragraph"> </div>
+
+ The compiled relation is satisfiable while the source
+      statement is not.
+
+<div class="paragraph"> </div>
+
+      The hypotheses describe an instance in which the
+      counterexample bites.  The scalars <span class="inlinecode"><span class="id" title="var">a</span></span> and <span class="inlinecode"><span class="id" title="var">b</span></span> are the discrete
+      logarithms of the two points: raising the generator to <span class="inlinecode"><span class="id" title="var">a</span></span>
+      gives <span class="inlinecode"><span class="id" title="var">P</span></span>, and raising it to <span class="inlinecode"><span class="id" title="var">b</span></span> gives <span class="inlinecode"><span class="id" title="var">Q</span></span>.  Such scalars
+      exist whenever the two points lie in the subgroup generated
+      by <span class="inlinecode"><span class="id" title="var">g</span></span>, which is the normal situation.  The last hypothesis
+      is that <span class="inlinecode"><span class="id" title="var">P</span></span> and <span class="inlinecode"><span class="id" title="var">Q</span></span> are different points, and it is the one
+      that makes the two halves of the conclusion pull apart.
+
+<div class="paragraph"> </div>
+
+      The conclusion has two halves.
+
+<div class="paragraph"> </div>
+
+      The first half exhibits a relation and a witness: the compiled
+      relation of <span class="inlinecode"><span class="id" title="var">x_shared</span></span>, together with the witness that places
+      <span class="inlinecode"><span class="id" title="var">a</span></span> on the left of the pair and, on the right, the left branch
+      of the OR carrying <span class="inlinecode"><span class="id" title="var">b</span></span>.  Checking that this witness satisfies
+      the relation is exactly checking the two leaves separately,
+      which is what the two hypotheses about <span class="inlinecode"><span class="id" title="var">a</span></span> and <span class="inlinecode"><span class="id" title="var">b</span></span> give.
+
+<div class="paragraph"> </div>
+
+      The second half says that no witness environment satisfies the
+      source statement.  Suppose one did.  Then the left conjunct
+      would give the generator raised to the value of <span class="inlinecode"><span class="id" title="var">x</span></span> equal to
+      <span class="inlinecode"><span class="id" title="var">P</span></span>, and whichever branch of the OR holds would give the
+      generator raised to the same value of <span class="inlinecode"><span class="id" title="var">x</span></span> equal to <span class="inlinecode"><span class="id" title="var">Q</span></span>.  Both
+      readings compute the same group element, so <span class="inlinecode"><span class="id" title="var">P</span></span> and <span class="inlinecode"><span class="id" title="var">Q</span></span> would
+      be equal, contradicting the last hypothesis.
+
+<div class="paragraph"> </div>
+
+      The gap between the two halves is the whole content of the
+      file: the compiled protocol can be satisfied in a situation
+      where the sentence the user wrote cannot be. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="checker_necessary" class="idref" href="#checker_necessary"><span class="id" title="lemma">checker_necessary</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="a:30" class="idref" href="#a:30"><span class="id" title="binder">a</span></a> <a id="b:31" class="idref" href="#b:31"><span class="id" title="binder">b</span></a> : <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.F"><span class="id" title="variable">F</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.g"><span class="id" title="variable">g</span></a> <a class="idref" href="Compiler.DslNecessity.html#87de9333dc2babbb32adf858feb7dae6"><span class="id" title="notation">^</span></a> <a class="idref" href="Compiler.DslNecessity.html#a:30"><span class="id" title="variable">a</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.P"><span class="id" title="variable">P</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.g"><span class="id" title="variable">g</span></a> <a class="idref" href="Compiler.DslNecessity.html#87de9333dc2babbb32adf858feb7dae6"><span class="id" title="notation">^</span></a> <a class="idref" href="Compiler.DslNecessity.html#b:31"><span class="id" title="variable">b</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.Q"><span class="id" title="variable">Q</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.P"><span class="id" title="variable">P</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;&gt;'_x"><span class="id" title="notation">≠</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.Q"><span class="id" title="variable">Q</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">(</span><span class="id" title="notation">∃</span> <span class="id" title="notation">(</span><a id="r:32" class="idref" href="#r:32"><span class="id" title="binder">r</span></a> : @<a class="idref" href="Compiler.Composition.html#comp_rel"><span class="id" title="inductive">comp_rel</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.F"><span class="id" title="variable">F</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.zero"><span class="id" title="variable">zero</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.G"><span class="id" title="variable">G</span></a>) (<a id="w:33" class="idref" href="#w:33"><span class="id" title="binder">w</span></a> : <a class="idref" href="Compiler.Composition.html#comp_witness"><span class="id" title="definition">comp_witness</span></a> <a class="idref" href="Compiler.DslNecessity.html#r:32"><span class="id" title="variable">r</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.DslNecessity.html#compileC"><span class="id" title="abbreviation">compileC</span></a> <a class="idref" href="Compiler.DslNecessity.html#x_shared"><span class="id" title="definition">x_shared</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#Some"><span class="id" title="constructor">Some</span></a> <a class="idref" href="Compiler.DslNecessity.html#r:32"><span class="id" title="variable">r</span></a> <span class="id" title="notation">∧</span> <a class="idref" href="Compiler.DslNecessity.html#comp_rel_holdsC"><span class="id" title="abbreviation">comp_rel_holdsC</span></a> <a class="idref" href="Compiler.DslNecessity.html#r:32"><span class="id" title="variable">r</span></a> <a class="idref" href="Compiler.DslNecessity.html#w:33"><span class="id" title="variable">w</span></a><span class="id" title="notation">)</span> <span class="id" title="notation">∧</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">¬</span> <span class="id" title="notation">(</span><span class="id" title="notation">∃</span> <a id="wenv:34" class="idref" href="#wenv:34"><span class="id" title="binder">wenv</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.F"><span class="id" title="variable">F</span></a><span class="id" title="notation">,</span> <a class="idref" href="Compiler.DslNecessity.html#stmt_denoteC"><span class="id" title="abbreviation">stmt_denoteC</span></a> <a class="idref" href="Compiler.DslNecessity.html#wenv:34"><span class="id" title="variable">wenv</span></a> <a class="idref" href="Compiler.DslNecessity.html#x_shared"><span class="id" title="definition">x_shared</span></a><span class="id" title="notation">)</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">a</span> <span class="id" title="var">b</span> <span class="id" title="var">ha</span> <span class="id" title="var">hb</span> <span class="id" title="var">hne</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">assert</span> (<span class="id" title="var">hone</span> : <span class="id" title="notation">∀</span> <a id="c:35" class="idref" href="#c:35"><span class="id" title="binder"><span id="c:36" class="id">c</span></span></a> : <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.F"><span class="id" title="variable">F</span></a><span class="id" title="notation">,</span> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.mul"><span class="id" title="variable">mul</span></a> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.one"><span class="id" title="variable">one</span></a> <a class="idref" href="Compiler.DslNecessity.html#c:35"><span class="id" title="variable">c</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Compiler.DslNecessity.html#c:35"><span class="id" title="variable">c</span></a>). { <span class="id" title="tactic">intro</span> <span class="id" title="var">c</span>; <span class="id" title="tactic">field</span>. }<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">split</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">∃</span> <a class="idref" href="Compiler.DslNecessity.html#x_shared_rel"><span class="id" title="definition">x_shared_rel</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">∃</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">(</span></a><span class="id" title="definition">Vector.map</span> (<span class="id" title="keyword">fun</span> <span class="id" title="var">_</span> ⇒ <span class="id" title="var">a</span>) <a class="idref" href="Compiler.DslNecessity.html#privs"><span class="id" title="definition">privs</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">,</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#inl"><span class="id" title="constructor">inl</span></a> (<span class="id" title="definition">Vector.map</span> (<span class="id" title="keyword">fun</span> <span class="id" title="var">_</span> ⇒ <span class="id" title="var">b</span>) <a class="idref" href="Compiler.DslNecessity.html#privs"><span class="id" title="definition">privs</span></a>)<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">)</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">split</span>; [<span class="id" title="tactic">exact</span> <a class="idref" href="Compiler.DslNecessity.html#x_shared_compile"><span class="id" title="lemma">x_shared_compile</span></a> |].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span> [<a class="idref" href="Compiler.Composition.html#comp_rel_holds"><span class="id" title="definition">comp_rel_holds</span></a> <a class="idref" href="Compiler.DslNecessity.html#x_shared_rel"><span class="id" title="definition">x_shared_rel</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#fst"><span class="id" title="definition">fst</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#snd"><span class="id" title="definition">snd</span></a>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">split</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;++<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> (<a class="idref" href="Compiler.Dsl.html#compile_leaf_correct"><span class="id" title="lemma">compile_leaf_correct</span></a> <a class="idref" href="Compiler.DslNecessity.html#privs"><span class="id" title="definition">privs</span></a> <a class="idref" href="Compiler.DslNecessity.html#genv"><span class="id" title="definition">genv</span></a> <a class="idref" href="Compiler.DslNecessity.html#penv"><span class="id" title="definition">penv</span></a>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<span class="id" title="tactic">reflexivity</span> | <span class="id" title="tactic">reflexivity</span> |].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">constructor</span>; [| <span class="id" title="tactic">constructor</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> (<a class="idref" href="Compiler.Dsl.html#simple_eq_denote"><span class="id" title="lemma">simple_eq_denote</span></a> <a class="idref" href="Compiler.DslNecessity.html#genv"><span class="id" title="definition">genv</span></a> <a class="idref" href="Compiler.DslNecessity.html#penv"><span class="id" title="definition">penv</span></a> (<span class="id" title="var">Hvec</span> := <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.Hvec"><span class="id" title="variable">Hvec</span></a>)).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span>. <span class="id" title="tactic">unfold</span> <a class="idref" href="Compiler.Dsl.html#term_denote"><span class="id" title="definition">term_denote</span></a>; <span class="id" title="var">cbn</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <span class="id" title="var">hone</span>, <span class="id" title="definition">right_identity</span>. <span class="id" title="tactic">symmetry</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">ha</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;++<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> (<a class="idref" href="Compiler.Dsl.html#compile_leaf_correct"><span class="id" title="lemma">compile_leaf_correct</span></a> <a class="idref" href="Compiler.DslNecessity.html#privs"><span class="id" title="definition">privs</span></a> <a class="idref" href="Compiler.DslNecessity.html#genv"><span class="id" title="definition">genv</span></a> <a class="idref" href="Compiler.DslNecessity.html#penv"><span class="id" title="definition">penv</span></a>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<span class="id" title="tactic">reflexivity</span> | <span class="id" title="tactic">reflexivity</span> |].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">constructor</span>; [| <span class="id" title="tactic">constructor</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> (<a class="idref" href="Compiler.Dsl.html#simple_eq_denote"><span class="id" title="lemma">simple_eq_denote</span></a> <a class="idref" href="Compiler.DslNecessity.html#genv"><span class="id" title="definition">genv</span></a> <a class="idref" href="Compiler.DslNecessity.html#penv"><span class="id" title="definition">penv</span></a> (<span class="id" title="var">Hvec</span> := <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.Hvec"><span class="id" title="variable">Hvec</span></a>)).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span>. <span class="id" title="tactic">unfold</span> <a class="idref" href="Compiler.Dsl.html#term_denote"><span class="id" title="definition">term_denote</span></a>; <span class="id" title="var">cbn</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <span class="id" title="var">hone</span>, <span class="id" title="definition">right_identity</span>. <span class="id" title="tactic">symmetry</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hb</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> (<span class="id" title="var">wenv</span> &amp; <span class="id" title="var">hw</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hw</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> <span class="id" title="var">hw</span> <span class="id" title="keyword">as</span> (<span class="id" title="var">hp</span> &amp; <span class="id" title="var">hq</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">inversion</span> <span class="id" title="var">hp</span> <span class="id" title="keyword">as</span> [| ? ? <span class="id" title="var">hp'</span> <span class="id" title="var">_</span>]; <span class="id" title="tactic">subst</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> (<a class="idref" href="Compiler.Dsl.html#simple_eq_denote"><span class="id" title="lemma">simple_eq_denote</span></a> <a class="idref" href="Compiler.DslNecessity.html#genv"><span class="id" title="definition">genv</span></a> <a class="idref" href="Compiler.DslNecessity.html#penv"><span class="id" title="definition">penv</span></a> (<span class="id" title="var">Hvec</span> := <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.Hvec"><span class="id" title="variable">Hvec</span></a>)) <span class="id" title="tactic">in</span> <span class="id" title="var">hp'</span>; <span class="id" title="var">cbn</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hp'</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">unfold</span> <a class="idref" href="Compiler.Dsl.html#term_denote"><span class="id" title="definition">term_denote</span></a> <span class="id" title="tactic">in</span> <span class="id" title="var">hp'</span>; <span class="id" title="var">cbn</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hp'</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <span class="id" title="var">hone</span>, <span class="id" title="definition">right_identity</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hp'</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> <span class="id" title="var">hq</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">hq</span> | <span class="id" title="var">hq</span>];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">inversion</span> <span class="id" title="var">hq</span> <span class="id" title="keyword">as</span> [| ? ? <span class="id" title="var">hq''</span> <span class="id" title="var">_</span>]; <span class="id" title="tactic">subst</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> (<a class="idref" href="Compiler.Dsl.html#simple_eq_denote"><span class="id" title="lemma">simple_eq_denote</span></a> <a class="idref" href="Compiler.DslNecessity.html#genv"><span class="id" title="definition">genv</span></a> <a class="idref" href="Compiler.DslNecessity.html#penv"><span class="id" title="definition">penv</span></a> (<span class="id" title="var">Hvec</span> := <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity.Hvec"><span class="id" title="variable">Hvec</span></a>)) <span class="id" title="tactic">in</span> <span class="id" title="var">hq''</span>; <span class="id" title="var">cbn</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hq''</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">unfold</span> <a class="idref" href="Compiler.Dsl.html#term_denote"><span class="id" title="definition">term_denote</span></a> <span class="id" title="tactic">in</span> <span class="id" title="var">hq''</span>; <span class="id" title="var">cbn</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hq''</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <span class="id" title="var">hone</span>, <span class="id" title="definition">right_identity</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hq''</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="var">hne</span>; <span class="id" title="tactic">rewrite</span> <span class="id" title="var">hp'</span>, <span class="id" title="var">hq''</span>; <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+<span class="id" title="keyword">End</span> <a class="idref" href="Compiler.DslNecessity.html#CheckerNecessity"><span class="id" title="section">CheckerNecessity</span></a>.<br/>
+</div>
+</div>
+
+<div id="footer">
+<hr/><a href="index.html">Index</a><hr/>This page has been generated by <a href="http://rocq-prover.org/">coqdoc</a>
+</div>
+
+</div>
+
+</body>
+</html>

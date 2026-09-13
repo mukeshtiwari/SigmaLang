@@ -1,0 +1,1509 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<title>Examples.ThresholdIns</title>
+</head>
+
+<body>
+
+<div id="page">
+
+<div id="header">
+</div>
+
+<div id="main">
+
+<h1 class="libtitle">Library Examples.ThresholdIns</h1>
+
+<div class="code">
+<span class="id" title="keyword">From</span> <span class="id" title="var">Stdlib</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <span class="id" title="library">Utf8</span> <span class="id" title="library">ZArith</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">Vector</span> <span class="id" title="library">String</span> <span class="id" title="library">List</span> <span class="id" title="library">Ascii</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">DecimalString</span> <span class="id" title="library">DecimalZ</span> <span class="id" title="library">Lia</span>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Algebra</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <span class="id" title="library">Hierarchy</span>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Utility</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <span class="id" title="library">Zpstar</span> <span class="id" title="library">Sha256</span> <span class="id" title="library">StringInj</span>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Crypto</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <span class="id" title="library">Sigma</span>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Compiler</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">LinearRelation</span> <span class="id" title="library">Composition</span> <span class="id" title="library">Dsl</span> <span class="id" title="library">Surface</span> <span class="id" title="library">VarType</span> <span class="id" title="library">Nizk</span> <span class="id" title="library">Serialization</span> <span class="id" title="library">Decide</span>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Examples</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Examples.Prime.html#"><span class="id" title="library">Prime</span></a>.<br/>
+<span class="id" title="keyword">Import</span> <span class="id" title="module">Vspace</span> <span class="id" title="module">Schnorr</span> <span class="id" title="module">Zpfield</span><br/>
+&nbsp;&nbsp;<span class="id" title="module">VectorNotations</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab4"></a><h1 class="section">ThresholdIns: the whole pipeline on one concrete example</h1>
+
+
+<div class="paragraph"> </div>
+
+    This file is the end of the road.  Everything the rest of the
+    development builds in the abstract is instantiated here on a
+    single small statement, and then actually run.
+
+<div class="paragraph"> </div>
+
+<a id="lab5"></a><h2 class="section">The statement, in words</h2>
+
+
+<div class="paragraph"> </div>
+
+    There is one public generator <span class="inlinecode"><span class="id" title="var">gen</span></span> and three public group
+    elements <span class="inlinecode"><span class="id" title="var">h1</span></span>, <span class="inlinecode"><span class="id" title="var">h2</span></span> and <span class="inlinecode"><span class="id" title="var">h3</span></span>.  The prover claims:
+
+<div class="paragraph"> </div>
+
+<ul class="doclist">
+<li> I know a secret number <span class="inlinecode"><span class="id" title="var">x1</span></span> with <span class="inlinecode"><span class="id" title="var">h1</span></span> equal to <span class="inlinecode"><span class="id" title="var">gen</span></span> raised to
+      <span class="inlinecode"><span class="id" title="var">x1</span></span>, or
+
+</li>
+<li> I know a secret number <span class="inlinecode"><span class="id" title="var">x2</span></span> with <span class="inlinecode"><span class="id" title="var">h2</span></span> equal to <span class="inlinecode"><span class="id" title="var">gen</span></span> raised to
+      <span class="inlinecode"><span class="id" title="var">x2</span></span>, or
+
+</li>
+<li> I know a secret number <span class="inlinecode"><span class="id" title="var">x3</span></span> with <span class="inlinecode"><span class="id" title="var">h3</span></span> equal to <span class="inlinecode"><span class="id" title="var">gen</span></span> raised to
+      <span class="inlinecode"><span class="id" title="var">x3</span></span>,
+
+</li>
+</ul>
+
+<div class="paragraph"> </div>
+
+    and at least two of those three claims are ones I can back up.
+
+<div class="paragraph"> </div>
+
+    The secret exponent attached to a public point in this way is
+    called its discrete logarithm.  Recovering it from the public
+    point alone is believed to be hard in a well chosen group, which
+    is what makes knowing one worth proving.
+
+<div class="paragraph"> </div>
+
+    The interesting part is that the prover here genuinely holds only
+    two of the three.  The scalars <span class="inlinecode"><span class="id" title="var">x1</span></span> and <span class="inlinecode"><span class="id" title="var">x2</span></span> are chosen by hand
+    and <span class="inlinecode"><span class="id" title="var">h1</span></span> and <span class="inlinecode"><span class="id" title="var">h2</span></span> are computed from them.  The third point <span class="inlinecode"><span class="id" title="var">h3</span></span>
+    is built from an exponent that is then thrown away: the witness
+    environment <span class="inlinecode"><span class="id" title="var">wenvI</span></span> returns a dummy value for the name of the
+    third secret, and the witness <span class="inlinecode"><span class="id" title="var">thr_witness</span></span> supplies <span class="inlinecode"><span class="id" title="var">None</span></span> for
+    the third child.  So the threshold machinery is exercised
+    honestly, by a prover that is genuinely one witness short.
+
+<div class="paragraph"> </div>
+
+<a id="lab6"></a><h2 class="section">A demonstration, not a secure setting</h2>
+
+
+<div class="paragraph"> </div>
+
+    The group is built from <span class="inlinecode"><span class="id" title="var">q</span></span> equal to 2963 and <span class="inlinecode"><span class="id" title="var">p</span></span> equal to
+    <span class="inlinecode">2</span> <span class="inlinecode">×</span> <span class="inlinecode"><span class="id" title="var">q</span></span> <span class="inlinecode">+</span> <span class="inlinecode">1</span>.  These numbers are tiny.  A discrete logarithm in a
+    group of a few thousand elements is found by trying every
+    exponent, in far less than a second, on any machine.  Nothing
+    here is secure, and nothing here is meant to be.  The small
+    parameters exist so that every check in this file can be settled
+    by letting Rocq compute, and so that the extracted program runs
+    instantly.  A real deployment would leave this file unchanged
+    except for the two numbers, which would have hundreds of digits.
+
+<div class="paragraph"> </div>
+
+<a id="lab7"></a><h2 class="section">What happens, step by step</h2>
+
+
+<div class="paragraph"> </div>
+
+<ul class="doclist">
+<li> The statement is written in the surface language of
+      Compiler/Surface.v, as <span class="inlinecode"><span class="id" title="var">thr_surface</span></span>.
+
+</li>
+<li> It is elaborated down to the core language of Compiler/Dsl.v,
+      giving <span class="inlinecode"><span class="id" title="var">thr_core</span></span>; <span class="inlinecode"><span class="id" title="var">thr_elab_ok</span></span> records that elaboration
+      succeeded.
+
+</li>
+<li> Three well formedness checkers are run on the core statement.
+
+</li>
+<li> The core statement is compiled into the statement tree
+      <span class="inlinecode"><span class="id" title="var">thr_rel</span></span> of Compiler/Composition.v, which has a threshold node
+      with three children.
+
+</li>
+<li> An interactive prover and verifier are instantiated, as
+      <span class="inlinecode"><span class="id" title="var">thr_prove</span></span> and <span class="inlinecode"><span class="id" title="var">thr_verify</span></span>.
+
+</li>
+<li> The protocol is made non-interactive by Fiat-Shamir
+      (Compiler/Nizk.v) using SHA-256 from Utility/Sha256.v, and
+      <span class="inlinecode"><span class="id" title="var">thr_nizk_complete</span></span> proves that honest proofs verify.
+
+</li>
+<li> Transcripts are pushed through the wire format of
+      Compiler/Serialization.v, and <span class="inlinecode"><span class="id" title="var">thr_roundtrip</span></span> proves that
+      nothing is lost on the way.
+
+</li>
+<li> Finally a handful of wrappers with concrete first order types
+      are exported so that the OCaml driver in Executable/ can run
+      and time all of this.
+
+</li>
+</ul>
+
+<div class="paragraph"> </div>
+
+    Extraction, the last step, is the translation of these Rocq
+    definitions into OCaml source code that can be compiled and run
+    outside Rocq; see Extraction/ and
+    Executable/Thresholdcode/main.ml. 
+</div>
+<div class="code">
+<span class="id" title="keyword">Section</span> <a id="ThresholdIns" class="idref" href="#ThresholdIns"><span class="id" title="section">ThresholdIns</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab8"></a><h2 class="section">The two primes</h2>
+
+
+<div class="paragraph"> </div>
+
+      The group is a Schnorr group: the subgroup of prime order <span class="inlinecode"><span class="id" title="var">q</span></span>
+      inside the multiplicative group of integers modulo <span class="inlinecode"><span class="id" title="var">p</span></span>, where <span class="inlinecode"><span class="id" title="var">p</span></span>
+      is <span class="inlinecode">2</span> <span class="inlinecode">×</span> <span class="inlinecode"><span class="id" title="var">q</span></span> <span class="inlinecode">+</span> <span class="inlinecode">1</span>.  A prime of that shape is called a safe prime,
+      and it makes the subgroup easy to describe, since the squares
+      modulo <span class="inlinecode"><span class="id" title="var">p</span></span> are exactly the elements whose order divides <span class="inlinecode"><span class="id" title="var">q</span></span>.
+
+<div class="paragraph"> </div>
+
+      Both numbers are far too small to hide anything; see the note at
+      the top of the file. 
+<div class="paragraph"> </div>
+
+ The order of the group, and so the modulus of the scalars.
+      Exponents, challenges and responses are all counted modulo
+      <span class="inlinecode"><span class="id" title="var">q</span></span>. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="q" class="idref" href="#q"><span class="id" title="definition">q</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Numbers.BinNums.html#Z"><span class="id" title="inductive">Z</span></a> := 2963.<br/>
+</div>
+
+<div class="doc">
+The modulus of the arithmetic the group lives in.  Group
+      elements are integers modulo <span class="inlinecode"><span class="id" title="var">p</span></span>. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="p" class="idref" href="#p"><span class="id" title="definition">p</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Numbers.BinNums.html#Z"><span class="id" title="inductive">Z</span></a> := 2 <span class="id" title="notation">×</span> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a> <span class="id" title="notation">+</span> 1.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<span class="inlinecode"><span class="id" title="var">q</span></span> is prime.
+
+<div class="paragraph"> </div>
+
+      The proof is a computation rather than an argument.
+      <span class="inlinecode"><span class="id" title="var">is_prime_sqrt</span></span> of Examples/Prime.v is a boolean primality test,
+      <span class="inlinecode"><span class="id" title="var">is_prime_sqrt_correct</span></span> says that a true answer can be trusted,
+      and the kernel evaluates the test on this particular number.
+      Doing the same by hand would be a page of arithmetic with nothing
+      to learn from it.
+
+<div class="paragraph"> </div>
+
+      The fact is needed because the field and group constructions of
+      Utility/Zpstar.v take the primality of the modulus as an explicit
+      argument. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="prime_q" class="idref" href="#prime_q"><span class="id" title="lemma">prime_q</span></a> : <span class="id" title="inductive">Znumtheory.prime</span> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>. <span class="id" title="tactic">eapply</span> <a class="idref" href="Examples.Prime.html#is_prime_sqrt_correct"><span class="id" title="lemma">is_prime_sqrt_correct</span></a>. <span class="id" title="tactic">compute</span>; <span class="id" title="tactic">reflexivity</span>. <span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<span class="inlinecode"><span class="id" title="var">p</span></span> is prime, established the same way as <span class="inlinecode"><span class="id" title="var">prime_q</span></span>, and needed
+      for the same reason: the Schnorr group construction cannot be
+      applied without it. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="prime_p" class="idref" href="#prime_p"><span class="id" title="lemma">prime_p</span></a> : <span class="id" title="inductive">Znumtheory.prime</span> <a class="idref" href="Examples.ThresholdIns.html#p"><span class="id" title="definition">p</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>. <span class="id" title="tactic">eapply</span> <a class="idref" href="Examples.Prime.html#is_prime_sqrt_correct"><span class="id" title="lemma">is_prime_sqrt_correct</span></a>. <span class="id" title="tactic">compute</span>; <span class="id" title="tactic">reflexivity</span>. <span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<span class="inlinecode"><span class="id" title="var">p</span></span> really is <span class="inlinecode">2</span> <span class="inlinecode">×</span> <span class="inlinecode"><span class="id" title="var">q</span></span> <span class="inlinecode">+</span> <span class="inlinecode">1</span>.
+
+<div class="paragraph"> </div>
+
+      This is stated rather than left implicit because several
+      constructions in Utility/Zpstar.v take the equation as an
+      argument.  Knowing the shape of <span class="inlinecode"><span class="id" title="var">p</span></span> is what lets them build the
+      order <span class="inlinecode"><span class="id" title="var">q</span></span> subgroup and invert inside it. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="safe_prime" class="idref" href="#safe_prime"><span class="id" title="lemma">safe_prime</span></a> : <a class="idref" href="Examples.ThresholdIns.html#p"><span class="id" title="definition">p</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> (2 <span class="id" title="notation">×</span> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a> <span class="id" title="notation">+</span> 1)%<span class="id" title="var">Z</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>. <span class="id" title="tactic">compute</span>. <span class="id" title="tactic">exact</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#eq_refl"><span class="id" title="constructor">eq_refl</span></a>. <span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab9"></a><h2 class="section">The field and the group</h2>
+
+
+<div class="paragraph"> </div>
+
+      <span class="inlinecode"><span class="id" title="var">F</span></span> is the field of scalars and <span class="inlinecode"><span class="id" title="var">G</span></span> is the group of public
+      points.  The definitions that follow are plain abbreviations:
+      each one fixes the parameters of a general construction from
+      Utility/Zpstar.v, so that the rest of the file can write <span class="inlinecode"><span class="id" title="var">fadd</span></span>
+      instead of repeating the modulus and its primality proof at every
+      use. 
+<div class="paragraph"> </div>
+
+ The scalar field: the integers modulo <span class="inlinecode"><span class="id" title="var">q</span></span>.  A value is a record
+      pairing an integer with a proof that it is already reduced. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="F" class="idref" href="#F"><span class="id" title="definition">F</span></a> : <span class="id" title="keyword">Type</span> := @<span class="id" title="record">Zp</span> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a>.<br/>
+</div>
+
+<div class="doc">
+The group: the elements of order dividing <span class="inlinecode"><span class="id" title="var">q</span></span> modulo <span class="inlinecode"><span class="id" title="var">p</span></span>.  A
+      value is a record pairing an integer with a proof that it is in
+      range and a proof that raising it to <span class="inlinecode"><span class="id" title="var">q</span></span> gives one. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="G" class="idref" href="#G"><span class="id" title="definition">G</span></a> : <span class="id" title="keyword">Type</span> := @<span class="id" title="record">Schnorr_group</span> <a class="idref" href="Examples.ThresholdIns.html#p"><span class="id" title="definition">p</span></a> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The additive unit of the scalar field. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="fzero" class="idref" href="#fzero"><span class="id" title="definition">fzero</span></a> : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> := @<span class="id" title="definition">Zpfield.zero</span> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a> <a class="idref" href="Examples.ThresholdIns.html#prime_q"><span class="id" title="lemma">prime_q</span></a>.<br/>
+</div>
+
+<div class="doc">
+The multiplicative unit of the scalar field. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="fone" class="idref" href="#fone"><span class="id" title="definition">fone</span></a> : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> := @<span class="id" title="definition">Zpfield.one</span> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a> <a class="idref" href="Examples.ThresholdIns.html#prime_q"><span class="id" title="lemma">prime_q</span></a>.<br/>
+</div>
+
+<div class="doc">
+Addition of scalars, modulo <span class="inlinecode"><span class="id" title="var">q</span></span>. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="fadd" class="idref" href="#fadd"><span class="id" title="definition">fadd</span></a> : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> := @<span class="id" title="definition">zp_add</span> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a>.<br/>
+</div>
+
+<div class="doc">
+Multiplication of scalars, modulo <span class="inlinecode"><span class="id" title="var">q</span></span>. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="fmul" class="idref" href="#fmul"><span class="id" title="definition">fmul</span></a> : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> := @<span class="id" title="definition">zp_mul</span> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a>.<br/>
+</div>
+
+<div class="doc">
+Subtraction of scalars, modulo <span class="inlinecode"><span class="id" title="var">q</span></span>. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="fsub" class="idref" href="#fsub"><span class="id" title="definition">fsub</span></a> : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> := @<span class="id" title="definition">zp_sub</span> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a>.<br/>
+</div>
+
+<div class="doc">
+Division of scalars.  It is total because <span class="inlinecode"><span class="id" title="var">q</span></span> is prime, so every
+      nonzero scalar has an inverse. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="fdiv" class="idref" href="#fdiv"><span class="id" title="definition">fdiv</span></a> : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> := @<span class="id" title="definition">zp_div</span> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a>.<br/>
+</div>
+
+<div class="doc">
+Negation of a scalar. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="fopp" class="idref" href="#fopp"><span class="id" title="definition">fopp</span></a> : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> := @<span class="id" title="definition">zp_opp</span> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a> <a class="idref" href="Examples.ThresholdIns.html#prime_q"><span class="id" title="lemma">prime_q</span></a>.<br/>
+</div>
+
+<div class="doc">
+The multiplicative inverse of a scalar. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="finv" class="idref" href="#finv"><span class="id" title="definition">finv</span></a> : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> := @<span class="id" title="definition">zp_inv</span> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a>.<br/>
+</div>
+
+<div class="doc">
+Decidable equality on scalars.  Several parts of the pipeline
+      need to compare scalars while computing, not merely to state that
+      they are equal. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="fdec" class="idref" href="#fdec"><span class="id" title="definition">fdec</span></a> : <span class="id" title="keyword">∀</span> <a id="x:1" class="idref" href="#x:1"><span class="id" title="binder">x</span></a> <a id="y:2" class="idref" href="#y:2"><span class="id" title="binder">y</span></a> : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a>, <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">{</span></a><a class="idref" href="Examples.ThresholdIns.html#x:1"><span class="id" title="variable">x</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Examples.ThresholdIns.html#y:2"><span class="id" title="variable">y</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">}</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">+</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">{</span></a><a class="idref" href="Examples.ThresholdIns.html#x:1"><span class="id" title="variable">x</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;&gt;'_x"><span class="id" title="notation">≠</span></a> <a class="idref" href="Examples.ThresholdIns.html#y:2"><span class="id" title="variable">y</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">}</span></a> := @<span class="id" title="lemma">zp_dec</span> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a>.<br/>
+</div>
+
+<div class="doc">
+The identity element of the group. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="gone" class="idref" href="#gone"><span class="id" title="definition">gone</span></a> : <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> := @<span class="id" title="definition">Schnorr.one</span> <a class="idref" href="Examples.ThresholdIns.html#p"><span class="id" title="definition">p</span></a> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a> <a class="idref" href="Examples.ThresholdIns.html#prime_p"><span class="id" title="lemma">prime_p</span></a> <a class="idref" href="Examples.ThresholdIns.html#prime_q"><span class="id" title="lemma">prime_q</span></a>.<br/>
+</div>
+
+<div class="doc">
+The group operation, written multiplicatively. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="gmul" class="idref" href="#gmul"><span class="id" title="definition">gmul</span></a> : <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> := @<span class="id" title="definition">mul_schnorr_group</span> <a class="idref" href="Examples.ThresholdIns.html#p"><span class="id" title="definition">p</span></a> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a> <a class="idref" href="Examples.ThresholdIns.html#prime_p"><span class="id" title="lemma">prime_p</span></a> <a class="idref" href="Examples.ThresholdIns.html#prime_q"><span class="id" title="lemma">prime_q</span></a>.<br/>
+</div>
+
+<div class="doc">
+Raising a group element to a scalar.  This is the operation the
+      whole protocol is about: the relation between a public point and
+      its discrete logarithm.
+
+<div class="paragraph"> </div>
+
+      The leading <span class="inlinecode">2</span> is the cofactor.  A Schnorr group is built inside
+      the integers modulo <span class="inlinecode"><span class="id" title="var">p</span></span> by taking the elements whose order
+      divides <span class="inlinecode"><span class="id" title="var">q</span></span>, and that construction needs <span class="inlinecode"><span class="id" title="var">p</span></span> to have the shape
+      <span class="inlinecode"><span class="id" title="var">k</span></span> <span class="inlinecode">×</span> <span class="inlinecode"><span class="id" title="var">q</span></span> <span class="inlinecode">+</span> <span class="inlinecode">1</span> for some <span class="inlinecode"><span class="id" title="var">k</span></span>.  Here <span class="inlinecode"><span class="id" title="var">p</span></span> is <span class="inlinecode">2</span> <span class="inlinecode">×</span> <span class="inlinecode"><span class="id" title="var">q</span></span> <span class="inlinecode">+</span> <span class="inlinecode">1</span>, so the
+      cofactor <span class="inlinecode"><span class="id" title="var">k</span></span> is <span class="inlinecode">2</span>, and <span class="inlinecode"><span class="id" title="var">safe_prime</span></span> is the proof of exactly
+      that equation.  A prime of this shape is called a safe prime. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="gpow" class="idref" href="#gpow"><span class="id" title="definition">gpow</span></a> : <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> := @<span class="id" title="definition">pow</span> 2 <a class="idref" href="Examples.ThresholdIns.html#p"><span class="id" title="definition">p</span></a> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a> <a class="idref" href="Examples.ThresholdIns.html#safe_prime"><span class="id" title="lemma">safe_prime</span></a> <a class="idref" href="Examples.ThresholdIns.html#prime_p"><span class="id" title="lemma">prime_p</span></a> <a class="idref" href="Examples.ThresholdIns.html#prime_q"><span class="id" title="lemma">prime_q</span></a>.<br/>
+</div>
+
+<div class="doc">
+Decidable equality on group elements.  The verifier is a boolean
+      function, so it needs to compare points by computation. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="gdec" class="idref" href="#gdec"><span class="id" title="definition">gdec</span></a> : <span class="id" title="keyword">∀</span> <a id="x:3" class="idref" href="#x:3"><span class="id" title="binder">x</span></a> <a id="y:4" class="idref" href="#y:4"><span class="id" title="binder">y</span></a> : <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a>, <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">{</span></a><a class="idref" href="Examples.ThresholdIns.html#x:3"><span class="id" title="variable">x</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Examples.ThresholdIns.html#y:4"><span class="id" title="variable">y</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">}</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">+</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">{</span></a><a class="idref" href="Examples.ThresholdIns.html#x:3"><span class="id" title="variable">x</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;&gt;'_x"><span class="id" title="notation">≠</span></a> <a class="idref" href="Examples.ThresholdIns.html#y:4"><span class="id" title="variable">y</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">}</span></a> := @<span class="id" title="lemma">Schnorr.dec_zpstar</span> <a class="idref" href="Examples.ThresholdIns.html#p"><span class="id" title="definition">p</span></a> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a>.<br/>
+</div>
+
+<div class="doc">
+The inverse of a group element. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="ginv_g" class="idref" href="#ginv_g"><span class="id" title="definition">ginv_g</span></a> : <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> := @<span class="id" title="definition">inv_schnorr_group</span> 2 <a class="idref" href="Examples.ThresholdIns.html#p"><span class="id" title="definition">p</span></a> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a> <a class="idref" href="Examples.ThresholdIns.html#safe_prime"><span class="id" title="lemma">safe_prime</span></a> <a class="idref" href="Examples.ThresholdIns.html#prime_p"><span class="id" title="lemma">prime_p</span></a> <a class="idref" href="Examples.ThresholdIns.html#prime_q"><span class="id" title="lemma">prime_q</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The proof that the field and the group fit together as a vector
+      space.
+
+<div class="paragraph"> </div>
+
+      Vector space here means: the group is written multiplicatively,
+      scalars act on it by exponentiation, and the expected laws hold,
+      for example that raising to a sum of scalars multiplies the two
+      results.  Every general theorem of the development is stated for
+      an arbitrary pair of a field and a group related in this way, so
+      handing over <span class="inlinecode"><span class="id" title="var">Hvec</span></span> is what allows those theorems to be applied
+      to this concrete instance. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="Hvec" class="idref" href="#Hvec"><span class="id" title="definition">Hvec</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;@<span class="id" title="class">vector_space</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> (@<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#eq"><span class="id" title="inductive">eq</span></a> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a>) <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a> <a class="idref" href="Examples.ThresholdIns.html#fone"><span class="id" title="definition">fone</span></a> <a class="idref" href="Examples.ThresholdIns.html#fadd"><span class="id" title="definition">fadd</span></a> <a class="idref" href="Examples.ThresholdIns.html#fmul"><span class="id" title="definition">fmul</span></a> <a class="idref" href="Examples.ThresholdIns.html#fsub"><span class="id" title="definition">fsub</span></a> <a class="idref" href="Examples.ThresholdIns.html#fdiv"><span class="id" title="definition">fdiv</span></a> <a class="idref" href="Examples.ThresholdIns.html#fopp"><span class="id" title="definition">fopp</span></a> <a class="idref" href="Examples.ThresholdIns.html#finv"><span class="id" title="definition">finv</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> (@<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#eq"><span class="id" title="inductive">eq</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a>) <a class="idref" href="Examples.ThresholdIns.html#gone"><span class="id" title="definition">gone</span></a> <a class="idref" href="Examples.ThresholdIns.html#ginv_g"><span class="id" title="definition">ginv_g</span></a> <a class="idref" href="Examples.ThresholdIns.html#gmul"><span class="id" title="definition">gmul</span></a> <a class="idref" href="Examples.ThresholdIns.html#gpow"><span class="id" title="definition">gpow</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;@<span class="id" title="instance">pow_vspace</span> 2 <a class="idref" href="Examples.ThresholdIns.html#p"><span class="id" title="definition">p</span></a> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a> <a class="idref" href="Examples.ThresholdIns.html#safe_prime"><span class="id" title="lemma">safe_prime</span></a> <a class="idref" href="Examples.ThresholdIns.html#prime_p"><span class="id" title="lemma">prime_p</span></a> <a class="idref" href="Examples.ThresholdIns.html#prime_q"><span class="id" title="lemma">prime_q</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Build a scalar from an arbitrary integer.
+
+<div class="paragraph"> </div>
+
+      A scalar is an integer together with a proof that it equals its
+      own reduction modulo <span class="inlinecode"><span class="id" title="var">q</span></span>.  <span class="inlinecode"><span class="id" title="var">mk_field</span></span> <span class="inlinecode"><span class="id" title="var">z</span></span> reduces <span class="inlinecode"><span class="id" title="var">z</span></span> and supplies
+      that proof, so any integer literal can be used where a scalar is
+      expected.  It is built with <span class="inlinecode"><span class="id" title="tactic">refine</span></span> and closed with <span class="inlinecode"><span class="id" title="keyword">Defined</span></span>
+      rather than <span class="inlinecode"><span class="id" title="keyword">Qed</span></span> so that it reduces during evaluation, which
+      matters because everything in this file is meant to be
+      computed. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="mk_field" class="idref" href="#mk_field"><span class="id" title="definition">mk_field</span></a> (<a id="z:5" class="idref" href="#z:5"><span class="id" title="binder">z</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Numbers.BinNums.html#Z"><span class="id" title="inductive">Z</span></a>) : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">refine</span> {| <span class="id" title="projection">Zpfield.v</span> := <span class="id" title="definition">Z.modulo</span> <span class="id" title="var">z</span> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a>; <span class="id" title="projection">Zpfield.Hv</span> := <span class="id" title="var">_</span> |}.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">Z.mod_mod</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intro</span> <span class="id" title="var">ha</span>; <span class="id" title="tactic">discriminate</span> <span class="id" title="var">ha</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Defined</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The first discrete logarithm the prover knows, the scalar three.
+
+<div class="paragraph"> </div>
+
+      This is a witness: a private value whose existence the proof
+      asserts without revealing it.  It is small and public in the
+      source, which is fine, because the file demonstrates the
+      machinery rather than keeping a secret. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="x1" class="idref" href="#x1"><span class="id" title="definition">x1</span></a> : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> := <a class="idref" href="Examples.ThresholdIns.html#mk_field"><span class="id" title="definition">mk_field</span></a> 3.<br/>
+</div>
+
+<div class="doc">
+The second discrete logarithm the prover knows, the scalar five.
+      Together with <span class="inlinecode"><span class="id" title="var">x1</span></span> these are the only two secrets the prover ever
+      has. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="x2" class="idref" href="#x2"><span class="id" title="definition">x2</span></a> : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> := <a class="idref" href="Examples.ThresholdIns.html#mk_field"><span class="id" title="definition">mk_field</span></a> 5.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The generator of the group, the element four.
+
+<div class="paragraph"> </div>
+
+      The record carries two side conditions: that the value lies
+      strictly between zero and <span class="inlinecode"><span class="id" title="var">p</span></span>, and that raising it to <span class="inlinecode"><span class="id" title="var">q</span></span> modulo
+      <span class="inlinecode"><span class="id" title="var">p</span></span> gives one, which is what places it inside the order <span class="inlinecode"><span class="id" title="var">q</span></span>
+      subgroup.  Both are settled by evaluation rather than by
+      argument. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="gen" class="idref" href="#gen"><span class="id" title="definition">gen</span></a> : <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">refine</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{| <span class="id" title="projection">Schnorr.v</span> := 4;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="projection">Ha</span> := <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#conj"><span class="id" title="constructor">conj</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#eq_refl"><span class="id" title="constructor">eq_refl</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#eq_refl"><span class="id" title="constructor">eq_refl</span></a> : (0 <span class="id" title="notation">&lt;</span> 4 <span class="id" title="notation">&lt;</span> <a class="idref" href="Examples.ThresholdIns.html#p"><span class="id" title="definition">p</span></a>)%<span class="id" title="var">Z</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="projection">Hb</span> := <span class="id" title="var">_</span> |}.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">vm_cast_no_check</span> (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#eq_refl"><span class="id" title="constructor">eq_refl</span></a> (<span class="id" title="definition">Zpow_facts.Zpow_mod</span> 4 <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a> <a class="idref" href="Examples.ThresholdIns.html#p"><span class="id" title="definition">p</span></a>)).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Defined</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The first public point, <span class="inlinecode"><span class="id" title="var">gen</span></span> raised to <span class="inlinecode"><span class="id" title="var">x1</span></span>.
+
+<div class="paragraph"> </div>
+
+      The <span class="inlinecode"><span class="id" title="keyword">Eval</span></span> <span class="inlinecode"><span class="id" title="tactic">compute</span></span> <span class="inlinecode"><span class="id" title="tactic">in</span></span> stores the resulting group element as a
+      concrete number rather than as an unevaluated exponentiation.
+      Later definitions compare points against it, and comparing
+      evaluated values is far cheaper. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="h1" class="idref" href="#h1"><span class="id" title="definition">h1</span></a> : <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> := <span class="id" title="keyword">Eval</span> <span class="id" title="tactic">compute</span> <span class="id" title="tactic">in</span> <a class="idref" href="Examples.ThresholdIns.html#gpow"><span class="id" title="definition">gpow</span></a> <a class="idref" href="Examples.ThresholdIns.html#gen"><span class="id" title="definition">gen</span></a> <a class="idref" href="Examples.ThresholdIns.html#x1"><span class="id" title="definition">x1</span></a>.<br/>
+</div>
+
+<div class="doc">
+The second public point, <span class="inlinecode"><span class="id" title="var">gen</span></span> raised to <span class="inlinecode"><span class="id" title="var">x2</span></span>, evaluated for the
+      same reason as <span class="inlinecode"><span class="id" title="var">h1</span></span>. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="h2" class="idref" href="#h2"><span class="id" title="definition">h2</span></a> : <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> := <span class="id" title="keyword">Eval</span> <span class="id" title="tactic">compute</span> <span class="id" title="tactic">in</span> <a class="idref" href="Examples.ThresholdIns.html#gpow"><span class="id" title="definition">gpow</span></a> <a class="idref" href="Examples.ThresholdIns.html#gen"><span class="id" title="definition">gen</span></a> <a class="idref" href="Examples.ThresholdIns.html#x2"><span class="id" title="definition">x2</span></a>.<br/>
+</div>
+
+<div class="doc">
+The third public point, <span class="inlinecode"><span class="id" title="var">gen</span></span> raised to the scalar seven.
+
+<div class="paragraph"> </div>
+
+      The exponent seven occurs only in this line and is never stored
+      anywhere the prover can reach.  That is the whole point of the
+      example: <span class="inlinecode"><span class="id" title="var">h3</span></span> is an ordinary group element with an ordinary
+      discrete logarithm, but the prover of this file does not have it,
+      so it can back up only two of the three claims. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="h3" class="idref" href="#h3"><span class="id" title="definition">h3</span></a> : <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> := <span class="id" title="keyword">Eval</span> <span class="id" title="tactic">compute</span> <span class="id" title="tactic">in</span> <a class="idref" href="Examples.ThresholdIns.html#gpow"><span class="id" title="definition">gpow</span></a> <a class="idref" href="Examples.ThresholdIns.html#gen"><span class="id" title="definition">gen</span></a> (<a class="idref" href="Examples.ThresholdIns.html#mk_field"><span class="id" title="definition">mk_field</span></a> 7).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab10"></a><h2 class="section">The statement in the surface language</h2>
+
+
+<div class="paragraph"> </div>
+
+      The surface language of Compiler/Surface.v is what a user writes.
+      It speaks of named public points and named private scalars, and
+      is later elaborated into the smaller core language that the
+      compiler works on. 
+<div class="paragraph"> </div>
+
+ Names are plain strings in this instance, so string notation is
+      opened for the rest of the section. 
+</div>
+<div class="code">
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Open</span> <span class="id" title="keyword">Scope</span> <span class="id" title="var">string_scope</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The example statement, written out.
+
+<div class="paragraph"> </div>
+
+      <span class="inlinecode"><span class="id" title="var">TThresh</span></span> <span class="inlinecode">2</span> is the threshold combinator: at least two of the
+      statements in the list must hold.  Each entry is an equality
+      between two group expressions, where <span class="inlinecode"><span class="id" title="var">YPt</span></span> names a public point
+      and <span class="inlinecode"><span class="id" title="var">YPow</span></span> raises a named public point to a named private scalar.
+      So the three entries say that the first public point is the
+      generator raised to the first secret, and likewise for the second
+      and the third.
+
+<div class="paragraph"> </div>
+
+      This is the statement described in words at the top of the
+      file. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="thr_surface" class="idref" href="#thr_surface"><span class="id" title="definition">thr_surface</span></a> : @<span class="id" title="inductive">sstmt</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <span class="id" title="inductive">string</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="constructor">TThresh</span> 2<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="abbreviation">List.cons</span> (<span class="id" title="constructor">TEq</span> (<span class="id" title="constructor">YPt</span> "H1") (<span class="id" title="constructor">YPow</span> "G" (<span class="id" title="constructor">XPriv</span> "x1")))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="abbreviation">List.cons</span> (<span class="id" title="constructor">TEq</span> (<span class="id" title="constructor">YPt</span> "H2") (<span class="id" title="constructor">YPow</span> "G" (<span class="id" title="constructor">XPriv</span> "x2")))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="abbreviation">List.cons</span> (<span class="id" title="constructor">TEq</span> (<span class="id" title="constructor">YPt</span> "H3") (<span class="id" title="constructor">YPow</span> "G" (<span class="id" title="constructor">XPriv</span> "x3"))) <span class="id" title="abbreviation">List.nil</span>))).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Every name the statement mentions, plus two spare ones.
+
+<div class="paragraph"> </div>
+
+      Elaboration has to know which names are already taken, because it
+      invents fresh names for the intermediate variables that some
+      surface constructs expand into.  The list holds the generator,
+      the three public points and the three private scalars.  The last
+      two entries are the names of the Pedersen bases used by the range
+      and inequality gadgets.  This statement uses neither gadget, so
+      those bases are never touched, but the elaborator takes them
+      regardless. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="used0" class="idref" href="#used0"><span class="id" title="definition">used0</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <span class="id" title="inductive">string</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="abbreviation">List.cons</span> "G" (<span class="id" title="abbreviation">List.cons</span> "H1" (<span class="id" title="abbreviation">List.cons</span> "H2" (<span class="id" title="abbreviation">List.cons</span> "H3"<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="abbreviation">List.cons</span> "x1" (<span class="id" title="abbreviation">List.cons</span> "x2" (<span class="id" title="abbreviation">List.cons</span> "x3"<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="abbreviation">List.cons</span> "A" (<span class="id" title="abbreviation">List.cons</span> "B" <span class="id" title="abbreviation">List.nil</span>)))))))).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Elaboration from the surface language to the core language, with
+      all of its parameters already fixed: this file's field
+      operations, strings as the type of names together with their
+      variable type instance, and the two Pedersen base names. 
+</div>
+<div class="code">
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="elabC" class="idref" href="#elabC"><span class="id" title="abbreviation">elabC</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;(@<span class="id" title="definition">elab</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a> <a class="idref" href="Examples.ThresholdIns.html#fone"><span class="id" title="definition">fone</span></a> <a class="idref" href="Examples.ThresholdIns.html#fadd"><span class="id" title="definition">fadd</span></a> <a class="idref" href="Examples.ThresholdIns.html#fopp"><span class="id" title="definition">fopp</span></a> <span class="id" title="inductive">string</span> <span class="id" title="instance">VarTypeString</span> "A" "B").<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The statement after elaboration, in the core language of
+      Compiler/Dsl.v.
+
+<div class="paragraph"> </div>
+
+      Elaboration may fail, so it returns an option.  The <span class="inlinecode"><span class="id" title="keyword">match</span></span> picks
+      the successful branch and falls back on the empty conjunction
+      otherwise, which keeps the definition total.  The fallback is
+      never taken here, and <span class="inlinecode"><span class="id" title="var">thr_elab_ok</span></span> is the proof of that. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="thr_core" class="idref" href="#thr_core"><span class="id" title="definition">thr_core</span></a> : @<span class="id" title="inductive">stmt</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <span class="id" title="inductive">string</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Examples.ThresholdIns.html#elabC"><span class="id" title="abbreviation">elabC</span></a> <a class="idref" href="Examples.ThresholdIns.html#used0"><span class="id" title="definition">used0</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_surface"><span class="id" title="definition">thr_surface</span></a> <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#Some"><span class="id" title="constructor">Some</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">(</span></a><span class="id" title="var">c</span><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">,</span></a> <span class="id" title="var">_</span><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">)</span></a> ⇒ <span class="id" title="var">c</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#None"><span class="id" title="constructor">None</span></a> ⇒ <span class="id" title="constructor">SEqs</span> <span class="id" title="abbreviation">List.nil</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">end</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Elaboration really did succeed, and produced exactly <span class="inlinecode"><span class="id" title="var">thr_core</span></span>
+      while leaving the set of used names unchanged.
+
+<div class="paragraph"> </div>
+
+      Both sides are closed terms, so the claim is settled by
+      evaluating them and observing that they agree.  Besides being a
+      sanity check, this equation is a hypothesis of
+      <span class="inlinecode"><span class="id" title="var">thr_surface_sound</span></span> at the end of the file, which is what carries
+      the guarantee back up to the surface statement. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Example</span> <a id="thr_elab_ok" class="idref" href="#thr_elab_ok"><span class="id" title="definition">thr_elab_ok</span></a> : <a class="idref" href="Examples.ThresholdIns.html#elabC"><span class="id" title="abbreviation">elabC</span></a> <a class="idref" href="Examples.ThresholdIns.html#used0"><span class="id" title="definition">used0</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_surface"><span class="id" title="definition">thr_surface</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#Some"><span class="id" title="constructor">Some</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">(</span></a><a class="idref" href="Examples.ThresholdIns.html#thr_core"><span class="id" title="definition">thr_core</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">,</span></a> <a class="idref" href="Examples.ThresholdIns.html#used0"><span class="id" title="definition">used0</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">)</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>. <span class="id" title="keyword">vm_compute</span>; <span class="id" title="tactic">reflexivity</span>. <span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab11"></a><h2 class="section">The instance: names, points and secrets</h2>
+
+<div class="paragraph"> </div>
+
+ The declared private variables, in order.
+
+<div class="paragraph"> </div>
+
+      The compiler turns a statement about named secrets into linear
+      algebra over a fixed length witness vector, and this vector fixes
+      that order: position zero is the first secret, position one the
+      second, position two the third.  Its length, three, is what makes
+      a compiled witness a vector of three scalars. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="privs" class="idref" href="#privs"><span class="id" title="definition">privs</span></a> : <span class="id" title="inductive">Vector.t</span> <span class="id" title="inductive">string</span> 3 := <span class="id" title="notation">[</span>"x1"<span class="id" title="notation">;</span> "x2"<span class="id" title="notation">;</span> "x3"<span class="id" title="notation">]</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The public environment: what each public name stands for.
+
+<div class="paragraph"> </div>
+
+      It sends the generator name to <span class="inlinecode"><span class="id" title="var">gen</span></span> and the three point names to
+      <span class="inlinecode"><span class="id" title="var">h1</span></span>, <span class="inlinecode"><span class="id" title="var">h2</span></span> and <span class="inlinecode"><span class="id" title="var">h3</span></span>.  Every other name, including the two unused
+      Pedersen bases, is sent to the identity element. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="genvI" class="idref" href="#genvI"><span class="id" title="definition">genvI</span></a> : <span class="id" title="inductive">string</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">fun</span> <a id="s:6" class="idref" href="#s:6"><span class="id" title="binder">s</span></a> ⇒<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">if</span> <span class="id" title="definition">String.eqb</span> <a class="idref" href="Examples.ThresholdIns.html#s:6"><span class="id" title="variable">s</span></a> "G" <span class="id" title="keyword">then</span> <a class="idref" href="Examples.ThresholdIns.html#gen"><span class="id" title="definition">gen</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">else</span> <span class="id" title="keyword">if</span> <span class="id" title="definition">String.eqb</span> <a class="idref" href="Examples.ThresholdIns.html#s:6"><span class="id" title="variable">s</span></a> "H1" <span class="id" title="keyword">then</span> <a class="idref" href="Examples.ThresholdIns.html#h1"><span class="id" title="definition">h1</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">else</span> <span class="id" title="keyword">if</span> <span class="id" title="definition">String.eqb</span> <a class="idref" href="Examples.ThresholdIns.html#s:6"><span class="id" title="variable">s</span></a> "H2" <span class="id" title="keyword">then</span> <a class="idref" href="Examples.ThresholdIns.html#h2"><span class="id" title="definition">h2</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">else</span> <span class="id" title="keyword">if</span> <span class="id" title="definition">String.eqb</span> <a class="idref" href="Examples.ThresholdIns.html#s:6"><span class="id" title="variable">s</span></a> "H3" <span class="id" title="keyword">then</span> <a class="idref" href="Examples.ThresholdIns.html#h3"><span class="id" title="definition">h3</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">else</span> <a class="idref" href="Examples.ThresholdIns.html#gone"><span class="id" title="definition">gone</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The environment of public scalars.
+
+<div class="paragraph"> </div>
+
+      This statement mentions none, so the function is constant.  It
+      still has to be supplied, because the general definitions take
+      one. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="penvI" class="idref" href="#penvI"><span class="id" title="definition">penvI</span></a> : <span class="id" title="inductive">string</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> := <span class="id" title="keyword">fun</span> <span class="id" title="var">_</span> ⇒ <a class="idref" href="Examples.ThresholdIns.html#fone"><span class="id" title="definition">fone</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The prover's private environment: what each secret name stands
+      for.
+
+<div class="paragraph"> </div>
+
+      The first two names return the two scalars the prover knows.
+      Every other name, the third secret included, returns zero.
+      Returning zero is not a claim that the third discrete logarithm
+      is zero; it is simply a value that is never used, because
+      <span class="inlinecode"><span class="id" title="var">thr_witness</span></span> marks the third child as absent. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="wenvI" class="idref" href="#wenvI"><span class="id" title="definition">wenvI</span></a> : <span class="id" title="inductive">string</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">fun</span> <a id="s:7" class="idref" href="#s:7"><span class="id" title="binder">s</span></a> ⇒<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">if</span> <span class="id" title="definition">String.eqb</span> <a class="idref" href="Examples.ThresholdIns.html#s:7"><span class="id" title="variable">s</span></a> "x1" <span class="id" title="keyword">then</span> <a class="idref" href="Examples.ThresholdIns.html#x1"><span class="id" title="definition">x1</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">else</span> <span class="id" title="keyword">if</span> <span class="id" title="definition">String.eqb</span> <a class="idref" href="Examples.ThresholdIns.html#s:7"><span class="id" title="variable">s</span></a> "x2" <span class="id" title="keyword">then</span> <a class="idref" href="Examples.ThresholdIns.html#x2"><span class="id" title="definition">x2</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">else</span> <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The public interpolation points used by threshold nodes.
+
+<div class="paragraph"> </div>
+
+      A threshold node spreads the verifier's single challenge over its
+      children by choosing a polynomial whose value at zero is that
+      challenge, and giving child number <span class="inlinecode"><span class="id" title="var">i</span></span> the value of the
+      polynomial at a fixed public point.  <span class="inlinecode"><span class="id" title="var">node</span></span> <span class="inlinecode"><span class="id" title="var">i</span></span> is that fixed point
+      for child <span class="inlinecode"><span class="id" title="var">i</span></span>, namely the scalar <span class="inlinecode"><span class="id" title="var">i</span></span> <span class="inlinecode">+</span> <span class="inlinecode">1</span>.  The points must be
+      pairwise different and different from zero, which is why the
+      counting starts at one.  Compiler/Shamir.v explains why this
+      construction makes the threshold sound. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="node" class="idref" href="#node"><span class="id" title="definition">node</span></a> (<a id="i:8" class="idref" href="#i:8"><span class="id" title="binder">i</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> := <a class="idref" href="Examples.ThresholdIns.html#mk_field"><span class="id" title="definition">mk_field</span></a> (<span class="id" title="definition">Z.of_nat</span> (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#S"><span class="id" title="constructor">S</span></a> <a class="idref" href="Examples.ThresholdIns.html#i:8"><span class="id" title="variable">i</span></a>)).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The core statement is well formed.
+
+<div class="paragraph"> </div>
+
+      Well formedness means that every private variable occurring in
+      the statement was declared in <span class="inlinecode"><span class="id" title="var">privs</span></span>.  The checker is a boolean
+      function, so the fact is established by running it and seeing
+      true, rather than by inspecting the statement by hand. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Example</span> <a id="thr_wf" class="idref" href="#thr_wf"><span class="id" title="definition">thr_wf</span></a> : <span class="id" title="definition">wf_stmt</span> (<span class="id" title="var">vdec</span> := <span class="id" title="definition">String.string_dec</span>) <a class="idref" href="Examples.ThresholdIns.html#privs"><span class="id" title="definition">privs</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_core"><span class="id" title="definition">thr_core</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>. <span class="id" title="keyword">vm_compute</span>; <span class="id" title="tactic">reflexivity</span>. <span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The declared private variables are pairwise different.
+
+<div class="paragraph"> </div>
+
+      Duplicates in <span class="inlinecode"><span class="id" title="var">privs</span></span> would make the mapping from names to
+      positions in the witness vector ambiguous, so the compiler
+      requires them to be distinct.  Again the check is a computation. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Example</span> <a id="thr_nodup" class="idref" href="#thr_nodup"><span class="id" title="definition">thr_nodup</span></a> : <span class="id" title="definition">nodupb</span> (<span class="id" title="var">vdec</span> := <span class="id" title="definition">String.string_dec</span>) (<span class="id" title="definition">Vector.to_list</span> <a class="idref" href="Examples.ThresholdIns.html#privs"><span class="id" title="definition">privs</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>. <span class="id" title="keyword">vm_compute</span>; <span class="id" title="tactic">reflexivity</span>. <span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The branches of the statement use disjoint sets of private
+      variables where they have to.
+
+<div class="paragraph"> </div>
+
+      Branches that are proved independently, as the children of a
+      threshold node are, need independent witnesses; a variable shared
+      between two such branches would let one branch's answer constrain
+      another's.  The checker confirms that this does not happen
+      here. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Example</span> <a id="thr_disj" class="idref" href="#thr_disj"><span class="id" title="definition">thr_disj</span></a> : <span class="id" title="definition">disj_inv</span> (<span class="id" title="var">vdec</span> := <span class="id" title="definition">String.string_dec</span>) <a class="idref" href="Examples.ThresholdIns.html#thr_core"><span class="id" title="definition">thr_core</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>. <span class="id" title="keyword">vm_compute</span>; <span class="id" title="tactic">reflexivity</span>. <span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab12"></a><h2 class="section">The compiled protocol</h2>
+
+<div class="paragraph"> </div>
+
+ Compilation from the core language to a statement tree, with
+      every parameter fixed: the field and group operations, strings as
+      names with their decidable equality, the three declared secrets,
+      the public environments, and the interpolation points. 
+</div>
+<div class="code">
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="compileC" class="idref" href="#compileC"><span class="id" title="abbreviation">compileC</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;(@<span class="id" title="definition">compile</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a> <a class="idref" href="Examples.ThresholdIns.html#fadd"><span class="id" title="definition">fadd</span></a> <a class="idref" href="Examples.ThresholdIns.html#fmul"><span class="id" title="definition">fmul</span></a> <a class="idref" href="Examples.ThresholdIns.html#fopp"><span class="id" title="definition">fopp</span></a> <a class="idref" href="Examples.ThresholdIns.html#fdec"><span class="id" title="definition">fdec</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> <a class="idref" href="Examples.ThresholdIns.html#gone"><span class="id" title="definition">gone</span></a> <a class="idref" href="Examples.ThresholdIns.html#ginv_g"><span class="id" title="definition">ginv_g</span></a> <a class="idref" href="Examples.ThresholdIns.html#gmul"><span class="id" title="definition">gmul</span></a> <a class="idref" href="Examples.ThresholdIns.html#gpow"><span class="id" title="definition">gpow</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="inductive">string</span> <span class="id" title="definition">String.string_dec</span> 3 <a class="idref" href="Examples.ThresholdIns.html#privs"><span class="id" title="definition">privs</span></a> <a class="idref" href="Examples.ThresholdIns.html#genvI"><span class="id" title="definition">genvI</span></a> <a class="idref" href="Examples.ThresholdIns.html#penvI"><span class="id" title="definition">penvI</span></a> <a class="idref" href="Examples.ThresholdIns.html#node"><span class="id" title="definition">node</span></a>).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Compilation succeeds.
+
+<div class="paragraph"> </div>
+
+      Compilation is partial: it returns <span class="inlinecode"><span class="id" title="var">None</span></span> when a checker fails,
+      or when the interpolation points chosen for a threshold node fail
+      to be distinct.  Running it here shows that neither happens. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Example</span> <a id="thr_compiles" class="idref" href="#thr_compiles"><span class="id" title="definition">thr_compiles</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Examples.ThresholdIns.html#compileC"><span class="id" title="abbreviation">compileC</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_core"><span class="id" title="definition">thr_core</span></a> <span class="id" title="keyword">with</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#Some"><span class="id" title="constructor">Some</span></a> <span class="id" title="var">_</span> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a> | <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#None"><span class="id" title="constructor">None</span></a> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#false"><span class="id" title="constructor">false</span></a> <span class="id" title="keyword">end</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>. <span class="id" title="keyword">vm_compute</span>; <span class="id" title="tactic">reflexivity</span>. <span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The compiled statement tree.
+
+<div class="paragraph"> </div>
+
+      This is the object that the prover, the verifier and the
+      simulator of Compiler/Composition.v all work against.  For this
+      statement it is a threshold node with three leaves, each leaf a
+      small linear relation between public points and secret scalars.
+
+<div class="paragraph"> </div>
+
+      The definition is forced through <span class="inlinecode"><span class="id" title="keyword">Eval</span></span> <span class="inlinecode"><span class="id" title="keyword">vm_compute</span></span> <span class="inlinecode"><span class="id" title="tactic">in</span></span> so that
+      <span class="inlinecode"><span class="id" title="var">thr_rel</span></span> is a concrete tree rather than a stuck <span class="inlinecode"><span class="id" title="keyword">match</span></span>.  That
+      matters because the types of almost everything below, the witness
+      type, the randomness type and the transcript type, are computed
+      from the shape of this tree; if the tree did not reduce, those
+      types would not reduce either.  The <span class="inlinecode"><span class="id" title="var">None</span></span> branch is dead, by
+      <span class="inlinecode"><span class="id" title="var">thr_compiles</span></span>, and the dummy leaf there exists only to keep the
+      definition total. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="thr_rel" class="idref" href="#thr_rel"><span class="id" title="definition">thr_rel</span></a> : @<span class="id" title="inductive">comp_rel</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">Eval</span> <span class="id" title="keyword">vm_compute</span> <span class="id" title="tactic">in</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Examples.ThresholdIns.html#compileC"><span class="id" title="abbreviation">compileC</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_core"><span class="id" title="definition">thr_core</span></a> <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#Some"><span class="id" title="constructor">Some</span></a> <span class="id" title="var">r</span> ⇒ <span class="id" title="var">r</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#None"><span class="id" title="constructor">None</span></a> ⇒ <span class="id" title="constructor">Leaf</span> 0 0 <span class="id" title="notation">[]</span> <span class="id" title="notation">[]</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">end</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Shorthands for four families of Compiler/Composition.v, applied
+      to this file's field and group.  Given a statement tree they
+      compute, in order: the type of its witnesses, the type of the
+      randomness its prover consumes, the type of its transcripts, and
+      the proposition saying that a witness satisfies the statement. 
+</div>
+<div class="code">
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="comp_witnessC" class="idref" href="#comp_witnessC"><span class="id" title="abbreviation">comp_witnessC</span></a> := (@<span class="id" title="definition">comp_witness</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a>).<br/>
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="comp_randC" class="idref" href="#comp_randC"><span class="id" title="abbreviation">comp_randC</span></a> := (@<span class="id" title="definition">comp_rand</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a>).<br/>
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="comp_transcriptC" class="idref" href="#comp_transcriptC"><span class="id" title="abbreviation">comp_transcriptC</span></a> := (@<span class="id" title="definition">comp_transcript</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a>).<br/>
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="comp_rel_holdsC" class="idref" href="#comp_rel_holdsC"><span class="id" title="abbreviation">comp_rel_holdsC</span></a> := (@<span class="id" title="definition">comp_rel_holds</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> <a class="idref" href="Examples.ThresholdIns.html#gone"><span class="id" title="definition">gone</span></a> <a class="idref" href="Examples.ThresholdIns.html#gmul"><span class="id" title="definition">gmul</span></a> <a class="idref" href="Examples.ThresholdIns.html#gpow"><span class="id" title="definition">gpow</span></a>).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The prover's witness.
+
+<div class="paragraph"> </div>
+
+      A witness for a threshold node is one optional witness per child.
+      The first two children receive <span class="inlinecode"><span class="id" title="var">Some</span></span> applied to the compiled
+      witness vector, which is <span class="inlinecode"><span class="id" title="var">wenvI</span></span> read off at each declared name;
+      the third receives <span class="inlinecode"><span class="id" title="var">None</span></span>.  The trailing <span class="inlinecode"><span class="id" title="var">tt</span></span> closes the nested
+      tuple that the witness type unfolds to.
+
+<div class="paragraph"> </div>
+
+      This is where the claim made at the top of the file, that the
+      prover holds exactly two of the three discrete logarithms,
+      becomes a concrete term. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="thr_witness" class="idref" href="#thr_witness"><span class="id" title="definition">thr_witness</span></a> : <a class="idref" href="Examples.ThresholdIns.html#comp_witnessC"><span class="id" title="abbreviation">comp_witnessC</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">(</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#Some"><span class="id" title="constructor">Some</span></a> (<span class="id" title="definition">compile_witness</span> <a class="idref" href="Examples.ThresholdIns.html#privs"><span class="id" title="definition">privs</span></a> <a class="idref" href="Examples.ThresholdIns.html#wenvI"><span class="id" title="definition">wenvI</span></a>)<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">,</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">(</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#Some"><span class="id" title="constructor">Some</span></a> (<span class="id" title="definition">compile_witness</span> <a class="idref" href="Examples.ThresholdIns.html#privs"><span class="id" title="definition">privs</span></a> <a class="idref" href="Examples.ThresholdIns.html#wenvI"><span class="id" title="definition">wenvI</span></a>)<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">,</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">(</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#None"><span class="id" title="constructor">None</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">,</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#tt"><span class="id" title="constructor">tt</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">)))</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Assemble the randomness the prover consumes.
+
+<div class="paragraph"> </div>
+
+      A sigma protocol run begins with the prover sending a first
+      message, called the announcement, computed from fresh random
+      values.  Each of the three children needs one vector of three
+      random scalars for its announcement, which are <span class="inlinecode"><span class="id" title="var">u1</span></span>, <span class="inlinecode"><span class="id" title="var">u2</span></span> and
+      <span class="inlinecode"><span class="id" title="var">u3</span></span>.  Beyond that the threshold node needs one free challenge
+      per child it is going to fake, and with three children and a
+      threshold of two that is exactly one, the argument <span class="inlinecode"><span class="id" title="var">d</span></span>.
+
+<div class="paragraph"> </div>
+
+      In a real deployment every one of these values would be drawn
+      uniformly at random and never reused.  Here they are taken as
+      arguments so that the extracted program can supply whatever it
+      likes. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="thr_rand" class="idref" href="#thr_rand"><span class="id" title="definition">thr_rand</span></a> (<a id="u1:9" class="idref" href="#u1:9"><span class="id" title="binder">u1</span></a> <a id="u2:10" class="idref" href="#u2:10"><span class="id" title="binder">u2</span></a> <a id="u3:11" class="idref" href="#u3:11"><span class="id" title="binder">u3</span></a> : <span class="id" title="inductive">Vector.t</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> 3) (<a id="d:12" class="idref" href="#d:12"><span class="id" title="binder">d</span></a> : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a>) : <a class="idref" href="Examples.ThresholdIns.html#comp_randC"><span class="id" title="abbreviation">comp_randC</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">((</span></a><a class="idref" href="Examples.ThresholdIns.html#u1:9"><span class="id" title="variable">u1</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">,</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">(</span></a><a class="idref" href="Examples.ThresholdIns.html#u2:10"><span class="id" title="variable">u2</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">,</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">(</span></a><a class="idref" href="Examples.ThresholdIns.html#u3:11"><span class="id" title="variable">u3</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">,</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#tt"><span class="id" title="constructor">tt</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">))),</span></a> <span class="id" title="notation">[</span><a class="idref" href="Examples.ThresholdIns.html#d:12"><span class="id" title="variable">d</span></a><span class="id" title="notation">]</span><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">)</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The interactive prover.
+
+<div class="paragraph"> </div>
+
+      Given a witness, the randomness and the verifier's challenge <span class="inlinecode"><span class="id" title="var">c</span></span>,
+      it produces a transcript: the announcement, together with the
+      responses computed from the challenge.  A transcript is the full
+      record of one protocol run.  The definition only fixes the
+      parameters of the general <span class="inlinecode"><span class="id" title="var">comp_prove</span></span>. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="thr_prove" class="idref" href="#thr_prove"><span class="id" title="definition">thr_prove</span></a> (<a id="w:13" class="idref" href="#w:13"><span class="id" title="binder">w</span></a> : <a class="idref" href="Examples.ThresholdIns.html#comp_witnessC"><span class="id" title="abbreviation">comp_witnessC</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a>) (<a id="rnd:14" class="idref" href="#rnd:14"><span class="id" title="binder">rnd</span></a> : <a class="idref" href="Examples.ThresholdIns.html#comp_randC"><span class="id" title="abbreviation">comp_randC</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a>) (<a id="c:15" class="idref" href="#c:15"><span class="id" title="binder">c</span></a> : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a>) :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.ThresholdIns.html#comp_transcriptC"><span class="id" title="abbreviation">comp_transcriptC</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;@<span class="id" title="definition">comp_prove</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a> <a class="idref" href="Examples.ThresholdIns.html#fone"><span class="id" title="definition">fone</span></a> <a class="idref" href="Examples.ThresholdIns.html#fadd"><span class="id" title="definition">fadd</span></a> <a class="idref" href="Examples.ThresholdIns.html#fmul"><span class="id" title="definition">fmul</span></a> <a class="idref" href="Examples.ThresholdIns.html#fsub"><span class="id" title="definition">fsub</span></a> <a class="idref" href="Examples.ThresholdIns.html#fopp"><span class="id" title="definition">fopp</span></a> <a class="idref" href="Examples.ThresholdIns.html#finv"><span class="id" title="definition">finv</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> <a class="idref" href="Examples.ThresholdIns.html#gone"><span class="id" title="definition">gone</span></a> <a class="idref" href="Examples.ThresholdIns.html#gmul"><span class="id" title="definition">gmul</span></a> <a class="idref" href="Examples.ThresholdIns.html#gpow"><span class="id" title="definition">gpow</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a> <a class="idref" href="Examples.ThresholdIns.html#w:13"><span class="id" title="variable">w</span></a> <a class="idref" href="Examples.ThresholdIns.html#rnd:14"><span class="id" title="variable">rnd</span></a> <a class="idref" href="Examples.ThresholdIns.html#c:15"><span class="id" title="variable">c</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The interactive verifier.
+
+<div class="paragraph"> </div>
+
+      Given the challenge it sent and a transcript, it returns true
+      exactly when the transcript is accepting.  It is a boolean
+      function of public data only, so anybody can run it. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="thr_verify" class="idref" href="#thr_verify"><span class="id" title="definition">thr_verify</span></a> (<a id="c:16" class="idref" href="#c:16"><span class="id" title="binder">c</span></a> : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a>) (<a id="t:17" class="idref" href="#t:17"><span class="id" title="binder">t</span></a> : <a class="idref" href="Examples.ThresholdIns.html#comp_transcriptC"><span class="id" title="abbreviation">comp_transcriptC</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#bool"><span class="id" title="inductive">bool</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;@<span class="id" title="definition">comp_verify</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a> <a class="idref" href="Examples.ThresholdIns.html#fone"><span class="id" title="definition">fone</span></a> <a class="idref" href="Examples.ThresholdIns.html#fadd"><span class="id" title="definition">fadd</span></a> <a class="idref" href="Examples.ThresholdIns.html#fmul"><span class="id" title="definition">fmul</span></a> <a class="idref" href="Examples.ThresholdIns.html#fsub"><span class="id" title="definition">fsub</span></a> <a class="idref" href="Examples.ThresholdIns.html#finv"><span class="id" title="definition">finv</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> <a class="idref" href="Examples.ThresholdIns.html#gone"><span class="id" title="definition">gone</span></a> <a class="idref" href="Examples.ThresholdIns.html#gmul"><span class="id" title="definition">gmul</span></a> <a class="idref" href="Examples.ThresholdIns.html#gpow"><span class="id" title="definition">gpow</span></a> <a class="idref" href="Examples.ThresholdIns.html#gdec"><span class="id" title="definition">gdec</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a> <a class="idref" href="Examples.ThresholdIns.html#c:16"><span class="id" title="variable">c</span></a> <a class="idref" href="Examples.ThresholdIns.html#t:17"><span class="id" title="variable">t</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The prover's witness really satisfies the compiled statement.
+
+<div class="paragraph"> </div>
+
+      In principle this is a statement about group elements that could
+      be proved by hand, but there is nothing to gain: both sides are
+      concrete numbers.  Compiler/Decide.v provides a boolean version
+      of the relation together with a soundness theorem, so the proof
+      runs the boolean version, obtains true, and transports that
+      answer to the proposition.
+
+<div class="paragraph"> </div>
+
+      Concretely the claim is twofold: each of the first two children
+      really is a correct discrete logarithm statement for the scalar
+      the prover holds, and the number of children that carry a
+      witness, two, reaches the threshold. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="thr_holds" class="idref" href="#thr_holds"><span class="id" title="lemma">thr_holds</span></a> : <a class="idref" href="Examples.ThresholdIns.html#comp_rel_holdsC"><span class="id" title="abbreviation">comp_rel_holdsC</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_witness"><span class="id" title="definition">thr_witness</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> (@<span class="id" title="lemma">comp_rel_holdsb_sound</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> <a class="idref" href="Examples.ThresholdIns.html#gone"><span class="id" title="definition">gone</span></a> <a class="idref" href="Examples.ThresholdIns.html#gmul"><span class="id" title="definition">gmul</span></a> <a class="idref" href="Examples.ThresholdIns.html#gpow"><span class="id" title="definition">gpow</span></a> <a class="idref" href="Examples.ThresholdIns.html#gdec"><span class="id" title="definition">gdec</span></a>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">vm_compute</span>; <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab13"></a><h2 class="section">Making it non-interactive: strong Fiat-Shamir with SHA-256</h2>
+
+
+<div class="paragraph"> </div>
+
+      In the interactive protocol the verifier draws the challenge at
+      random after seeing the prover's announcement.  The Fiat-Shamir
+      transformation replaces that verifier by a hash function: the
+      prover computes the challenge itself, as the hash of its own
+      announcement.  Since it cannot predict the hash before committing
+      to the announcement, it is in much the same position as if a
+      verifier had answered.  The outcome is a single message that
+      anybody can check later, with nobody to talk to.
+
+<div class="paragraph"> </div>
+
+      The strong form of the transformation, recommended by Bernhard,
+      Pereira and Warinschi, insists that the hash input contain not
+      only the announcement but the entire instance: which statement is
+      being proved, and about which public points.  If only the
+      announcement were hashed, a proof made for one statement could be
+      replayed as a proof of a different statement that happens to
+      produce the same announcement.  That is why <span class="inlinecode"><span class="id" title="var">thr_hash_elems</span></span>
+      places the generator and all three public points in front of the
+      announcement. 
+<div class="paragraph"> </div>
+
+ Render a group element as a decimal string.
+
+<div class="paragraph"> </div>
+
+      A hash consumes bytes, so group elements have to be written down
+      first.  A group element is an integer strictly between zero and
+      <span class="inlinecode"><span class="id" title="var">p</span></span>, and this writes that integer the ordinary way, with no
+      padding and no sign. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="g_to_string" class="idref" href="#g_to_string"><span class="id" title="definition">g_to_string</span></a> (<a id="g:18" class="idref" href="#g:18"><span class="id" title="binder">g</span></a> : <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a>) : <span class="id" title="inductive">string</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="definition">NilEmpty.string_of_int</span> (<span class="id" title="definition">Z.to_int</span> (@<span class="id" title="projection">Schnorr.v</span> <a class="idref" href="Examples.ThresholdIns.html#p"><span class="id" title="definition">p</span></a> <a class="idref" href="Examples.ThresholdIns.html#q"><span class="id" title="definition">q</span></a> <a class="idref" href="Examples.ThresholdIns.html#g:18"><span class="id" title="variable">g</span></a>)).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The list of group elements that go into the hash.
+
+<div class="paragraph"> </div>
+
+      First the instance: the generator and the three public points.
+      Then the whole announcement, flattened into a list by
+      <span class="inlinecode"><span class="id" title="var">ann_to_list</span></span> of Compiler/Nizk.v, which walks the statement tree
+      and collects every group element in order.
+
+<div class="paragraph"> </div>
+
+      Flattening loses nothing.  The shape of the tree is fixed by
+      <span class="inlinecode"><span class="id" title="var">thr_rel</span></span> and each node contributes a known number of elements,
+      so the list can be read back unambiguously; <span class="inlinecode"><span class="id" title="var">ann_to_list_inj</span></span> is
+      the proof, and it is what makes <span class="inlinecode"><span class="id" title="var">thr_hash_input_inj</span></span> below
+      possible. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="thr_hash_elems" class="idref" href="#thr_hash_elems"><span class="id" title="definition">thr_hash_elems</span></a> (<a id="a:19" class="idref" href="#a:19"><span class="id" title="binder">a</span></a> : @<span class="id" title="definition">comp_ann_t</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="abbreviation">List.app</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="abbreviation">List.cons</span> <a class="idref" href="Examples.ThresholdIns.html#gen"><span class="id" title="definition">gen</span></a> (<span class="id" title="abbreviation">List.cons</span> <a class="idref" href="Examples.ThresholdIns.html#h1"><span class="id" title="definition">h1</span></a> (<span class="id" title="abbreviation">List.cons</span> <a class="idref" href="Examples.ThresholdIns.html#h2"><span class="id" title="definition">h2</span></a> (<span class="id" title="abbreviation">List.cons</span> <a class="idref" href="Examples.ThresholdIns.html#h3"><span class="id" title="definition">h3</span></a> <span class="id" title="abbreviation">List.nil</span>))))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="definition">ann_to_list</span> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a> <a class="idref" href="Examples.ThresholdIns.html#a:19"><span class="id" title="variable">a</span></a>).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The challenge, as a function of the announcement.
+
+<div class="paragraph"> </div>
+
+      The elements are rendered one by one, joined into a single string
+      with commas as separators, hashed with SHA-256, and the resulting
+      number is reduced modulo <span class="inlinecode"><span class="id" title="var">q</span></span> so that it lands in the scalar
+      field.
+
+<div class="paragraph"> </div>
+
+      This function is what gets handed to the Fiat-Shamir
+      transformation as the stand-in for the verifier.  The whole
+      instance is inside it, through <span class="inlinecode"><span class="id" title="var">thr_hash_elems</span></span>, which is what
+      makes this the strong variant. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="thr_hash" class="idref" href="#thr_hash"><span class="id" title="definition">thr_hash</span></a> (<a id="a:20" class="idref" href="#a:20"><span class="id" title="binder">a</span></a> : @<span class="id" title="definition">comp_ann_t</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a>) : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.ThresholdIns.html#mk_field"><span class="id" title="definition">mk_field</span></a> (<span class="id" title="definition">Z.of_N</span> (<span class="id" title="definition">sha256_string</span> (<span class="id" title="definition">String.concat</span> ","<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="abbreviation">List.map</span> <a class="idref" href="Examples.ThresholdIns.html#g_to_string"><span class="id" title="definition">g_to_string</span></a> (<a class="idref" href="Examples.ThresholdIns.html#thr_hash_elems"><span class="id" title="definition">thr_hash_elems</span></a> <a class="idref" href="Examples.ThresholdIns.html#a:20"><span class="id" title="variable">a</span></a>))))).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Distinct group elements get distinct strings.
+
+<div class="paragraph"> </div>
+
+      Two group elements with the same decimal rendering carry the same
+      underlying integer, and two group elements with the same integer
+      are equal: the other two fields of the record are proofs of
+      statements about integers, and such proofs are unique, so they
+      cannot tell two records apart.  The step from equal strings back
+      to equal integers is injectivity of decimal notation, taken from
+      the standard library through Utility/StringInj.v. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="g_to_string_inj" class="idref" href="#g_to_string_inj"><span class="id" title="lemma">g_to_string_inj</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <a id="2a4f868f0aec08f6f6345bb9181a55b4" class="idref" href="#2a4f868f0aec08f6f6345bb9181a55b4"><span class="id" title="binder">g₁</span></a> <a id="053d84d773604229bd18bc1a0ab9d567" class="idref" href="#053d84d773604229bd18bc1a0ab9d567"><span class="id" title="binder">g₂</span></a> : <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a><span class="id" title="notation">,</span> <a class="idref" href="Examples.ThresholdIns.html#g_to_string"><span class="id" title="definition">g_to_string</span></a> <a class="idref" href="Examples.ThresholdIns.html#2a4f868f0aec08f6f6345bb9181a55b4"><span class="id" title="variable">g₁</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Examples.ThresholdIns.html#g_to_string"><span class="id" title="definition">g_to_string</span></a> <a class="idref" href="Examples.ThresholdIns.html#053d84d773604229bd18bc1a0ab9d567"><span class="id" title="variable">g₂</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.ThresholdIns.html#2a4f868f0aec08f6f6345bb9181a55b4"><span class="id" title="variable">g₁</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Examples.ThresholdIns.html#053d84d773604229bd18bc1a0ab9d567"><span class="id" title="variable">g₂</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> [<span class="id" title="var">v₁</span> <span class="id" title="var">ha₁</span> <span class="id" title="var">hb₁</span>] [<span class="id" title="var">v₂</span> <span class="id" title="var">ha₂</span> <span class="id" title="var">hb₂</span>] <span class="id" title="var">heq</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">unfold</span> <a class="idref" href="Examples.ThresholdIns.html#g_to_string"><span class="id" title="definition">g_to_string</span></a> <span class="id" title="tactic">in</span> <span class="id" title="var">heq</span>; <span class="id" title="var">cbn</span> <span class="id" title="tactic">in</span> <span class="id" title="var">heq</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">string_of_int_inj</span>, <span class="id" title="lemma">to_int_inj</span> <span class="id" title="tactic">in</span> <span class="id" title="var">heq</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">subst</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">Schnorr.construct_schnorr_group</span>; <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The string fed to the hash determines the announcement.
+
+<div class="paragraph"> </div>
+
+      If two announcements render to the same string, they are the same
+      announcement.
+
+<div class="paragraph"> </div>
+
+      Why this matters: Fiat-Shamir is only as good as the binding
+      between the announcement and the challenge.  If two different
+      announcements could produce the same hash input, a prover could
+      commit to one of them and later claim the other, and the
+      challenge would no longer be tied to what was actually committed.
+      That kind of ambiguity would come from the rendering, not from
+      SHA-256, so it has to be ruled out here, where the rendering is
+      chosen.
+
+<div class="paragraph"> </div>
+
+      Why it is true, in three ingredients.  The separator is a comma
+      and no rendered element ever contains a comma, so the joined
+      string can be split back into the individual renderings; that is
+      <span class="inlinecode"><span class="id" title="var">concat_map_inj</span></span> of Utility/StringInj.v, which also asks that the
+      two lists have the same length, and they do because the instance
+      prefix is fixed and both announcements have the shape of the same
+      tree.  The rendering of a single element is injective, by
+      <span class="inlinecode"><span class="id" title="var">g_to_string_inj</span></span>.  Finally the instance prefix has a known
+      length of four, so the recovered list splits at a known position
+      into the prefix and the flattened announcement, and
+      <span class="inlinecode"><span class="id" title="var">ann_to_list_inj</span></span> turns the flattened announcement back into the
+      announcement itself. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="thr_hash_input_inj" class="idref" href="#thr_hash_input_inj"><span class="id" title="lemma">thr_hash_input_inj</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <a id="a:23" class="idref" href="#a:23"><span class="id" title="binder">a</span></a> <a id="a':24" class="idref" href="#a':24"><span class="id" title="binder">a'</span></a> : @<span class="id" title="definition">comp_ann_t</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a><span class="id" title="notation">,</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="definition">String.concat</span> "," (<span class="id" title="abbreviation">List.map</span> <a class="idref" href="Examples.ThresholdIns.html#g_to_string"><span class="id" title="definition">g_to_string</span></a> (<a class="idref" href="Examples.ThresholdIns.html#thr_hash_elems"><span class="id" title="definition">thr_hash_elems</span></a> <a class="idref" href="Examples.ThresholdIns.html#a:23"><span class="id" title="variable">a</span></a>))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <span class="id" title="definition">String.concat</span> "," (<span class="id" title="abbreviation">List.map</span> <a class="idref" href="Examples.ThresholdIns.html#g_to_string"><span class="id" title="definition">g_to_string</span></a> (<a class="idref" href="Examples.ThresholdIns.html#thr_hash_elems"><span class="id" title="definition">thr_hash_elems</span></a> <a class="idref" href="Examples.ThresholdIns.html#a':24"><span class="id" title="variable">a'</span></a>)) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.ThresholdIns.html#a:23"><span class="id" title="variable">a</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Examples.ThresholdIns.html#a':24"><span class="id" title="variable">a'</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">a</span> <span class="id" title="var">a'</span> <span class="id" title="var">heq</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">assert</span> (<span class="id" title="var">helems</span> : <a class="idref" href="Examples.ThresholdIns.html#thr_hash_elems"><span class="id" title="definition">thr_hash_elems</span></a> <span class="id" title="var">a</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_hash_elems"><span class="id" title="definition">thr_hash_elems</span></a> <span class="id" title="var">a'</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{ <span class="id" title="tactic">eapply</span> (<span class="id" title="lemma">concat_map_inj</span> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> ","%<span class="id" title="var">char</span> <a class="idref" href="Examples.ThresholdIns.html#g_to_string"><span class="id" title="definition">g_to_string</span></a>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="tactic">exact</span> <a class="idref" href="Examples.ThresholdIns.html#g_to_string_inj"><span class="id" title="lemma">g_to_string_inj</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="tactic">intro</span> <span class="id" title="var">x</span>; <span class="id" title="tactic">eapply</span> <span class="id" title="lemma">no_comma_string_of_int</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="tactic">unfold</span> <a class="idref" href="Examples.ThresholdIns.html#thr_hash_elems"><span class="id" title="definition">thr_hash_elems</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> !<span class="id" title="lemma">List.length_app</span>, !<span class="id" title="lemma">ann_to_list_length</span>; <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="tactic">exact</span> <span class="id" title="var">heq</span>. }<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">unfold</span> <a class="idref" href="Examples.ThresholdIns.html#thr_hash_elems"><span class="id" title="definition">thr_hash_elems</span></a> <span class="id" title="tactic">in</span> <span class="id" title="var">helems</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> (<span class="id" title="lemma">app_split_eq</span> <span class="id" title="var">_</span> <span class="id" title="var">_</span> <span class="id" title="var">_</span> <span class="id" title="var">_</span> <span class="id" title="var">_</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#eq_refl"><span class="id" title="constructor">eq_refl</span></a> <span class="id" title="var">helems</span>) <span class="id" title="keyword">as</span> (<span class="id" title="var">_</span> &amp; <span class="id" title="var">hann</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">ann_to_list_inj</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hann</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The non-interactive prover.
+
+<div class="paragraph"> </div>
+
+      It takes a witness and the randomness, but no challenge: the
+      challenge is computed by <span class="inlinecode"><span class="id" title="var">thr_hash</span></span> from the announcement that
+      the prover has just produced.  The result is a transcript that
+      can be published as it stands. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="thr_nizk_prove" class="idref" href="#thr_nizk_prove"><span class="id" title="definition">thr_nizk_prove</span></a> (<a id="w:25" class="idref" href="#w:25"><span class="id" title="binder">w</span></a> : <a class="idref" href="Examples.ThresholdIns.html#comp_witnessC"><span class="id" title="abbreviation">comp_witnessC</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a>) (<a id="rnd:26" class="idref" href="#rnd:26"><span class="id" title="binder">rnd</span></a> : <a class="idref" href="Examples.ThresholdIns.html#comp_randC"><span class="id" title="abbreviation">comp_randC</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a>) :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.ThresholdIns.html#comp_transcriptC"><span class="id" title="abbreviation">comp_transcriptC</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;@<span class="id" title="definition">nizk_prove</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a> <a class="idref" href="Examples.ThresholdIns.html#fone"><span class="id" title="definition">fone</span></a> <a class="idref" href="Examples.ThresholdIns.html#fadd"><span class="id" title="definition">fadd</span></a> <a class="idref" href="Examples.ThresholdIns.html#fmul"><span class="id" title="definition">fmul</span></a> <a class="idref" href="Examples.ThresholdIns.html#fsub"><span class="id" title="definition">fsub</span></a> <a class="idref" href="Examples.ThresholdIns.html#fopp"><span class="id" title="definition">fopp</span></a> <a class="idref" href="Examples.ThresholdIns.html#finv"><span class="id" title="definition">finv</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> <a class="idref" href="Examples.ThresholdIns.html#gone"><span class="id" title="definition">gone</span></a> <a class="idref" href="Examples.ThresholdIns.html#gmul"><span class="id" title="definition">gmul</span></a> <a class="idref" href="Examples.ThresholdIns.html#gpow"><span class="id" title="definition">gpow</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_hash"><span class="id" title="definition">thr_hash</span></a> <a class="idref" href="Examples.ThresholdIns.html#w:25"><span class="id" title="variable">w</span></a> <a class="idref" href="Examples.ThresholdIns.html#rnd:26"><span class="id" title="variable">rnd</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The non-interactive verifier.
+
+<div class="paragraph"> </div>
+
+      It takes a transcript alone.  It recomputes the challenge from
+      the announcement inside that transcript, with the same hash, and
+      then performs the ordinary verification.  There is no challenge
+      argument and no interaction: this is a check anybody can run on a
+      proof they were handed. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="thr_nizk_verify" class="idref" href="#thr_nizk_verify"><span class="id" title="definition">thr_nizk_verify</span></a> (<a id="t:27" class="idref" href="#t:27"><span class="id" title="binder">t</span></a> : <a class="idref" href="Examples.ThresholdIns.html#comp_transcriptC"><span class="id" title="abbreviation">comp_transcriptC</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#bool"><span class="id" title="inductive">bool</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;@<span class="id" title="definition">nizk_verify</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a> <a class="idref" href="Examples.ThresholdIns.html#fone"><span class="id" title="definition">fone</span></a> <a class="idref" href="Examples.ThresholdIns.html#fadd"><span class="id" title="definition">fadd</span></a> <a class="idref" href="Examples.ThresholdIns.html#fmul"><span class="id" title="definition">fmul</span></a> <a class="idref" href="Examples.ThresholdIns.html#fsub"><span class="id" title="definition">fsub</span></a> <a class="idref" href="Examples.ThresholdIns.html#finv"><span class="id" title="definition">finv</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> <a class="idref" href="Examples.ThresholdIns.html#gone"><span class="id" title="definition">gone</span></a> <a class="idref" href="Examples.ThresholdIns.html#gmul"><span class="id" title="definition">gmul</span></a> <a class="idref" href="Examples.ThresholdIns.html#gpow"><span class="id" title="definition">gpow</span></a> <a class="idref" href="Examples.ThresholdIns.html#gdec"><span class="id" title="definition">gdec</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_hash"><span class="id" title="definition">thr_hash</span></a> <a class="idref" href="Examples.ThresholdIns.html#t:27"><span class="id" title="variable">t</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Honest proofs are accepted, whatever randomness is used.
+
+<div class="paragraph"> </div>
+
+      This is completeness: when the prover follows the protocol with a
+      witness that really satisfies the statement, the verifier answers
+      true.  The quantifier over <span class="inlinecode"><span class="id" title="var">rnd</span></span> says this holds for every choice
+      of the random values, not merely for a lucky one.
+
+<div class="paragraph"> </div>
+
+      It follows from the general completeness theorem of
+      Compiler/Nizk.v applied to this instance, with <span class="inlinecode"><span class="id" title="var">thr_holds</span></span>
+      supplying the fact that the witness is genuine and <span class="inlinecode"><span class="id" title="var">Hvec</span></span>
+      supplying the algebra.
+
+<div class="paragraph"> </div>
+
+      Completeness is the direction that can be proved outright.  The
+      other two properties one wants of a proof system, soundness and
+      zero knowledge, hold for the non-interactive protocol only in the
+      random oracle model, which is an assumption about the hash
+      function rather than a theorem; the development deliberately does
+      not assume it, and so stays free of axioms. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="thr_nizk_complete" class="idref" href="#thr_nizk_complete"><span class="id" title="lemma">thr_nizk_complete</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <a id="rnd:28" class="idref" href="#rnd:28"><span class="id" title="binder">rnd</span></a> : <a class="idref" href="Examples.ThresholdIns.html#comp_randC"><span class="id" title="abbreviation">comp_randC</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a><span class="id" title="notation">,</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.ThresholdIns.html#thr_nizk_verify"><span class="id" title="definition">thr_nizk_verify</span></a> (<a class="idref" href="Examples.ThresholdIns.html#thr_nizk_prove"><span class="id" title="definition">thr_nizk_prove</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_witness"><span class="id" title="definition">thr_witness</span></a> <a class="idref" href="Examples.ThresholdIns.html#rnd:28"><span class="id" title="variable">rnd</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">rnd</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> (@<span class="id" title="lemma">nizk_completeness</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a> <a class="idref" href="Examples.ThresholdIns.html#fone"><span class="id" title="definition">fone</span></a> <a class="idref" href="Examples.ThresholdIns.html#fadd"><span class="id" title="definition">fadd</span></a> <a class="idref" href="Examples.ThresholdIns.html#fmul"><span class="id" title="definition">fmul</span></a> <a class="idref" href="Examples.ThresholdIns.html#fsub"><span class="id" title="definition">fsub</span></a> <a class="idref" href="Examples.ThresholdIns.html#fdiv"><span class="id" title="definition">fdiv</span></a> <a class="idref" href="Examples.ThresholdIns.html#fopp"><span class="id" title="definition">fopp</span></a> <a class="idref" href="Examples.ThresholdIns.html#finv"><span class="id" title="definition">finv</span></a> <a class="idref" href="Examples.ThresholdIns.html#fdec"><span class="id" title="definition">fdec</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> <a class="idref" href="Examples.ThresholdIns.html#gone"><span class="id" title="definition">gone</span></a> <a class="idref" href="Examples.ThresholdIns.html#ginv_g"><span class="id" title="definition">ginv_g</span></a> <a class="idref" href="Examples.ThresholdIns.html#gmul"><span class="id" title="definition">gmul</span></a> <a class="idref" href="Examples.ThresholdIns.html#gpow"><span class="id" title="definition">gpow</span></a> <a class="idref" href="Examples.ThresholdIns.html#gdec"><span class="id" title="definition">gdec</span></a> <a class="idref" href="Examples.ThresholdIns.html#Hvec"><span class="id" title="definition">Hvec</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_hash"><span class="id" title="definition">thr_hash</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_witness"><span class="id" title="definition">thr_witness</span></a> <span class="id" title="var">rnd</span> <a class="idref" href="Examples.ThresholdIns.html#thr_holds"><span class="id" title="lemma">thr_holds</span></a>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab14"></a><h2 class="section">The wire format</h2>
+
+<div class="paragraph"> </div>
+
+ Serialise a transcript into a flat list of scalars and group
+      elements.
+
+<div class="paragraph"> </div>
+
+      This is the shape a proof takes when it leaves the program: a
+      sequence of values with no tree structure and no labels.  The
+      structure is recovered on the other side from the statement tree,
+      which both parties already know. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="thr_encode" class="idref" href="#thr_encode"><span class="id" title="definition">thr_encode</span></a> (<a id="t:29" class="idref" href="#t:29"><span class="id" title="binder">t</span></a> : <a class="idref" href="Examples.ThresholdIns.html#comp_transcriptC"><span class="id" title="abbreviation">comp_transcriptC</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a>) : @<span class="id" title="definition">wire</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;@<span class="id" title="definition">encode</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a> <a class="idref" href="Examples.ThresholdIns.html#t:29"><span class="id" title="variable">t</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Read a transcript back off the wire.
+
+<div class="paragraph"> </div>
+
+      It returns the transcript together with whatever input is left
+      over, so that a proof can sit inside a larger message, or <span class="inlinecode"><span class="id" title="var">None</span></span>
+      when the input does not match the shape that <span class="inlinecode"><span class="id" title="var">thr_rel</span></span>
+      demands. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="thr_decode" class="idref" href="#thr_decode"><span class="id" title="definition">thr_decode</span></a> (<a id="l:30" class="idref" href="#l:30"><span class="id" title="binder">l</span></a> : @<span class="id" title="definition">wire</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#option"><span class="id" title="inductive">option</span></a> (<a class="idref" href="Examples.ThresholdIns.html#comp_transcriptC"><span class="id" title="abbreviation">comp_transcriptC</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#11c698c8685bb8ab1cf725545c085ac4"><span class="id" title="notation">×</span></a> @<span class="id" title="definition">wire</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a>) :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;@<span class="id" title="definition">decode</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a> <a class="idref" href="Examples.ThresholdIns.html#l:30"><span class="id" title="variable">l</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Every proof the prover emits survives the round trip.
+
+<div class="paragraph"> </div>
+
+      Decoding the encoding of an honest non-interactive proof returns
+      exactly that proof, with nothing left over.  As with completeness
+      the statement is quantified over all randomness, so it covers
+      every proof this prover can ever produce.
+
+<div class="paragraph"> </div>
+
+      Why it is true: the general round trip theorem of
+      Compiler/Serialization.v needs the transcript to be well formed,
+      meaning that its shape matches the statement tree, and <span class="inlinecode"><span class="id" title="var">prove_wf</span></span>
+      says that transcripts produced by the prover always are. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="thr_roundtrip" class="idref" href="#thr_roundtrip"><span class="id" title="lemma">thr_roundtrip</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <a id="rnd:31" class="idref" href="#rnd:31"><span class="id" title="binder">rnd</span></a> : <a class="idref" href="Examples.ThresholdIns.html#comp_randC"><span class="id" title="abbreviation">comp_randC</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a><span class="id" title="notation">,</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.ThresholdIns.html#thr_decode"><span class="id" title="definition">thr_decode</span></a> (<a class="idref" href="Examples.ThresholdIns.html#thr_encode"><span class="id" title="definition">thr_encode</span></a> (<a class="idref" href="Examples.ThresholdIns.html#thr_nizk_prove"><span class="id" title="definition">thr_nizk_prove</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_witness"><span class="id" title="definition">thr_witness</span></a> <a class="idref" href="Examples.ThresholdIns.html#rnd:31"><span class="id" title="variable">rnd</span></a>)) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#Some"><span class="id" title="constructor">Some</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">(</span></a><a class="idref" href="Examples.ThresholdIns.html#thr_nizk_prove"><span class="id" title="definition">thr_nizk_prove</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_witness"><span class="id" title="definition">thr_witness</span></a> <a class="idref" href="Examples.ThresholdIns.html#rnd:31"><span class="id" title="variable">rnd</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">,</span></a> <span class="id" title="abbreviation">List.nil</span><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">)</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">rnd</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">serialize_deserialize_full</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">prove_wf</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab15"></a><h2 class="section">What the verifier learns</h2>
+
+<div class="paragraph"> </div>
+
+ An accepting proof means the surface statement holds.
+
+<div class="paragraph"> </div>
+
+      Everything above establishes facts about the compiled statement.
+      This corollary carries one of them back up to the language the
+      user actually wrote in: if a private environment <span class="inlinecode"><span class="id" title="var">wenv</span></span> satisfies
+      the core statement <span class="inlinecode"><span class="id" title="var">thr_core</span></span>, then either it satisfies the
+      original surface statement <span class="inlinecode"><span class="id" title="var">thr_surface</span></span>, or the public
+      environment is degenerate.
+
+<div class="paragraph"> </div>
+
+      Degenerate means that the two Pedersen bases are related in a way
+      that breaks the gadgets: one of them is the identity, or one is a
+      known power of the other.  It is an escape clause in the general
+      elaboration theorem, because a caller who supplies bad bases
+      cannot be promised anything.  This statement uses no gadget that
+      needs the bases, so the clause is irrelevant here, but the
+      general theorem states it and the corollary inherits it.
+
+<div class="paragraph"> </div>
+
+      In plain words: what the protocol proves is knowledge of at least
+      two of the three discrete logarithms, as written, and not some
+      weaker property that happens to survive compilation. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Corollary</span> <a id="thr_surface_sound" class="idref" href="#thr_surface_sound"><span class="id" title="lemma">thr_surface_sound</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <a id="wenv:32" class="idref" href="#wenv:32"><span class="id" title="binder">wenv</span></a> : <span class="id" title="inductive">string</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a><span class="id" title="notation">,</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;@<span class="id" title="definition">stmt_denote</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#fadd"><span class="id" title="definition">fadd</span></a> <a class="idref" href="Examples.ThresholdIns.html#fmul"><span class="id" title="definition">fmul</span></a> <a class="idref" href="Examples.ThresholdIns.html#fopp"><span class="id" title="definition">fopp</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> <a class="idref" href="Examples.ThresholdIns.html#gone"><span class="id" title="definition">gone</span></a> <a class="idref" href="Examples.ThresholdIns.html#gmul"><span class="id" title="definition">gmul</span></a> <a class="idref" href="Examples.ThresholdIns.html#gpow"><span class="id" title="definition">gpow</span></a> <span class="id" title="inductive">string</span> <a class="idref" href="Examples.ThresholdIns.html#genvI"><span class="id" title="definition">genvI</span></a> <a class="idref" href="Examples.ThresholdIns.html#penvI"><span class="id" title="definition">penvI</span></a> <a class="idref" href="Examples.ThresholdIns.html#wenv:32"><span class="id" title="variable">wenv</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_core"><span class="id" title="definition">thr_core</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;@<span class="id" title="definition">sstmt_denote</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#fzero"><span class="id" title="definition">fzero</span></a> <a class="idref" href="Examples.ThresholdIns.html#fone"><span class="id" title="definition">fone</span></a> <a class="idref" href="Examples.ThresholdIns.html#fadd"><span class="id" title="definition">fadd</span></a> <a class="idref" href="Examples.ThresholdIns.html#fmul"><span class="id" title="definition">fmul</span></a> <a class="idref" href="Examples.ThresholdIns.html#fopp"><span class="id" title="definition">fopp</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> <a class="idref" href="Examples.ThresholdIns.html#gone"><span class="id" title="definition">gone</span></a> <a class="idref" href="Examples.ThresholdIns.html#ginv_g"><span class="id" title="definition">ginv_g</span></a> <a class="idref" href="Examples.ThresholdIns.html#gmul"><span class="id" title="definition">gmul</span></a> <a class="idref" href="Examples.ThresholdIns.html#gpow"><span class="id" title="definition">gpow</span></a> <span class="id" title="inductive">string</span> <span class="id" title="instance">VarTypeString</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.ThresholdIns.html#penvI"><span class="id" title="definition">penvI</span></a> <a class="idref" href="Examples.ThresholdIns.html#genvI"><span class="id" title="definition">genvI</span></a> <a class="idref" href="Examples.ThresholdIns.html#wenv:32"><span class="id" title="variable">wenv</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_surface"><span class="id" title="definition">thr_surface</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∨</span> @<span class="id" title="definition">degenerate</span> <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a> <a class="idref" href="Examples.ThresholdIns.html#G"><span class="id" title="definition">G</span></a> <a class="idref" href="Examples.ThresholdIns.html#gone"><span class="id" title="definition">gone</span></a> <a class="idref" href="Examples.ThresholdIns.html#gpow"><span class="id" title="definition">gpow</span></a> <span class="id" title="inductive">string</span> "A" "B" <a class="idref" href="Examples.ThresholdIns.html#genvI"><span class="id" title="definition">genvI</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">wenv</span> <span class="id" title="var">hd</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> (<span class="id" title="lemma">elab_sound</span> (<span class="id" title="var">Fdec</span> := <a class="idref" href="Examples.ThresholdIns.html#fdec"><span class="id" title="definition">fdec</span></a>) <a class="idref" href="Examples.ThresholdIns.html#penvI"><span class="id" title="definition">penvI</span></a> "A" "B" (<span class="id" title="var">Hvec</span> := <a class="idref" href="Examples.ThresholdIns.html#Hvec"><span class="id" title="definition">Hvec</span></a>) <a class="idref" href="Examples.ThresholdIns.html#thr_surface"><span class="id" title="definition">thr_surface</span></a> <a class="idref" href="Examples.ThresholdIns.html#used0"><span class="id" title="definition">used0</span></a> <a class="idref" href="Examples.ThresholdIns.html#used0"><span class="id" title="definition">used0</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.ThresholdIns.html#thr_core"><span class="id" title="definition">thr_core</span></a> <a class="idref" href="Examples.ThresholdIns.html#genvI"><span class="id" title="definition">genvI</span></a> <span class="id" title="var">wenv</span> <a class="idref" href="Examples.ThresholdIns.html#thr_elab_ok"><span class="id" title="definition">thr_elab_ok</span></a> <span class="id" title="var">hd</span>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab16"></a><h2 class="section">Exported wrappers for the OCaml driver</h2>
+
+
+<div class="paragraph"> </div>
+
+      Everything above can be evaluated inside Rocq, but evaluating it
+      inside Rocq is slow and says nothing about how the protocol
+      behaves as a program.  The definitions in this last section exist
+      to be extracted: translated into OCaml source by Extraction/,
+      compiled, and driven by Executable/Thresholdcode/main.ml, which
+      feeds them scalars and times the runs.
+
+<div class="paragraph"> </div>
+
+      They take their arguments one scalar at a time and return plain
+      tuples of booleans and numbers.  The point is to keep the
+      interface first order and free of dependent types, which are
+      awkward to call from hand written OCaml. 
+<div class="paragraph"> </div>
+
+ Build the prover's randomness out of ten separate scalars.
+
+<div class="paragraph"> </div>
+
+      Three for each of the three children's announcements, and one
+      free challenge for the threshold node.  The driver generates ten
+      values and passes them in positionally. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="mk_rand" class="idref" href="#mk_rand"><span class="id" title="definition">mk_rand</span></a> (<a id="a:33" class="idref" href="#a:33"><span class="id" title="binder">a</span></a> <a id="b:34" class="idref" href="#b:34"><span class="id" title="binder">b</span></a> <a id="c:35" class="idref" href="#c:35"><span class="id" title="binder">c</span></a> <a id="d:36" class="idref" href="#d:36"><span class="id" title="binder">d</span></a> <a id="e:37" class="idref" href="#e:37"><span class="id" title="binder">e</span></a> <a id="f:38" class="idref" href="#f:38"><span class="id" title="binder">f</span></a> <a id="g:39" class="idref" href="#g:39"><span class="id" title="binder">g</span></a> <a id="h:40" class="idref" href="#h:40"><span class="id" title="binder">h</span></a> <a id="i:41" class="idref" href="#i:41"><span class="id" title="binder">i</span></a> <a id="j:42" class="idref" href="#j:42"><span class="id" title="binder">j</span></a> : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a>) : <a class="idref" href="Examples.ThresholdIns.html#comp_randC"><span class="id" title="abbreviation">comp_randC</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_rel"><span class="id" title="definition">thr_rel</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.ThresholdIns.html#thr_rand"><span class="id" title="definition">thr_rand</span></a> <span class="id" title="notation">[</span><a class="idref" href="Examples.ThresholdIns.html#a:33"><span class="id" title="variable">a</span></a><span class="id" title="notation">;</span> <a class="idref" href="Examples.ThresholdIns.html#b:34"><span class="id" title="variable">b</span></a><span class="id" title="notation">;</span> <a class="idref" href="Examples.ThresholdIns.html#c:35"><span class="id" title="variable">c</span></a><span class="id" title="notation">]</span> <span class="id" title="notation">[</span><a class="idref" href="Examples.ThresholdIns.html#d:36"><span class="id" title="variable">d</span></a><span class="id" title="notation">;</span> <a class="idref" href="Examples.ThresholdIns.html#e:37"><span class="id" title="variable">e</span></a><span class="id" title="notation">;</span> <a class="idref" href="Examples.ThresholdIns.html#f:38"><span class="id" title="variable">f</span></a><span class="id" title="notation">]</span> <span class="id" title="notation">[</span><a class="idref" href="Examples.ThresholdIns.html#g:39"><span class="id" title="variable">g</span></a><span class="id" title="notation">;</span> <a class="idref" href="Examples.ThresholdIns.html#h:40"><span class="id" title="variable">h</span></a><span class="id" title="notation">;</span> <a class="idref" href="Examples.ThresholdIns.html#i:41"><span class="id" title="variable">i</span></a><span class="id" title="notation">]</span> <a class="idref" href="Examples.ThresholdIns.html#j:42"><span class="id" title="variable">j</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+One interactive run.
+
+<div class="paragraph"> </div>
+
+      Given ten random scalars and a challenge, it proves, verifies,
+      and returns whether verification succeeded together with the
+      number of wire elements the transcript occupies.  The second
+      component is the proof size, which is what the driver reports. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="thr_run" class="idref" href="#thr_run"><span class="id" title="definition">thr_run</span></a> (<a id="a:43" class="idref" href="#a:43"><span class="id" title="binder">a</span></a> <a id="b:44" class="idref" href="#b:44"><span class="id" title="binder">b</span></a> <a id="c:45" class="idref" href="#c:45"><span class="id" title="binder">c</span></a> <a id="d:46" class="idref" href="#d:46"><span class="id" title="binder">d</span></a> <a id="e:47" class="idref" href="#e:47"><span class="id" title="binder">e</span></a> <a id="f:48" class="idref" href="#f:48"><span class="id" title="binder">f</span></a> <a id="g:49" class="idref" href="#g:49"><span class="id" title="binder">g</span></a> <a id="h:50" class="idref" href="#h:50"><span class="id" title="binder">h</span></a> <a id="i:51" class="idref" href="#i:51"><span class="id" title="binder">i</span></a> <a id="j:52" class="idref" href="#j:52"><span class="id" title="binder">j</span></a> <a id="ch:53" class="idref" href="#ch:53"><span class="id" title="binder">ch</span></a> : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#bool"><span class="id" title="inductive">bool</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#11c698c8685bb8ab1cf725545c085ac4"><span class="id" title="notation">×</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">let</span> <a id="t:54" class="idref" href="#t:54"><span class="id" title="binder">t</span></a> := <a class="idref" href="Examples.ThresholdIns.html#thr_prove"><span class="id" title="definition">thr_prove</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_witness"><span class="id" title="definition">thr_witness</span></a> (<a class="idref" href="Examples.ThresholdIns.html#mk_rand"><span class="id" title="definition">mk_rand</span></a> <a class="idref" href="Examples.ThresholdIns.html#a:43"><span class="id" title="variable">a</span></a> <a class="idref" href="Examples.ThresholdIns.html#b:44"><span class="id" title="variable">b</span></a> <a class="idref" href="Examples.ThresholdIns.html#c:45"><span class="id" title="variable">c</span></a> <a class="idref" href="Examples.ThresholdIns.html#d:46"><span class="id" title="variable">d</span></a> <a class="idref" href="Examples.ThresholdIns.html#e:47"><span class="id" title="variable">e</span></a> <a class="idref" href="Examples.ThresholdIns.html#f:48"><span class="id" title="variable">f</span></a> <a class="idref" href="Examples.ThresholdIns.html#g:49"><span class="id" title="variable">g</span></a> <a class="idref" href="Examples.ThresholdIns.html#h:50"><span class="id" title="variable">h</span></a> <a class="idref" href="Examples.ThresholdIns.html#i:51"><span class="id" title="variable">i</span></a> <a class="idref" href="Examples.ThresholdIns.html#j:52"><span class="id" title="variable">j</span></a>) <a class="idref" href="Examples.ThresholdIns.html#ch:53"><span class="id" title="variable">ch</span></a> <span class="id" title="tactic">in</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">(</span></a><a class="idref" href="Examples.ThresholdIns.html#thr_verify"><span class="id" title="definition">thr_verify</span></a> <a class="idref" href="Examples.ThresholdIns.html#ch:53"><span class="id" title="variable">ch</span></a> <a class="idref" href="Examples.ThresholdIns.html#t:54"><span class="id" title="variable">t</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">,</span></a> <span class="id" title="abbreviation">List.length</span> (<a class="idref" href="Examples.ThresholdIns.html#thr_encode"><span class="id" title="definition">thr_encode</span></a> <a class="idref" href="Examples.ThresholdIns.html#t:54"><span class="id" title="variable">t</span></a>)<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">)</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+One non-interactive run.
+
+<div class="paragraph"> </div>
+
+      It produces a proof, encodes it, and returns three things:
+      whether the proof verifies, whether it still verifies after being
+      written to the wire and read back, and its size in wire elements.
+      The middle component checks the round trip in practice, next to
+      <span class="inlinecode"><span class="id" title="var">thr_roundtrip</span></span>, which settles it in principle. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="thr_nizk_run" class="idref" href="#thr_nizk_run"><span class="id" title="definition">thr_nizk_run</span></a> (<a id="a:55" class="idref" href="#a:55"><span class="id" title="binder">a</span></a> <a id="b:56" class="idref" href="#b:56"><span class="id" title="binder">b</span></a> <a id="c:57" class="idref" href="#c:57"><span class="id" title="binder">c</span></a> <a id="d:58" class="idref" href="#d:58"><span class="id" title="binder">d</span></a> <a id="e:59" class="idref" href="#e:59"><span class="id" title="binder">e</span></a> <a id="f:60" class="idref" href="#f:60"><span class="id" title="binder">f</span></a> <a id="g:61" class="idref" href="#g:61"><span class="id" title="binder">g</span></a> <a id="h:62" class="idref" href="#h:62"><span class="id" title="binder">h</span></a> <a id="i:63" class="idref" href="#i:63"><span class="id" title="binder">i</span></a> <a id="j:64" class="idref" href="#j:64"><span class="id" title="binder">j</span></a> : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#bool"><span class="id" title="inductive">bool</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#11c698c8685bb8ab1cf725545c085ac4"><span class="id" title="notation">×</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#bool"><span class="id" title="inductive">bool</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#11c698c8685bb8ab1cf725545c085ac4"><span class="id" title="notation">×</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">let</span> <a id="t:65" class="idref" href="#t:65"><span class="id" title="binder">t</span></a> := <a class="idref" href="Examples.ThresholdIns.html#thr_nizk_prove"><span class="id" title="definition">thr_nizk_prove</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_witness"><span class="id" title="definition">thr_witness</span></a> (<a class="idref" href="Examples.ThresholdIns.html#mk_rand"><span class="id" title="definition">mk_rand</span></a> <a class="idref" href="Examples.ThresholdIns.html#a:55"><span class="id" title="variable">a</span></a> <a class="idref" href="Examples.ThresholdIns.html#b:56"><span class="id" title="variable">b</span></a> <a class="idref" href="Examples.ThresholdIns.html#c:57"><span class="id" title="variable">c</span></a> <a class="idref" href="Examples.ThresholdIns.html#d:58"><span class="id" title="variable">d</span></a> <a class="idref" href="Examples.ThresholdIns.html#e:59"><span class="id" title="variable">e</span></a> <a class="idref" href="Examples.ThresholdIns.html#f:60"><span class="id" title="variable">f</span></a> <a class="idref" href="Examples.ThresholdIns.html#g:61"><span class="id" title="variable">g</span></a> <a class="idref" href="Examples.ThresholdIns.html#h:62"><span class="id" title="variable">h</span></a> <a class="idref" href="Examples.ThresholdIns.html#i:63"><span class="id" title="variable">i</span></a> <a class="idref" href="Examples.ThresholdIns.html#j:64"><span class="id" title="variable">j</span></a>) <span class="id" title="tactic">in</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">let</span> <a id="w:66" class="idref" href="#w:66"><span class="id" title="binder">w</span></a> := <a class="idref" href="Examples.ThresholdIns.html#thr_encode"><span class="id" title="definition">thr_encode</span></a> <a class="idref" href="Examples.ThresholdIns.html#t:65"><span class="id" title="variable">t</span></a> <span class="id" title="tactic">in</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">(</span></a><a class="idref" href="Examples.ThresholdIns.html#thr_nizk_verify"><span class="id" title="definition">thr_nizk_verify</span></a> <a class="idref" href="Examples.ThresholdIns.html#t:65"><span class="id" title="variable">t</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">,</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Examples.ThresholdIns.html#thr_decode"><span class="id" title="definition">thr_decode</span></a> <a class="idref" href="Examples.ThresholdIns.html#w:66"><span class="id" title="variable">w</span></a> <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#Some"><span class="id" title="constructor">Some</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">(</span></a><span class="id" title="var">t'</span><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">,</span></a> <span class="id" title="abbreviation">List.nil</span><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">)</span></a> ⇒ <a class="idref" href="Examples.ThresholdIns.html#thr_nizk_verify"><span class="id" title="definition">thr_nizk_verify</span></a> <span class="id" title="var">t'</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| <span class="id" title="var">_</span> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#false"><span class="id" title="constructor">false</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">end</span><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">,</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="abbreviation">List.length</span> <a class="idref" href="Examples.ThresholdIns.html#w:66"><span class="id" title="variable">w</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">)</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+A tampered proof, which the verifier is expected to reject.
+
+<div class="paragraph"> </div>
+
+      It produces an honest proof and then overwrites the responses of
+      the first child, replacing every one of them by the scalar <span class="inlinecode"><span class="id" title="var">z</span></span>,
+      before running the non-interactive verifier.  The expected answer
+      is false.
+
+<div class="paragraph"> </div>
+
+      This is a negative test meant to be run from OCaml.  The theorems
+      above say that honest proofs are accepted; a run of this says
+      that a damaged one is not.  It is evidence rather than a proof: a
+      tampering that went undetected would be a bug, but the check
+      coming out false does not by itself establish soundness. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="thr_nizk_tamper" class="idref" href="#thr_nizk_tamper"><span class="id" title="definition">thr_nizk_tamper</span></a> (<a id="a:67" class="idref" href="#a:67"><span class="id" title="binder">a</span></a> <a id="b:68" class="idref" href="#b:68"><span class="id" title="binder">b</span></a> <a id="c:69" class="idref" href="#c:69"><span class="id" title="binder">c</span></a> <a id="d:70" class="idref" href="#d:70"><span class="id" title="binder">d</span></a> <a id="e:71" class="idref" href="#e:71"><span class="id" title="binder">e</span></a> <a id="f:72" class="idref" href="#f:72"><span class="id" title="binder">f</span></a> <a id="g:73" class="idref" href="#g:73"><span class="id" title="binder">g</span></a> <a id="h:74" class="idref" href="#h:74"><span class="id" title="binder">h</span></a> <a id="i:75" class="idref" href="#i:75"><span class="id" title="binder">i</span></a> <a id="j:76" class="idref" href="#j:76"><span class="id" title="binder">j</span></a> <a id="z:77" class="idref" href="#z:77"><span class="id" title="binder">z</span></a> : <a class="idref" href="Examples.ThresholdIns.html#F"><span class="id" title="definition">F</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#bool"><span class="id" title="inductive">bool</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">let</span> <a id="t:78" class="idref" href="#t:78"><span class="id" title="binder">t</span></a> := <a class="idref" href="Examples.ThresholdIns.html#thr_nizk_prove"><span class="id" title="definition">thr_nizk_prove</span></a> <a class="idref" href="Examples.ThresholdIns.html#thr_witness"><span class="id" title="definition">thr_witness</span></a> (<a class="idref" href="Examples.ThresholdIns.html#mk_rand"><span class="id" title="definition">mk_rand</span></a> <a class="idref" href="Examples.ThresholdIns.html#a:67"><span class="id" title="variable">a</span></a> <a class="idref" href="Examples.ThresholdIns.html#b:68"><span class="id" title="variable">b</span></a> <a class="idref" href="Examples.ThresholdIns.html#c:69"><span class="id" title="variable">c</span></a> <a class="idref" href="Examples.ThresholdIns.html#d:70"><span class="id" title="variable">d</span></a> <a class="idref" href="Examples.ThresholdIns.html#e:71"><span class="id" title="variable">e</span></a> <a class="idref" href="Examples.ThresholdIns.html#f:72"><span class="id" title="variable">f</span></a> <a class="idref" href="Examples.ThresholdIns.html#g:73"><span class="id" title="variable">g</span></a> <a class="idref" href="Examples.ThresholdIns.html#h:74"><span class="id" title="variable">h</span></a> <a class="idref" href="Examples.ThresholdIns.html#i:75"><span class="id" title="variable">i</span></a> <a class="idref" href="Examples.ThresholdIns.html#j:76"><span class="id" title="variable">j</span></a>) <span class="id" title="tactic">in</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Examples.ThresholdIns.html#t:78"><span class="id" title="variable">t</span></a> <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">((</span></a><span class="id" title="var">t1</span><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">,</span></a> <span class="id" title="var">rest</span><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">),</span></a> <span class="id" title="var">cs</span><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">)</span></a> ⇒<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.ThresholdIns.html#thr_nizk_verify"><span class="id" title="definition">thr_nizk_verify</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">(((</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#fst"><span class="id" title="definition">fst</span></a> <span class="id" title="var">t1</span><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">,</span></a> <span class="id" title="definition">Vector.map</span> (<span class="id" title="keyword">fun</span> <span class="id" title="var">_</span> ⇒ <a class="idref" href="Examples.ThresholdIns.html#z:77"><span class="id" title="variable">z</span></a>) (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#snd"><span class="id" title="definition">snd</span></a> <span class="id" title="var">t1</span>)<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">),</span></a> <span class="id" title="var">rest</span><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">),</span></a> <span class="id" title="var">cs</span><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">)</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">end</span>.<br/>
+
+<br/>
+<span class="id" title="keyword">End</span> <a class="idref" href="Examples.ThresholdIns.html#ThresholdIns"><span class="id" title="section">ThresholdIns</span></a>.<br/>
+</div>
+</div>
+
+<div id="footer">
+<hr/><a href="index.html">Index</a><hr/>This page has been generated by <a href="http://rocq-prover.org/">coqdoc</a>
+</div>
+
+</div>
+
+</body>
+</html>

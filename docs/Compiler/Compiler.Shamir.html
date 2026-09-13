@@ -1,0 +1,511 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<title>Compiler.Shamir</title>
+</head>
+
+<body>
+
+<div id="page">
+
+<div id="header">
+</div>
+
+<div id="main">
+
+<h1 class="libtitle">Library Compiler.Shamir</h1>
+
+<div class="code">
+<span class="id" title="keyword">From</span> <span class="id" title="var">Stdlib</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <span class="id" title="library">Setoid</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">setoid_ring.Field</span> <span class="id" title="library">Lia</span> <span class="id" title="library">List</span> <span class="id" title="library">Utf8</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">Psatz</span> <span class="id" title="library">Bool</span> <span class="id" title="library">Arith</span>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Algebra</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">Hierarchy</span> <span class="id" title="library">Group</span> <span class="id" title="library">Monoid</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">Field</span> <span class="id" title="library">Integral_domain</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">Ring</span> <span class="id" title="library">Vector_space</span>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Compiler</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Compiler.Lagrange.html#"><span class="id" title="library">Lagrange</span></a>.<br/>
+<span class="id" title="keyword">Import</span> <span class="id" title="module">ListNotations</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab190"></a><h1 class="section">Shamir: the counting argument behind threshold soundness</h1>
+
+
+<div class="paragraph"> </div>
+
+    This file proves the one arithmetic fact that makes a
+    "at least <span class="inlinecode"><span class="id" title="var">thr</span></span> out of <span class="inlinecode"><span class="id" title="var">n</span></span>" proof sound.
+
+<div class="paragraph"> </div>
+
+<a id="lab191"></a><h2 class="section">The setting, in words</h2>
+
+
+<div class="paragraph"> </div>
+
+    A threshold node of the composed protocol works like Shamir
+    secret sharing.  The verifier sends one challenge <span class="inlinecode"><span class="id" title="var">c</span></span>.  The
+    prover spreads that single challenge over the <span class="inlinecode"><span class="id" title="var">n</span></span> children by
+    picking a polynomial that passes through the point <span class="inlinecode">(<span class="id" title="var">zero</span>,</span> <span class="inlinecode"><span class="id" title="var">c</span>)</span>,
+    and handing child number <span class="inlinecode"><span class="id" title="var">i</span></span> the value of that polynomial at a
+    fixed public point <span class="inlinecode"><span class="id" title="var">x_i</span></span> (the "node" of child <span class="inlinecode"><span class="id" title="var">i</span></span>).  The nodes
+    are chosen once, are public, and are pairwise different.
+
+<div class="paragraph"> </div>
+
+    The prover is allowed to choose the polynomial freely except for
+    one constraint: its degree is capped.  A polynomial of degree at
+    most <span class="inlinecode"><span class="id" title="var">d</span></span> is pinned down by <span class="inlinecode"><span class="id" title="var">d</span></span> <span class="inlinecode">+</span> <span class="inlinecode">1</span> points, so capping the degree
+    caps how many child challenges the prover can pick by hand.  In
+    the threshold protocol the cap is <span class="inlinecode"><span class="id" title="var">n</span></span> <span class="inlinecode">-</span> <span class="inlinecode"><span class="id" title="var">thr</span></span>, which leaves the
+    prover exactly <span class="inlinecode"><span class="id" title="var">n</span></span> <span class="inlinecode">-</span> <span class="inlinecode"><span class="id" title="var">thr</span></span> free child challenges.  Those are the
+    children it fakes; for the remaining <span class="inlinecode"><span class="id" title="var">thr</span></span> children it must do
+    real work, which means it must know <span class="inlinecode"><span class="id" title="var">thr</span></span> witnesses.
+
+<div class="paragraph"> </div>
+
+<a id="lab192"></a><h2 class="section">What is proven here</h2>
+
+
+<div class="paragraph"> </div>
+
+    Soundness of a sigma protocol is proven by rewinding: you take
+    two accepting runs that start with the same first message but
+    use two different challenges, and you extract a witness from the
+    pair.  For a threshold node the two runs give two root
+    challenges <span class="inlinecode"><span class="id" title="var">c</span></span> and <span class="inlinecode"><span class="id" title="var">c'</span></span> with <span class="inlinecode"><span class="id" title="var">c</span></span> <span class="inlinecode">≠</span> <span class="inlinecode"><span class="id" title="var">c'</span></span>, and two lists of child
+    challenges <span class="inlinecode"><span class="id" title="var">cs</span></span> and <span class="inlinecode"><span class="id" title="var">cs'</span></span>.
+
+<div class="paragraph"> </div>
+
+    <span class="inlinecode"><span class="id" title="var">threshold_extraction</span></span> says: if <span class="inlinecode"><span class="id" title="var">c</span></span> <span class="inlinecode">≠</span> <span class="inlinecode"><span class="id" title="var">c'</span></span>, then <span class="inlinecode"><span class="id" title="var">cs</span></span> and <span class="inlinecode"><span class="id" title="var">cs'</span></span>
+    differ in at least <span class="inlinecode"><span class="id" title="var">thr</span></span> positions.  Each differing position is
+    a child that received two different challenges under the same
+    first message, which is exactly what the child's own extractor
+    needs.  So <span class="inlinecode"><span class="id" title="var">thr</span></span> children yield <span class="inlinecode"><span class="id" title="var">thr</span></span> witnesses, and the
+    threshold relation really holds.
+
+<div class="paragraph"> </div>
+
+<a id="lab193"></a><h2 class="section">Why it is true</h2>
+
+
+<div class="paragraph"> </div>
+
+    Suppose the two lists agreed in more than <span class="inlinecode"><span class="id" title="var">n</span></span> <span class="inlinecode">-</span> <span class="inlinecode"><span class="id" title="var">thr</span></span> positions.
+    Both interpolants have degree at most <span class="inlinecode"><span class="id" title="var">n</span></span> <span class="inlinecode">-</span> <span class="inlinecode"><span class="id" title="var">thr</span></span>, and they would
+    agree on more than <span class="inlinecode"><span class="id" title="var">n</span></span> <span class="inlinecode">-</span> <span class="inlinecode"><span class="id" title="var">thr</span></span> different nodes.  Two polynomials
+    of degree at most <span class="inlinecode"><span class="id" title="var">d</span></span> that agree on more than <span class="inlinecode"><span class="id" title="var">d</span></span> points are the
+    same polynomial (<span class="inlinecode"><span class="id" title="var">lag_interp_unique</span></span> in Lagrange.v).  Being the
+    same polynomial, they also agree at the point <span class="inlinecode"><span class="id" title="var">zero</span></span>, where they
+    evaluate to <span class="inlinecode"><span class="id" title="var">c</span></span> and <span class="inlinecode"><span class="id" title="var">c'</span></span>.  That contradicts <span class="inlinecode"><span class="id" title="var">c</span></span> <span class="inlinecode">≠</span> <span class="inlinecode"><span class="id" title="var">c'</span></span>.  So the
+    agreement set has at most <span class="inlinecode"><span class="id" title="var">n</span></span> <span class="inlinecode">-</span> <span class="inlinecode"><span class="id" title="var">thr</span></span> positions, and the remaining
+    ones, at least <span class="inlinecode"><span class="id" title="var">thr</span></span> of them, are disagreements. 
+</div>
+<div class="code">
+<span class="id" title="keyword">Section</span> <a id="Threshold" class="idref" href="#Threshold"><span class="id" title="section">Threshold</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab194"></a><h2 class="section">Parameters</h2>
+
+
+<div class="paragraph"> </div>
+
+      The whole file is parametric in an arbitrary field <span class="inlinecode"><span class="id" title="var">F</span></span>, given
+      as its carrier plus its operations.  Nothing below depends on
+      a particular choice of field, so the result applies to any
+      prime field a real deployment might use.
+
+<div class="paragraph"> </div>
+
+<ul class="doclist">
+<li> <span class="inlinecode"><span class="id" title="var">zero</span></span>, <span class="inlinecode"><span class="id" title="var">one</span></span> are the two constants;
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">add</span></span>, <span class="inlinecode"><span class="id" title="var">mul</span></span>, <span class="inlinecode"><span class="id" title="var">sub</span></span>, <span class="inlinecode"><span class="id" title="var">div</span></span> the four binary operations;
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">opp</span></span> is negation and <span class="inlinecode"><span class="id" title="var">inv</span></span> is the multiplicative inverse;
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">Fdec</span></span> decides whether two field elements are equal, which
+        is what lets us write the boolean test <span class="inlinecode"><span class="id" title="var">agreeb</span></span> below;
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">Hfield</span></span> is the proof that all of this really forms a
+        field. 
+
+</li>
+</ul>
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Context</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="Threshold.F" class="idref" href="#Threshold.F"><span class="id" title="variable">F</span></a> : <span class="id" title="keyword">Type</span>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="Threshold.zero" class="idref" href="#Threshold.zero"><span class="id" title="variable">zero</span></a> <a id="Threshold.one" class="idref" href="#Threshold.one"><span class="id" title="variable">one</span></a> : <a class="idref" href="Compiler.Shamir.html#F:1"><span class="id" title="variable">F</span></a>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="Threshold.add" class="idref" href="#Threshold.add"><span class="id" title="variable">add</span></a> <a id="Threshold.mul" class="idref" href="#Threshold.mul"><span class="id" title="variable">mul</span></a> <a id="Threshold.sub" class="idref" href="#Threshold.sub"><span class="id" title="variable">sub</span></a> <a id="Threshold.div" class="idref" href="#Threshold.div"><span class="id" title="variable">div</span></a> : <a class="idref" href="Compiler.Shamir.html#F:1"><span class="id" title="variable">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.Shamir.html#F:1"><span class="id" title="variable">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.Shamir.html#F:1"><span class="id" title="variable">F</span></a>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="Threshold.opp" class="idref" href="#Threshold.opp"><span class="id" title="variable">opp</span></a> <a id="Threshold.inv" class="idref" href="#Threshold.inv"><span class="id" title="variable">inv</span></a> : <a class="idref" href="Compiler.Shamir.html#F:1"><span class="id" title="variable">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.Shamir.html#F:1"><span class="id" title="variable">F</span></a>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="Threshold.Fdec" class="idref" href="#Threshold.Fdec"><span class="id" title="variable">Fdec</span></a> : <span class="id" title="keyword">∀</span> <a id="x:10" class="idref" href="#x:10"><span class="id" title="binder">x</span></a> <a id="y:11" class="idref" href="#y:11"><span class="id" title="binder">y</span></a> : <a class="idref" href="Compiler.Shamir.html#F:1"><span class="id" title="variable">F</span></a>, <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">{</span></a><a class="idref" href="Compiler.Shamir.html#x:10"><span class="id" title="variable">x</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Compiler.Shamir.html#y:11"><span class="id" title="variable">y</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">}</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">+</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">{</span></a><a class="idref" href="Compiler.Shamir.html#x:10"><span class="id" title="variable">x</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;&gt;'_x"><span class="id" title="notation">≠</span></a> <a class="idref" href="Compiler.Shamir.html#y:11"><span class="id" title="variable">y</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#87727981cdc1579fef00b9d9c1d3b9da"><span class="id" title="notation">}</span></a>}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<a id="Threshold.Hfield" class="idref" href="#Threshold.Hfield"><span class="id" title="variable">Hfield</span></a> : @<span class="id" title="class">field</span> <a class="idref" href="Compiler.Shamir.html#F:1"><span class="id" title="variable">F</span></a> (@<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#eq"><span class="id" title="inductive">eq</span></a> <a class="idref" href="Compiler.Shamir.html#F:1"><span class="id" title="variable">F</span></a>) <a class="idref" href="Compiler.Shamir.html#zero:2"><span class="id" title="variable">zero</span></a> <a class="idref" href="Compiler.Shamir.html#one:3"><span class="id" title="variable">one</span></a> <a class="idref" href="Compiler.Shamir.html#opp:8"><span class="id" title="variable">opp</span></a> <a class="idref" href="Compiler.Shamir.html#add:4"><span class="id" title="variable">add</span></a> <a class="idref" href="Compiler.Shamir.html#sub:6"><span class="id" title="variable">sub</span></a> <a class="idref" href="Compiler.Shamir.html#mul:5"><span class="id" title="variable">mul</span></a> <a class="idref" href="Compiler.Shamir.html#inv:9"><span class="id" title="variable">inv</span></a> <a class="idref" href="Compiler.Shamir.html#div:7"><span class="id" title="variable">div</span></a>}.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Register the field with the <span class="inlinecode"><span class="id" title="tactic">field</span></span> tactic so that routine
+      algebraic identities can be discharged automatically. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Add</span> <span class="id" title="var">Field</span> <span class="id" title="tactic">field</span> : (@<span class="id" title="lemma">field_theory_for_stdlib_tactic</span> <a class="idref" href="Compiler.Shamir.html#Threshold.F"><span class="id" title="variable">F</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#eq"><span class="id" title="inductive">eq</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.zero"><span class="id" title="variable">zero</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.one"><span class="id" title="variable">one</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.opp"><span class="id" title="variable">opp</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.add"><span class="id" title="variable">add</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.mul"><span class="id" title="variable">mul</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.sub"><span class="id" title="variable">sub</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.inv"><span class="id" title="variable">inv</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.div"><span class="id" title="variable">div</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.Hfield"><span class="id" title="variable">Hfield</span></a>).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Shorthand for the interpolation function of Lagrange.v,
+      already applied to this section's field operations. 
+</div>
+<div class="code">
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="lag_interpF" class="idref" href="#lag_interpF"><span class="id" title="abbreviation">lag_interpF</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;(@<a class="idref" href="Compiler.Lagrange.html#lag_interp"><span class="id" title="definition">lag_interp</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.F"><span class="id" title="variable">F</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.zero"><span class="id" title="variable">zero</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.one"><span class="id" title="variable">one</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.add"><span class="id" title="variable">add</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.mul"><span class="id" title="variable">mul</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.sub"><span class="id" title="variable">sub</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.inv"><span class="id" title="variable">inv</span></a>).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Shorthand for the uniqueness theorem of Lagrange.v: two
+      interpolants with few enough points that agree on enough
+      distinct nodes are the same function. 
+</div>
+<div class="code">
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="lag_interp_uniqueF" class="idref" href="#lag_interp_uniqueF"><span class="id" title="abbreviation">lag_interp_uniqueF</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;(@<a class="idref" href="Compiler.Lagrange.html#lag_interp_unique"><span class="id" title="lemma">lag_interp_unique</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.F"><span class="id" title="variable">F</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.zero"><span class="id" title="variable">zero</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.one"><span class="id" title="variable">one</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.add"><span class="id" title="variable">add</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.mul"><span class="id" title="variable">mul</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.sub"><span class="id" title="variable">sub</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.div"><span class="id" title="variable">div</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.opp"><span class="id" title="variable">opp</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.inv"><span class="id" title="variable">inv</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.Fdec"><span class="id" title="variable">Fdec</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.Hfield"><span class="id" title="variable">Hfield</span></a>).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab195"></a><h2 class="section">Comparing two challenge lists</h2>
+
+
+<div class="paragraph"> </div>
+
+      <span class="inlinecode"><span class="id" title="var">agreeb</span></span> <span class="inlinecode"><span class="id" title="var">cs</span></span> <span class="inlinecode"><span class="id" title="var">cs'</span></span> <span class="inlinecode"><span class="id" title="var">i</span></span> answers the question "did child number <span class="inlinecode"><span class="id" title="var">i</span></span>
+      receive the same challenge in both runs?".
+
+<div class="paragraph"> </div>
+
+      It reads position <span class="inlinecode"><span class="id" title="var">i</span></span> out of each list and compares the two
+      field elements with the decidable equality <span class="inlinecode"><span class="id" title="var">Fdec</span></span>, turning the
+      answer into a plain boolean so that it can be used with
+      <span class="inlinecode"><span class="id" title="var">List.filter</span></span>.
+
+<div class="paragraph"> </div>
+
+      Reading past the end of a list yields the default value
+      <span class="inlinecode"><span class="id" title="var">zero</span></span>.  That never happens where the function is used, because
+      the indices always come from <span class="inlinecode"><span class="id" title="var">seq</span></span> <span class="inlinecode">0</span> <span class="inlinecode"><span class="id" title="var">n</span></span> and both lists have
+      length <span class="inlinecode"><span class="id" title="var">n</span></span>. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="agreeb" class="idref" href="#agreeb"><span class="id" title="definition">agreeb</span></a> (<a id="cs:14" class="idref" href="#cs:14"><span class="id" title="binder">cs</span></a> <a id="cs':15" class="idref" href="#cs':15"><span class="id" title="binder">cs'</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.F"><span class="id" title="variable">F</span></a>) (<a id="i:16" class="idref" href="#i:16"><span class="id" title="binder">i</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#bool"><span class="id" title="inductive">bool</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Compiler.Shamir.html#Threshold.Fdec"><span class="id" title="variable">Fdec</span></a> (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#nth"><span class="id" title="definition">nth</span></a> <a class="idref" href="Compiler.Shamir.html#i:16"><span class="id" title="variable">i</span></a> <a class="idref" href="Compiler.Shamir.html#cs:14"><span class="id" title="variable">cs</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.zero"><span class="id" title="variable">zero</span></a>) (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#nth"><span class="id" title="definition">nth</span></a> <a class="idref" href="Compiler.Shamir.html#i:16"><span class="id" title="variable">i</span></a> <a class="idref" href="Compiler.Shamir.html#cs':15"><span class="id" title="variable">cs'</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.zero"><span class="id" title="variable">zero</span></a>) <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#left"><span class="id" title="constructor">left</span></a> <span class="id" title="var">_</span> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Specif.html#right"><span class="id" title="constructor">right</span></a> <span class="id" title="var">_</span> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#false"><span class="id" title="constructor">false</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">end</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab196"></a><h2 class="section">Helper facts about lists</h2>
+
+
+<div class="paragraph"> </div>
+
+      These three lemmas are ordinary list bookkeeping.  They are
+      stated separately because each is a self-contained fact that
+      is easier to read on its own than inlined in the main proof. 
+<div class="paragraph"> </div>
+
+ Splitting a list by a test loses nothing.
+
+<div class="paragraph"> </div>
+
+      Filtering with a test <span class="inlinecode"><span class="id" title="var">p</span></span> and filtering with its negation
+      produce two lists whose lengths add up to the length of the
+      original.  Every element goes to exactly one side.
+
+<div class="paragraph"> </div>
+
+      In the main proof this is what turns "the agreement set is
+      small" into "the disagreement set is large". 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="filter_partition_length" class="idref" href="#filter_partition_length"><span class="id" title="lemma">filter_partition_length</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="A:17" class="idref" href="#A:17"><span class="id" title="binder">A</span></a> : <span class="id" title="keyword">Type</span>) (<a id="p:18" class="idref" href="#p:18"><span class="id" title="binder">p</span></a> : <a class="idref" href="Compiler.Shamir.html#A:17"><span class="id" title="variable">A</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#bool"><span class="id" title="inductive">bool</span></a>) (<a id="l:19" class="idref" href="#l:19"><span class="id" title="binder">l</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Compiler.Shamir.html#A:17"><span class="id" title="variable">A</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;(<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> (<span class="id" title="definition">filter</span> <a class="idref" href="Compiler.Shamir.html#p:18"><span class="id" title="variable">p</span></a> <a class="idref" href="Compiler.Shamir.html#l:19"><span class="id" title="variable">l</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#0dacc1786c5ba797d47dd85006231633"><span class="id" title="notation">+</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> (<span class="id" title="definition">filter</span> (<span class="id" title="keyword">fun</span> <a id="x:20" class="idref" href="#x:20"><span class="id" title="binder">x</span></a> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#negb"><span class="id" title="definition">negb</span></a> (<a class="idref" href="Compiler.Shamir.html#p:18"><span class="id" title="variable">p</span></a> <a class="idref" href="Compiler.Shamir.html#x:20"><span class="id" title="variable">x</span></a>)) <a class="idref" href="Compiler.Shamir.html#l:19"><span class="id" title="variable">l</span></a>))%<span class="id" title="var">nat</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> <a class="idref" href="Compiler.Shamir.html#l:19"><span class="id" title="variable">l</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">A</span> <span class="id" title="var">p</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">induction</span> <span class="id" title="var">l</span> <span class="id" title="keyword">as</span> [|<span class="id" title="var">a</span> <span class="id" title="var">l</span> <span class="id" title="var">ih</span>]; <span class="id" title="var">cbn</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> (<span class="id" title="var">p</span> <span class="id" title="var">a</span>); <span class="id" title="var">cbn</span>; <span class="id" title="var">lia</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Looking up distinct positions in a duplicate-free list gives
+      distinct results.
+
+<div class="paragraph"> </div>
+
+      Given a list <span class="inlinecode"><span class="id" title="var">xs</span></span> with no repeated element, and a list <span class="inlinecode"><span class="id" title="var">idxs</span></span>
+      of positions that are themselves all different and all inside
+      <span class="inlinecode"><span class="id" title="var">xs</span></span>, reading <span class="inlinecode"><span class="id" title="var">xs</span></span> at each of those positions produces a list
+      with no repeated element either.
+
+<div class="paragraph"> </div>
+
+      This is used to go from "these child indices agree" to "these
+      interpolation nodes are distinct points", which is what the
+      uniqueness theorem needs: it counts pairwise different points
+      of agreement, so duplicates would not help. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="nth_map_nodup" class="idref" href="#nth_map_nodup"><span class="id" title="lemma">nth_map_nodup</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="xs:21" class="idref" href="#xs:21"><span class="id" title="binder">xs</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.F"><span class="id" title="variable">F</span></a>) (<a id="idxs:22" class="idref" href="#idxs:22"><span class="id" title="binder">idxs</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="inductive">List.NoDup</span> <a class="idref" href="Compiler.Shamir.html#idxs:22"><span class="id" title="variable">idxs</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">(</span></a><span class="id" title="notation">∀</span> <a id="i:23" class="idref" href="#i:23"><span class="id" title="binder">i</span></a><span class="id" title="notation">,</span> <span class="id" title="definition">List.In</span> <a class="idref" href="Compiler.Shamir.html#i:23"><span class="id" title="variable">i</span></a> <a class="idref" href="Compiler.Shamir.html#idxs:22"><span class="id" title="variable">idxs</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> (<a class="idref" href="Compiler.Shamir.html#i:23"><span class="id" title="variable">i</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#::nat_scope:x_'&lt;'_x"><span class="id" title="notation">&lt;</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> <a class="idref" href="Compiler.Shamir.html#xs:21"><span class="id" title="variable">xs</span></a>)%<span class="id" title="var">nat</span><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">)</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="inductive">List.NoDup</span> <a class="idref" href="Compiler.Shamir.html#xs:21"><span class="id" title="variable">xs</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="inductive">List.NoDup</span> (<span class="id" title="abbreviation">List.map</span> (<span class="id" title="keyword">fun</span> <a id="i:24" class="idref" href="#i:24"><span class="id" title="binder">i</span></a> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#nth"><span class="id" title="definition">nth</span></a> <a class="idref" href="Compiler.Shamir.html#i:24"><span class="id" title="variable">i</span></a> <a class="idref" href="Compiler.Shamir.html#xs:21"><span class="id" title="variable">xs</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.zero"><span class="id" title="variable">zero</span></a>) <a class="idref" href="Compiler.Shamir.html#idxs:22"><span class="id" title="variable">idxs</span></a>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">xs</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">induction</span> <span class="id" title="var">idxs</span> <span class="id" title="keyword">as</span> [|<span class="id" title="var">a</span> <span class="id" title="var">idxs</span> <span class="id" title="var">ih</span>]; <span class="id" title="tactic">intros</span> <span class="id" title="var">hnd</span> <span class="id" title="var">hlt</span> <span class="id" title="var">hxs</span>; <span class="id" title="var">cbn</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">constructor</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">inversion</span> <span class="id" title="var">hnd</span> <span class="id" title="keyword">as</span> [| ? ? <span class="id" title="var">hnin</span> <span class="id" title="var">hnd'</span>]; <span class="id" title="tactic">subst</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">constructor</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;++<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intro</span> <span class="id" title="var">hin</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">List.in_map_iff</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hin</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> <span class="id" title="var">hin</span> <span class="id" title="keyword">as</span> (<span class="id" title="var">j</span> &amp; <span class="id" title="var">hj</span> &amp; <span class="id" title="var">hjin</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">assert</span> (<span class="id" title="var">haj</span> : <span class="id" title="var">a</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <span class="id" title="var">j</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#proj1"><span class="id" title="lemma">proj1</span></a> (<span class="id" title="lemma">List.NoDup_nth</span> <span class="id" title="var">xs</span> <a class="idref" href="Compiler.Shamir.html#Threshold.zero"><span class="id" title="variable">zero</span></a>) <span class="id" title="var">hxs</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="var">hlt</span>; <span class="id" title="tactic">left</span>; <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="var">hlt</span>; <span class="id" title="tactic">right</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hjin</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">symmetry</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hj</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">subst</span>; <span class="id" title="var">contradiction</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;++<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="var">ih</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">exact</span> <span class="id" title="var">hnd'</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">i</span> <span class="id" title="var">hi</span>; <span class="id" title="tactic">eapply</span> <span class="id" title="var">hlt</span>; <span class="id" title="tactic">right</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hi</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">exact</span> <span class="id" title="var">hxs</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Filtering the list <span class="inlinecode">0,</span> <span class="inlinecode">1,</span> <span class="inlinecode">...,</span> <span class="inlinecode"><span class="id" title="var">n</span></span> <span class="inlinecode">-</span> <span class="inlinecode">1</span> keeps only numbers below
+      <span class="inlinecode"><span class="id" title="var">n</span></span>.
+
+<div class="paragraph"> </div>
+
+      Obvious, but needed explicitly: the main proof gets its indices
+      by filtering <span class="inlinecode"><span class="id" title="var">seq</span></span> <span class="inlinecode">0</span> <span class="inlinecode"><span class="id" title="var">n</span></span>, and then has to feed them to lemmas
+      that demand the index be a legal position in a list of length
+      <span class="inlinecode"><span class="id" title="var">n</span></span>. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="filter_seq_lt" class="idref" href="#filter_seq_lt"><span class="id" title="lemma">filter_seq_lt</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="p:25" class="idref" href="#p:25"><span class="id" title="binder">p</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#bool"><span class="id" title="inductive">bool</span></a>) (<a id="n:26" class="idref" href="#n:26"><span class="id" title="binder">n</span></a> <a id="i:27" class="idref" href="#i:27"><span class="id" title="binder">i</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="definition">List.In</span> <a class="idref" href="Compiler.Shamir.html#i:27"><span class="id" title="variable">i</span></a> (<span class="id" title="definition">filter</span> <a class="idref" href="Compiler.Shamir.html#p:25"><span class="id" title="variable">p</span></a> (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#seq"><span class="id" title="definition">seq</span></a> 0 <a class="idref" href="Compiler.Shamir.html#n:26"><span class="id" title="variable">n</span></a>)) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> (<a class="idref" href="Compiler.Shamir.html#i:27"><span class="id" title="variable">i</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#::nat_scope:x_'&lt;'_x"><span class="id" title="notation">&lt;</span></a> <a class="idref" href="Compiler.Shamir.html#n:26"><span class="id" title="variable">n</span></a>)%<span class="id" title="var">nat</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> × <span class="id" title="var">hi</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">filter_In</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hi</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> <span class="id" title="var">hi</span> <span class="id" title="keyword">as</span> (<span class="id" title="var">hi</span> &amp; <span class="id" title="var">_</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">in_seq</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hi</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">lia</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab197"></a><h2 class="section">The main theorem</h2>
+
+
+<div class="paragraph"> </div>
+
+      Two accepting runs with different root challenges disagree on
+      at least <span class="inlinecode"><span class="id" title="var">thr</span></span> children.
+
+<div class="paragraph"> </div>
+
+      Reading the hypotheses one by one:
+
+<div class="paragraph"> </div>
+
+<ul class="doclist">
+<li> <span class="inlinecode"><span class="id" title="var">thr</span></span> <span class="inlinecode">≤</span> <span class="inlinecode"><span class="id" title="var">n</span></span>: the threshold cannot ask for more children than
+        there are.
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">List.NoDup</span></span> <span class="inlinecode"><span class="id" title="var">xs</span></span> and <span class="inlinecode"><span class="id" title="var">length</span></span> <span class="inlinecode"><span class="id" title="var">xs</span></span> <span class="inlinecode">=</span> <span class="inlinecode"><span class="id" title="var">n</span></span>: the <span class="inlinecode"><span class="id" title="var">n</span></span> public
+        interpolation nodes, one per child, are pairwise different.
+        Distinctness is essential; repeated nodes would let the
+        prover cheat.
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">length</span></span> <span class="inlinecode"><span class="id" title="var">base</span></span> <span class="inlinecode">≤</span> <span class="inlinecode"><span class="id" title="var">S</span></span> <span class="inlinecode">(<span class="id" title="var">n</span></span> <span class="inlinecode">-</span> <span class="inlinecode"><span class="id" title="var">thr</span>)</span> and the same for <span class="inlinecode"><span class="id" title="var">base'</span></span>: each
+        run's polynomial is given by at most <span class="inlinecode"><span class="id" title="var">n</span></span> <span class="inlinecode">-</span> <span class="inlinecode"><span class="id" title="var">thr</span></span> <span class="inlinecode">+</span> <span class="inlinecode">1</span> points,
+        which is the degree cap described at the top of the file.
+        <span class="inlinecode"><span class="id" title="var">base</span></span> is the first run's point set and <span class="inlinecode"><span class="id" title="var">base'</span></span> the second's.
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">lag_interpF</span></span> <span class="inlinecode"><span class="id" title="var">base</span></span> <span class="inlinecode"><span class="id" title="var">zero</span></span> <span class="inlinecode">=</span> <span class="inlinecode"><span class="id" title="var">c</span></span> and likewise for <span class="inlinecode"><span class="id" title="var">c'</span></span>: each
+        polynomial passes through the root challenge of its own run
+        at the point <span class="inlinecode"><span class="id" title="var">zero</span></span>.
+
+</li>
+<li> the two <span class="inlinecode">∀</span> <span class="inlinecode"><span class="id" title="var">i</span></span> hypotheses: evaluating a run's polynomial at
+        the node of child <span class="inlinecode"><span class="id" title="var">i</span></span> gives exactly the challenge that child
+        <span class="inlinecode"><span class="id" title="var">i</span></span> received in that run.  So <span class="inlinecode"><span class="id" title="var">cs</span></span> and <span class="inlinecode"><span class="id" title="var">cs'</span></span> are the child
+        challenge lists of the two runs.
+
+</li>
+<li> <span class="inlinecode"><span class="id" title="var">c</span></span> <span class="inlinecode">≠</span> <span class="inlinecode"><span class="id" title="var">c'</span></span>: the two runs used different root challenges,
+        which is what rewinding provides.
+
+</li>
+</ul>
+
+<div class="paragraph"> </div>
+
+      The conclusion counts the positions where the two child
+      challenge lists differ, and states that there are at least
+      <span class="inlinecode"><span class="id" title="var">thr</span></span> of them. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="threshold_extraction" class="idref" href="#threshold_extraction"><span class="id" title="lemma">threshold_extraction</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="n:28" class="idref" href="#n:28"><span class="id" title="binder">n</span></a> <a id="thr:29" class="idref" href="#thr:29"><span class="id" title="binder">thr</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) (<a id="xs:30" class="idref" href="#xs:30"><span class="id" title="binder">xs</span></a> <a id="cs:31" class="idref" href="#cs:31"><span class="id" title="binder">cs</span></a> <a id="cs':32" class="idref" href="#cs':32"><span class="id" title="binder">cs'</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.F"><span class="id" title="variable">F</span></a>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<a id="base:33" class="idref" href="#base:33"><span class="id" title="binder">base</span></a> <a id="base':34" class="idref" href="#base':34"><span class="id" title="binder">base'</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> (<a class="idref" href="Compiler.Shamir.html#Threshold.F"><span class="id" title="variable">F</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#11c698c8685bb8ab1cf725545c085ac4"><span class="id" title="notation">×</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.F"><span class="id" title="variable">F</span></a>)) (<a id="c:35" class="idref" href="#c:35"><span class="id" title="binder">c</span></a> <a id="c':36" class="idref" href="#c':36"><span class="id" title="binder">c'</span></a> : <a class="idref" href="Compiler.Shamir.html#Threshold.F"><span class="id" title="variable">F</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;(<a class="idref" href="Compiler.Shamir.html#thr:29"><span class="id" title="variable">thr</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#cb53cf0ee22c036a03b4a9281c68b5a3"><span class="id" title="notation">≤</span></a> <a class="idref" href="Compiler.Shamir.html#n:28"><span class="id" title="variable">n</span></a>)%<span class="id" title="var">nat</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="inductive">List.NoDup</span> <a class="idref" href="Compiler.Shamir.html#xs:30"><span class="id" title="variable">xs</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> <a class="idref" href="Compiler.Shamir.html#xs:30"><span class="id" title="variable">xs</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Compiler.Shamir.html#n:28"><span class="id" title="variable">n</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;(<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> <a class="idref" href="Compiler.Shamir.html#base:33"><span class="id" title="variable">base</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#cb53cf0ee22c036a03b4a9281c68b5a3"><span class="id" title="notation">≤</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#S"><span class="id" title="constructor">S</span></a> (<a class="idref" href="Compiler.Shamir.html#n:28"><span class="id" title="variable">n</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#::nat_scope:x_'-'_x"><span class="id" title="notation">-</span></a> <a class="idref" href="Compiler.Shamir.html#thr:29"><span class="id" title="variable">thr</span></a>))%<span class="id" title="var">nat</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;(<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> <a class="idref" href="Compiler.Shamir.html#base':34"><span class="id" title="variable">base'</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#cb53cf0ee22c036a03b4a9281c68b5a3"><span class="id" title="notation">≤</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#S"><span class="id" title="constructor">S</span></a> (<a class="idref" href="Compiler.Shamir.html#n:28"><span class="id" title="variable">n</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#::nat_scope:x_'-'_x"><span class="id" title="notation">-</span></a> <a class="idref" href="Compiler.Shamir.html#thr:29"><span class="id" title="variable">thr</span></a>))%<span class="id" title="var">nat</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.Shamir.html#lag_interpF"><span class="id" title="abbreviation">lag_interpF</span></a> <a class="idref" href="Compiler.Shamir.html#base:33"><span class="id" title="variable">base</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.zero"><span class="id" title="variable">zero</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Compiler.Shamir.html#c:35"><span class="id" title="variable">c</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.Shamir.html#lag_interpF"><span class="id" title="abbreviation">lag_interpF</span></a> <a class="idref" href="Compiler.Shamir.html#base':34"><span class="id" title="variable">base'</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.zero"><span class="id" title="variable">zero</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Compiler.Shamir.html#c':36"><span class="id" title="variable">c'</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">(</span></a><span class="id" title="notation">∀</span> <a id="i:37" class="idref" href="#i:37"><span class="id" title="binder">i</span></a><span class="id" title="notation">,</span> (<a class="idref" href="Compiler.Shamir.html#i:37"><span class="id" title="variable">i</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#::nat_scope:x_'&lt;'_x"><span class="id" title="notation">&lt;</span></a> <a class="idref" href="Compiler.Shamir.html#n:28"><span class="id" title="variable">n</span></a>)%<span class="id" title="var">nat</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.Shamir.html#lag_interpF"><span class="id" title="abbreviation">lag_interpF</span></a> <a class="idref" href="Compiler.Shamir.html#base:33"><span class="id" title="variable">base</span></a> (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#nth"><span class="id" title="definition">nth</span></a> <a class="idref" href="Compiler.Shamir.html#i:37"><span class="id" title="variable">i</span></a> <a class="idref" href="Compiler.Shamir.html#xs:30"><span class="id" title="variable">xs</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.zero"><span class="id" title="variable">zero</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#nth"><span class="id" title="definition">nth</span></a> <a class="idref" href="Compiler.Shamir.html#i:37"><span class="id" title="variable">i</span></a> <a class="idref" href="Compiler.Shamir.html#cs:31"><span class="id" title="variable">cs</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.zero"><span class="id" title="variable">zero</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">)</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">(</span></a><span class="id" title="notation">∀</span> <a id="i:38" class="idref" href="#i:38"><span class="id" title="binder">i</span></a><span class="id" title="notation">,</span> (<a class="idref" href="Compiler.Shamir.html#i:38"><span class="id" title="variable">i</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#::nat_scope:x_'&lt;'_x"><span class="id" title="notation">&lt;</span></a> <a class="idref" href="Compiler.Shamir.html#n:28"><span class="id" title="variable">n</span></a>)%<span class="id" title="var">nat</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Compiler.Shamir.html#lag_interpF"><span class="id" title="abbreviation">lag_interpF</span></a> <a class="idref" href="Compiler.Shamir.html#base':34"><span class="id" title="variable">base'</span></a> (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#nth"><span class="id" title="definition">nth</span></a> <a class="idref" href="Compiler.Shamir.html#i:38"><span class="id" title="variable">i</span></a> <a class="idref" href="Compiler.Shamir.html#xs:30"><span class="id" title="variable">xs</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.zero"><span class="id" title="variable">zero</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#nth"><span class="id" title="definition">nth</span></a> <a class="idref" href="Compiler.Shamir.html#i:38"><span class="id" title="variable">i</span></a> <a class="idref" href="Compiler.Shamir.html#cs':32"><span class="id" title="variable">cs'</span></a> <a class="idref" href="Compiler.Shamir.html#Threshold.zero"><span class="id" title="variable">zero</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">)</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.Shamir.html#c:35"><span class="id" title="variable">c</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;&gt;'_x"><span class="id" title="notation">≠</span></a> <a class="idref" href="Compiler.Shamir.html#c':36"><span class="id" title="variable">c'</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;(<a class="idref" href="Compiler.Shamir.html#thr:29"><span class="id" title="variable">thr</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#cb53cf0ee22c036a03b4a9281c68b5a3"><span class="id" title="notation">≤</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> (<span class="id" title="definition">filter</span> (<span class="id" title="keyword">fun</span> <a id="i:39" class="idref" href="#i:39"><span class="id" title="binder">i</span></a> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#negb"><span class="id" title="definition">negb</span></a> (<a class="idref" href="Compiler.Shamir.html#agreeb"><span class="id" title="definition">agreeb</span></a> <a class="idref" href="Compiler.Shamir.html#cs:31"><span class="id" title="variable">cs</span></a> <a class="idref" href="Compiler.Shamir.html#cs':32"><span class="id" title="variable">cs'</span></a> <a class="idref" href="Compiler.Shamir.html#i:39"><span class="id" title="variable">i</span></a>)) (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#seq"><span class="id" title="definition">seq</span></a> 0 <a class="idref" href="Compiler.Shamir.html#n:28"><span class="id" title="variable">n</span></a>)))%<span class="id" title="var">nat</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> × <span class="id" title="var">hthr</span> <span class="id" title="var">hnd</span> <span class="id" title="var">hlen</span> <span class="id" title="var">hb</span> <span class="id" title="var">hb'</span> <span class="id" title="var">h0</span> <span class="id" title="var">h0'</span> <span class="id" title="var">hcs</span> <span class="id" title="var">hcs'</span> <span class="id" title="var">hne</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">set</span> (<span class="id" title="var">E</span> := <span class="id" title="definition">filter</span> (<a class="idref" href="Compiler.Shamir.html#agreeb"><span class="id" title="definition">agreeb</span></a> <span class="id" title="var">cs</span> <span class="id" title="var">cs'</span>) (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#seq"><span class="id" title="definition">seq</span></a> 0 <span class="id" title="var">n</span>)).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">set</span> (<span class="id" title="var">D</span> := <span class="id" title="definition">filter</span> (<span class="id" title="keyword">fun</span> <a id="i:40" class="idref" href="#i:40"><span class="id" title="binder"><span id="i:41" class="id">i</span></span></a> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#negb"><span class="id" title="definition">negb</span></a> (<a class="idref" href="Compiler.Shamir.html#agreeb"><span class="id" title="definition">agreeb</span></a> <span class="id" title="var">cs</span> <span class="id" title="var">cs'</span> <a class="idref" href="Compiler.Shamir.html#i:40"><span class="id" title="variable">i</span></a>)) (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#seq"><span class="id" title="definition">seq</span></a> 0 <span class="id" title="var">n</span>)).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">pose</span> <span class="id" title="var">proof</span> (<a class="idref" href="Compiler.Shamir.html#filter_partition_length"><span class="id" title="lemma">filter_partition_length</span></a> <span class="id" title="var">_</span> (<a class="idref" href="Compiler.Shamir.html#agreeb"><span class="id" title="definition">agreeb</span></a> <span class="id" title="var">cs</span> <span class="id" title="var">cs'</span>) (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#seq"><span class="id" title="definition">seq</span></a> 0 <span class="id" title="var">n</span>))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">as</span> <span class="id" title="var">hpart</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <span class="id" title="abbreviation">seq_length</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hpart</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">fold</span> <span class="id" title="var">E</span> <span class="id" title="var">D</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hpart</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">assert</span> (<span class="id" title="var">hEsmall</span> : (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> <span class="id" title="var">E</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#cb53cf0ee22c036a03b4a9281c68b5a3"><span class="id" title="notation">≤</span></a> <span class="id" title="var">n</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#::nat_scope:x_'-'_x"><span class="id" title="notation">-</span></a> <span class="id" title="var">thr</span>)%<span class="id" title="var">nat</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> (<span class="id" title="lemma">Nat.le_gt_cases</span> (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> <span class="id" title="var">E</span>) (<span class="id" title="var">n</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#::nat_scope:x_'-'_x"><span class="id" title="notation">-</span></a> <span class="id" title="var">thr</span>)) <span class="id" title="keyword">as</span> [<span class="id" title="var">hle</span> | <span class="id" title="var">hgt</span>];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<span class="id" title="tactic">exact</span> <span class="id" title="var">hle</span> |].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">exfalso</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">set</span> (<span class="id" title="var">nodes</span> := <span class="id" title="abbreviation">List.map</span> (<span class="id" title="keyword">fun</span> <a id="i:42" class="idref" href="#i:42"><span class="id" title="binder"><span id="i:43" class="id">i</span></span></a> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#nth"><span class="id" title="definition">nth</span></a> <a class="idref" href="Compiler.Shamir.html#i:42"><span class="id" title="variable">i</span></a> <span class="id" title="var">xs</span> <a class="idref" href="Compiler.Shamir.html#Threshold.zero"><span class="id" title="variable">zero</span></a>) <span class="id" title="var">E</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">assert</span> (<span class="id" title="var">hndE</span> : <span class="id" title="inductive">List.NoDup</span> <span class="id" title="var">E</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">NoDup_filter</span>, <span class="id" title="lemma">seq_NoDup</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">assert</span> (<span class="id" title="var">hnodes_nd</span> : <span class="id" title="inductive">List.NoDup</span> <span class="id" title="var">nodes</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <a class="idref" href="Compiler.Shamir.html#nth_map_nodup"><span class="id" title="lemma">nth_map_nodup</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">exact</span> <span class="id" title="var">hndE</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">i</span> <span class="id" title="var">hi</span>; <span class="id" title="tactic">rewrite</span> <span class="id" title="var">hlen</span>; <span class="id" title="tactic">eapply</span> <a class="idref" href="Compiler.Shamir.html#filter_seq_lt"><span class="id" title="lemma">filter_seq_lt</span></a>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hi</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">exact</span> <span class="id" title="var">hnd</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">assert</span> (<span class="id" title="var">hnodes_len</span> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> <span class="id" title="var">nodes</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> <span class="id" title="var">E</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">unfold</span> <span class="id" title="var">nodes</span>; <span class="id" title="tactic">rewrite</span> <span class="id" title="abbreviation">map_length</span>; <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">assert</span> (<span class="id" title="var">hagree</span> : <span class="id" title="notation">∀</span> <a id="a:44" class="idref" href="#a:44"><span class="id" title="binder"><span id="a:45" class="id">a</span></span></a><span class="id" title="notation">,</span> <span class="id" title="definition">List.In</span> <a class="idref" href="Compiler.Shamir.html#a:44"><span class="id" title="variable">a</span></a> <span class="id" title="var">nodes</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Compiler.Shamir.html#lag_interpF"><span class="id" title="abbreviation">lag_interpF</span></a> <span class="id" title="var">base</span> <a class="idref" href="Compiler.Shamir.html#a:44"><span class="id" title="variable">a</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Compiler.Shamir.html#lag_interpF"><span class="id" title="abbreviation">lag_interpF</span></a> <span class="id" title="var">base'</span> <a class="idref" href="Compiler.Shamir.html#a:44"><span class="id" title="variable">a</span></a>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">a</span> <span class="id" title="var">ha</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">unfold</span> <span class="id" title="var">nodes</span> <span class="id" title="tactic">in</span> <span class="id" title="var">ha</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">in_map_iff</span> <span class="id" title="tactic">in</span> <span class="id" title="var">ha</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> <span class="id" title="var">ha</span> <span class="id" title="keyword">as</span> (<span class="id" title="var">i</span> &amp; <span class="id" title="var">hia</span> &amp; <span class="id" title="var">hiin</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">subst</span> <span class="id" title="var">a</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">assert</span> (<span class="id" title="var">hilt</span> : (<span class="id" title="var">i</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#::nat_scope:x_'&lt;'_x"><span class="id" title="notation">&lt;</span></a> <span class="id" title="var">n</span>)%<span class="id" title="var">nat</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <a class="idref" href="Compiler.Shamir.html#filter_seq_lt"><span class="id" title="lemma">filter_seq_lt</span></a>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hiin</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> (<span class="id" title="var">hcs</span> <span class="id" title="var">i</span> <span class="id" title="var">hilt</span>), (<span class="id" title="var">hcs'</span> <span class="id" title="var">i</span> <span class="id" title="var">hilt</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">unfold</span> <span class="id" title="var">E</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hiin</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> <span class="id" title="lemma">filter_In</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hiin</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> <span class="id" title="var">hiin</span> <span class="id" title="keyword">as</span> (<span class="id" title="var">_</span> &amp; <span class="id" title="var">hag</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">unfold</span> <a class="idref" href="Compiler.Shamir.html#agreeb"><span class="id" title="definition">agreeb</span></a> <span class="id" title="tactic">in</span> <span class="id" title="var">hag</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> (<a class="idref" href="Compiler.Shamir.html#Threshold.Fdec"><span class="id" title="variable">Fdec</span></a> (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#nth"><span class="id" title="definition">nth</span></a> <span class="id" title="var">i</span> <span class="id" title="var">cs</span> <a class="idref" href="Compiler.Shamir.html#Threshold.zero"><span class="id" title="variable">zero</span></a>) (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#nth"><span class="id" title="definition">nth</span></a> <span class="id" title="var">i</span> <span class="id" title="var">cs'</span> <a class="idref" href="Compiler.Shamir.html#Threshold.zero"><span class="id" title="variable">zero</span></a>)) <span class="id" title="keyword">as</span> [<span class="id" title="var">he</span> | <span class="id" title="var">he</span>];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<span class="id" title="tactic">exact</span> <span class="id" title="var">he</span> | <span class="id" title="tactic">discriminate</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">pose</span> <span class="id" title="var">proof</span> (<a class="idref" href="Compiler.Shamir.html#lag_interp_uniqueF"><span class="id" title="abbreviation">lag_interp_uniqueF</span></a> <span class="id" title="var">base</span> <span class="id" title="var">base'</span> <span class="id" title="var">nodes</span> <span class="id" title="var">hnodes_nd</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">as</span> <span class="id" title="var">huniq</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">assert</span> (<span class="id" title="var">hbn</span> : (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> <span class="id" title="var">base</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#cb53cf0ee22c036a03b4a9281c68b5a3"><span class="id" title="notation">≤</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> <span class="id" title="var">nodes</span>)%<span class="id" title="var">nat</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <span class="id" title="var">hnodes_len</span>; <span class="id" title="var">lia</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">assert</span> (<span class="id" title="var">hbn'</span> : (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> <span class="id" title="var">base'</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#cb53cf0ee22c036a03b4a9281c68b5a3"><span class="id" title="notation">≤</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> <span class="id" title="var">nodes</span>)%<span class="id" title="var">nat</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <span class="id" title="var">hnodes_len</span>; <span class="id" title="var">lia</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">pose</span> <span class="id" title="var">proof</span> (<span class="id" title="var">huniq</span> <span class="id" title="var">hbn</span> <span class="id" title="var">hbn'</span> <span class="id" title="var">hagree</span> <a class="idref" href="Compiler.Shamir.html#Threshold.zero"><span class="id" title="variable">zero</span></a>) <span class="id" title="keyword">as</span> <span class="id" title="var">hz</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <span class="id" title="var">h0</span>, <span class="id" title="var">h0'</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hz</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">contradiction</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">lia</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab198"></a><h2 class="section">Note on where the threshold protocol itself lives</h2>
+
+
+<div class="paragraph"> </div>
+
+      This file deliberately contains only the counting argument.
+      The protocol that uses it is the <span class="inlinecode"><span class="id" title="var">CThresh</span></span> constructor of
+      Composition.v.
+
+<div class="paragraph"> </div>
+
+      One observation from the design is worth recording here.  The
+      children of a threshold node all share a single transcript
+      type.  That works because the transcript type of a <span class="inlinecode"><span class="id" title="var">Leaf</span></span>
+      depends only on its dimensions, the number of equations and
+      the number of private variables, and not on its public data.
+      So a "t out of n" threshold taken over n instances of one
+      protocol shape is homogeneous, and the children can be stored
+      in a vector rather than in a heterogeneous list. 
+</div>
+<div class="code">
+
+<br/>
+<span class="id" title="keyword">End</span> <a class="idref" href="Compiler.Shamir.html#Threshold"><span class="id" title="section">Threshold</span></a>.<br/>
+</div>
+</div>
+
+<div id="footer">
+<hr/><a href="index.html">Index</a><hr/>This page has been generated by <a href="http://rocq-prover.org/">coqdoc</a>
+</div>
+
+</div>
+
+</body>
+</html>
