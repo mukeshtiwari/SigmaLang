@@ -1,0 +1,6 @@
+(include_subdirs qualified)
+(rocq.theory
+ (name Probability)
+ (synopsis "Finite probability distributions")
+ (modules (:standard))
+ (theories Stdlib ExtLib Utility))
