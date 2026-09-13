@@ -139,10 +139,19 @@ let check_hash () =
   Printf.printf "  native SHA-256 matches the test vector: %b\n"
     (Big_int_Z.eq_big_int got expect)
 
+(* Helios.g_to_string_gen proves the verified rendering of the
+ * generator is exactly this string.  The extracted code uses OCaml's
+ * native printer instead, so check the two agree. *)
+let check_rendering () =
+  let expect = "14887492224963187634282421537186040801304008017743492304481737382571933937568724473847106029915040150784031882206090286938661464458896494215273989547889201144857352611058572236578734319505128042602372864570426550855201448111746579871811249114781674309062693442442368697449970648232621880001709535143047913661432883287150003429802392229361583608686643243349727791976247247948618930423866180410558458272606627111270040091203073580238905303994472202930783207472394578498507764703191288249547659899997131166130259700604433891232298182348403175947450284433411265966789131024573629546048637848902243503970966798589660808533" in
+  Printf.printf "  native rendering matches the theorem   : %b\n"
+    (String.equal (Helios.g_to_string Helios.gen) expect)
+
 let () =
   Random.self_init ();
   Printf.printf "Helios verifier, built from the verified compiler\n";
   check_hash ();
+  check_rendering ();
   Printf.printf "  q = %d bits, p = %d bits\n"
     (String.length (Big_int_Z.string_of_big_int Helios.q) * 10 / 3)
     (String.length (Big_int_Z.string_of_big_int Helios.p) * 10 / 3);

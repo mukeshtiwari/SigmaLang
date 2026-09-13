@@ -34,5 +34,15 @@ Extract Constant sha256_string =>
         d;
       !r)".
 
+(*
+  Likewise for the decimal rendering of a group element.  The
+  verified definition converts a 617 digit number one digit at a
+  time, and a single proof renders about ten group elements, twice.
+  OCaml's big-integer printer computes the same string; Helios.v's
+  g_to_string_gen pins what the verified definition yields, and the
+  driver checks the replacement against it.
+*)
+Extract Constant g_to_string => "Big_int_Z.string_of_big_int".
+
 Set Extraction Output Directory ".".
 Separate Extraction Helios.

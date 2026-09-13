@@ -287,6 +287,17 @@ Section Helios.
   Definition g_to_string (x : G) : string :=
     NilEmpty.string_of_int (Z.to_int (@Schnorr.v p q x)).
 
+  (** What that rendering actually produces for the generator.
+
+      The extracted code replaces [g_to_string] with OCaml's native
+      big-integer printer, because converting a 617 digit number one
+      digit at a time is the whole cost of a proof.  This example
+      pins down what the verified definition yields, so the driver
+      can check the native replacement against it rather than take
+      the substitution on trust. *)
+  Example g_to_string_gen : g_to_string gen = "14887492224963187634282421537186040801304008017743492304481737382571933937568724473847106029915040150784031882206090286938661464458896494215273989547889201144857352611058572236578734319505128042602372864570426550855201448111746579871811249114781674309062693442442368697449970648232621880001709535143047913661432883287150003429802392229361583608686643243349727791976247247948618930423866180410558458272606627111270040091203073580238905303994472202930783207472394578498507764703191288249547659899997131166130259700604433891232298182348403175947450284433411265966789131024573629546048637848902243503970966798589660808533"%string.
+  Proof. vm_compute; reflexivity. Qed.
+
   (** The challenge: SHA-256 over the instance prefix followed by
       every group element of the announcement, comma separated, read
       back as a field element.
