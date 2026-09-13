@@ -1,0 +1,6 @@
+(include_subdirs qualified)
+(rocq.theory
+ (name Crypto)
+ (synopsis "Schnorr sigma protocol (leaf definitions)")
+ (modules (:standard))
+ (theories Stdlib Algebra Utility Probability))
