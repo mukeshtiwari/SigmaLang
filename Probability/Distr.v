@@ -2,7 +2,7 @@ From Stdlib Require Import
   Utf8 PeanoNat FunctionalExtensionality
   BinNatDef List Pnat BinPos Lia 
   Morphisms SetoidClass Permutation 
-  Relation_Definitions.
+  Relation_Definitions FinFun.
 From Utility Require Import Util. 
 From Probability Require Import Prob.
 From ExtLib.Structures Require Import 
@@ -909,6 +909,396 @@ Section Distr.
     + simpl; reflexivity.
     + simpl; rewrite IHd; reflexivity.
   Qed.  
+
+
+
+  (* ------------------------------------------------------------ *)
+  (* Generic facts about Bind used by the sigma-protocol files.   *)
+  (* ------------------------------------------------------------ *)
+
+  (* Membership in a Bind followed by Ret: the element is the image
+     of an element of the underlying distribution, with the same
+     probability (up to the multiplication by one). *)
+  Lemma bind_ret_in {A B : Type} :
+    ∀ (l : dist A) (f : A -> B) (y : B) (p : prob),
+    In (y, p) (Bind l (fun x => Ret (f x))) ->
+    ∃ (x : A) (q : prob),
+      In (x, q) l ∧ y = f x ∧ p = mul_prob q one.
+  Proof.
+    induction l as [|(a, q) l ihl].
+    +
+      intros * ha; cbn in ha; inversion ha.
+    +
+      intros * ha; cbn in ha.
+      destruct ha as [ha | ha].
+      ++
+        inversion ha; subst.
+        exists a, q.
+        repeat split.
+        left; reflexivity.
+      ++
+        destruct (ihl _ _ _ ha) as (x & qx & hb & hc & hd).
+        exists x, qx.
+        repeat split; [right | | ]; assumption.
+  Qed.
+
+  (* If the underlying distribution is uniform, so is its image. *)
+  Lemma bind_ret_prob {A B : Type} :
+    ∀ (l : dist A) (f : A -> B) (y : B) (p : prob) (w : nat),
+    (∀ x q, In (x, q) l -> q = mk_prob 1 (Pos.of_nat w)) ->
+    In (y, p) (Bind l (fun x => Ret (f x))) ->
+    p = mk_prob 1 (Pos.of_nat w).
+  Proof.
+    intros * ha hb.
+    destruct (bind_ret_in _ _ _ _ hb) as (x & q & hc & hd & he).
+    rewrite (ha _ _ hc) in he.
+    rewrite he.
+    unfold mul_prob, one; cbn.
+    f_equal; nia.
+  Qed.
+
+  (* Membership in a general Bind. *)
+  Lemma bind_in_inv {A B : Type} :
+    ∀ (l : dist A) (f : A -> dist B) (y : B) (p : prob),
+    In (y, p) (Bind l f) ->
+    ∃ (x : A) (px py : prob),
+      In (x, px) l ∧ In (y, py) (f x) ∧ p = mul_prob px py.
+  Proof.
+    induction l as [|(a, q) l ihl].
+    +
+      intros * ha; cbn in ha; inversion ha.
+    +
+      intros * ha; cbn in ha.
+      eapply in_app_or in ha.
+      destruct ha as [ha | ha].
+      ++
+        eapply in_map_iff in ha.
+        destruct ha as ((b & pb) & hb & hc).
+        inversion hb; subst.
+        exists a, q, pb.
+        repeat split; [left; reflexivity | exact hc].
+      ++
+        destruct (ihl _ _ _ ha) as (x & px & py & hb & hc & hd).
+        exists x, px, py.
+        repeat split; [right; exact hb | exact hc | exact hd].
+  Qed.
+
+  Lemma prob_mul_split : ∀ (w₁ w₂ : nat),
+    w₁ <> 0 -> w₂ <> 0 ->
+    mul_prob (mk_prob 1 (Pos.of_nat w₁)) (mk_prob 1 (Pos.of_nat w₂)) =
+    mk_prob 1 (Pos.of_nat (w₁ * w₂)).
+  Proof.
+    intros * ha hb.
+    unfold mul_prob; cbn.
+    rewrite Nat2Pos.inj_mul; try assumption.
+    reflexivity.
+  Qed.
+
+  (* Bind respects pointwise equality of the continuation. *)
+  Lemma bind_ext {A B : Type} :
+    ∀ (l : dist A) (f g : A -> dist B),
+    (∀ x, f x = g x) -> Bind l f = Bind l g.
+  Proof.
+    intros * ha.
+    f_equal.
+    extensionality x.
+    exact (ha x).
+  Qed.
+
+  Lemma bind_flat_map {A B : Type} :
+    ∀ (l : dist A) (f : A -> dist B),
+    Bind l f =
+    flat_map (fun '(ax, px) =>
+      map (fun '(ut, pt) => (ut, mul_prob px pt)) (f ax)) l.
+  Proof.
+    induction l as [|(a, q) l ihl].
+    +
+      intros *; reflexivity.
+    +
+      intros *; cbn.
+      rewrite ihl.
+      reflexivity.
+  Qed.
+
+  (* Bind is a congruence for distribution equality (permutation),
+     in both arguments. *)
+  Lemma bind_perm_left {A B : Type} :
+    ∀ (l l' : dist A) (f : A -> dist B),
+    Permutation l l' -> Permutation (Bind l f) (Bind l' f).
+  Proof.
+    intros * ha.
+    rewrite !bind_flat_map.
+    eapply Permutation_flat_map.
+    exact ha.
+  Qed.
+
+  Lemma bind_perm_right {A B : Type} :
+    ∀ (l : dist A) (f g : A -> dist B),
+    (∀ x, Permutation (f x) (g x)) ->
+    Permutation (Bind l f) (Bind l g).
+  Proof.
+    induction l as [|(a, q) l ihl].
+    +
+      intros * ha; reflexivity.
+    +
+      intros * ha; cbn.
+      eapply Permutation_app.
+      eapply Permutation_map.
+      eapply ha.
+      eapply ihl.
+      exact ha.
+  Qed.
+
+  Lemma bind_perm {A B : Type} :
+    ∀ (l l' : dist A) (f g : A -> dist B),
+    Permutation l l' ->
+    (∀ x, Permutation (f x) (g x)) ->
+    Permutation (Bind l f) (Bind l' g).
+  Proof.
+    intros * ha hb.
+    eapply Permutation_trans.
+    eapply bind_perm_left; exact ha.
+    eapply bind_perm_right; exact hb.
+  Qed.
+
+  (* Reindexing the underlying distribution by a function on
+     values is the same as precomposing the continuation. *)
+  Lemma bind_map_values {A B C : Type} :
+    ∀ (l : dist A) (σ : A -> B) (f : B -> dist C),
+    Bind (map (fun '(x, p) => (σ x, p)) l) f =
+    Bind l (fun x => f (σ x)).
+  Proof.
+    induction l as [|(a, q) l ihl].
+    +
+      intros *; reflexivity.
+    +
+      intros *; cbn.
+      rewrite ihl.
+      reflexivity.
+  Qed.
+
+  (* A bijection of the sample space permutes a uniform
+     distribution over a duplicate-free, complete list. *)
+  Lemma uniform_map_perm {A : Type} :
+    ∀ (l : list A) (Hl : l <> []) (σ τ : A -> A),
+    NoDup l -> (∀ x, In x l) ->
+    (∀ x, τ (σ x) = x) -> (∀ y, σ (τ y) = y) ->
+    Permutation
+      (map (fun '(x, p) => (σ x, p)) (uniform_with_replacement l Hl))
+      (uniform_with_replacement l Hl).
+  Proof.
+    intros * hnd hin hτσ hστ.
+    unfold uniform_with_replacement; cbn.
+    rewrite map_map.
+    assert (ha : Permutation (map σ l) l).
+    {
+      eapply NoDup_Permutation.
+      +
+        eapply Injective_map_NoDup; [| exact hnd].
+        intros x y hxy.
+        rewrite <-(hτσ x), <-(hτσ y), hxy.
+        reflexivity.
+      +
+        exact hnd.
+      +
+        intro y; split; intro hb.
+        ++ eapply hin.
+        ++ rewrite <-(hστ y).
+           eapply in_map.
+           eapply hin.
+    }
+    eapply Permutation_map with
+      (f := fun x => (x, mk_prob 1 (Pos.of_nat (length l)))) in ha.
+    rewrite map_map in ha.
+    exact ha.
+  Qed.
+
+  Lemma uniform_shift_perm {A B : Type} :
+    ∀ (l : list A) (Hl : l <> []) (σ τ : A -> A) (f : A -> dist B),
+    NoDup l -> (∀ x, In x l) ->
+    (∀ x, τ (σ x) = x) -> (∀ y, σ (τ y) = y) ->
+    Permutation
+      (Bind (uniform_with_replacement l Hl) (fun x => f (σ x)))
+      (Bind (uniform_with_replacement l Hl) f).
+  Proof.
+    intros * hnd hin hτσ hστ.
+    rewrite <-bind_map_values.
+    eapply bind_perm_left.
+    eapply uniform_map_perm with (τ := τ); assumption.
+  Qed.
+
+  (* Unfolding one draw of a multidraw under a Bind. *)
+  Lemma bind_multidraw_S {A B : Type} :
+    ∀ (d : dist A) (n : nat) (g : Vector.t A (S n) -> dist B),
+    Bind (repeat_dist_ntimes_vector d (S n)) g =
+    Bind d (fun u =>
+      Bind (repeat_dist_ntimes_vector d n)
+        (fun v => g (Vector.cons _ u _ v))).
+  Proof.
+    intros *; cbn.
+    rewrite bind_assoc.
+    eapply bind_ext; intro u.
+    rewrite bind_assoc.
+    eapply bind_ext; intro v.
+    rewrite bind_ret_left.
+    reflexivity.
+  Qed.
+
+
+
+  (* ------------------------------------------------------------ *)
+  (* Support of a multidraw: duplicate-free and complete when the *)
+  (* underlying list is.                                          *)
+  (* ------------------------------------------------------------ *)
+
+  Lemma bind_in_intro {A B : Type} :
+    ∀ (l : dist A) (f : A -> dist B) (x : A) (y : B) (px py : prob),
+    In (x, px) l -> In (y, py) (f x) ->
+    In (y, mul_prob px py) (Bind l f).
+  Proof.
+    induction l as [|(a, q) l ihl].
+    +
+      intros * ha; cbn in ha; contradiction.
+    +
+      intros * ha hb; cbn.
+      eapply in_or_app.
+      destruct ha as [ha | ha].
+      ++
+        inversion ha; subst.
+        left.
+        eapply in_map_iff.
+        exists (y, py); split; [reflexivity | exact hb].
+      ++
+        right.
+        exact (ihl f x y px py ha hb).
+  Qed.
+
+  Lemma map_fst_scale {A : Type} :
+    ∀ (l : dist A) (q : prob),
+    map fst (map (fun '(ut, pt) => (ut, mul_prob q pt)) l) = map fst l.
+  Proof.
+    intros *.
+    rewrite map_map.
+    eapply map_ext.
+    intros (u, p); reflexivity.
+  Qed.
+
+  Lemma map_fst_bind {A B : Type} :
+    ∀ (l : dist A) (f : A -> dist B),
+    map fst (Bind l f) = flat_map (fun '(x, _) => map fst (f x)) l.
+  Proof.
+    induction l as [|(a, q) l ihl].
+    +
+      intros *; reflexivity.
+    +
+      intros *; cbn.
+      rewrite map_app, ihl, map_fst_scale.
+      reflexivity.
+  Qed.
+
+  Lemma nodup_fst_bind {A B : Type} :
+    ∀ (l : dist A) (f : A -> dist B),
+    NoDup (map fst l) ->
+    (∀ x, NoDup (map fst (f x))) ->
+    (∀ x x' y, In y (map fst (f x)) -> In y (map fst (f x')) -> x = x') ->
+    NoDup (map fst (Bind l f)).
+  Proof.
+    induction l as [|(a, q) l ihl].
+    +
+      intros *; constructor.
+    +
+      intros * hnd hf hdisj; cbn.
+      rewrite map_app, map_fst_scale.
+      inversion hnd as [| ? ? hnin hnd']; subst.
+      eapply NoDup_app.
+      ++
+        eapply hf.
+      ++
+        eapply ihl; assumption.
+      ++
+        intros y hy1 hy2.
+        rewrite map_fst_bind in hy2.
+        eapply in_flat_map in hy2.
+        destruct hy2 as ((x & px) & hx & hy2).
+        pose proof (hdisj _ _ _ hy1 hy2); subst.
+        eapply hnin.
+        eapply in_map with (f := fst) in hx.
+        exact hx.
+  Qed.
+
+  Lemma uniform_map_fst {A : Type} :
+    ∀ (l : list A) (Hl : l <> []),
+    map fst (uniform_with_replacement l Hl) = l.
+  Proof.
+    intros *.
+    unfold uniform_with_replacement; cbn.
+    rewrite map_map.
+    erewrite map_ext; [eapply map_id | intro; reflexivity].
+  Qed.
+
+  Lemma multidraw_nodup {A : Type} :
+    ∀ (l : list A) (Hl : l <> []) (n : nat),
+    NoDup l ->
+    NoDup (map fst (repeat_dist_ntimes_vector
+      (uniform_with_replacement l Hl) n)).
+  Proof.
+    intros * hnd.
+    induction n as [|n ih]; cbn.
+    +
+      repeat constructor; auto.
+    +
+      eapply nodup_fst_bind.
+      ++
+        rewrite uniform_map_fst; exact hnd.
+      ++
+        intro u.
+        eapply nodup_fst_bind.
+        +++
+          exact ih.
+        +++
+          intro v; cbn; repeat constructor; auto.
+        +++
+          intros v v' y h1 h2; cbn in h1, h2.
+          destruct h1 as [h1 | []]; destruct h2 as [h2 | []]; subst.
+          eapply VectorSpec.cons_inj in h2.
+          destruct h2; congruence.
+      ++
+        intros u u' y h1 h2.
+        rewrite map_fst_bind in h1, h2.
+        eapply in_flat_map in h1, h2.
+        destruct h1 as ((v & pv) & _ & h1).
+        destruct h2 as ((v' & pv') & _ & h2).
+        cbn in h1, h2.
+        destruct h1 as [h1 | []]; destruct h2 as [h2 | []]; subst.
+        eapply VectorSpec.cons_inj in h2.
+        destruct h2; congruence.
+  Qed.
+
+  Lemma multidraw_complete {A : Type} :
+    ∀ (l : list A) (Hl : l <> []) (n : nat) (v : Vector.t A n),
+    (∀ x, In x l) ->
+    ∃ p, In (v, p) (repeat_dist_ntimes_vector
+      (uniform_with_replacement l Hl) n).
+  Proof.
+    induction n as [|n ih]; intros v hin.
+    +
+      rewrite (vector_inv_0 v).
+      exists one; cbn; left; reflexivity.
+    +
+      destruct (vector_inv_S v) as (h & t & ht); subst.
+      destruct (ih t hin) as (p & hp).
+      cbn.
+      eexists.
+      eapply bind_in_intro.
+      ++
+        unfold uniform_with_replacement; cbn.
+        eapply in_map with (f := fun x => (x, _)).
+        eapply hin.
+      ++
+        eapply bind_in_intro.
+        exact hp.
+        cbn; left; reflexivity.
+  Qed.
 
 
 End Distr.

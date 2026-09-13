@@ -542,74 +542,8 @@ Section LinearRelation.
 
     (* ------------------ SHVZK ------------------ *)
 
-    #[local] Notation "p / q" := (mk_prob p (Pos.of_nat q)).
-
-    Lemma linear_relation_real_distribution_transcript_accepting_generic :
-      ∀ (m n : nat) (l : dist (Vector.t F n))
-        (mat : Vector.t (Vector.t G n) m) (pub : Vector.t G m)
-        (xs : Vector.t F n) (trans : sigma_proto)
-        (pr : prob) (c : F),
-      pub = mat_eval mat xs ->
-      List.In (trans, pr)
-        (Bind l (λ us : Vector.t F n,
-          Ret (construct_linear_relation_real_proof mat xs us c))) ->
-      verify_linear_relation_proof mat pub trans = true.
-    Proof.
-      intros m n l.
-      induction l as [|(a, p) l ihl].
-      +
-        intros * ha hb.
-        cbn in hb.
-        inversion hb.
-      +
-        intros * ha hb.
-        cbn in hb.
-        destruct hb as [hb | hb].
-        ++
-          inversion hb.
-          eapply linear_relation_completeness;
-          assumption.
-        ++
-          eapply ihl.
-          exact ha.
-          exact hb.
-    Qed.
-
-    Lemma linear_relation_real_distribution_transcript_probability_generic :
-      ∀ (m n : nat) (l : dist (Vector.t F n))
-        (mat : Vector.t (Vector.t G n) m)
-        (xs : Vector.t F n) (trans : sigma_proto)
-        (pr : prob) (c : F) (w : nat),
-      (∀ (trx : Vector.t F n) (prx : prob),
-        List.In (trx, prx) l -> prx = 1 / w) ->
-      List.In (trans, pr)
-        (Bind l (λ us : Vector.t F n,
-          Ret (construct_linear_relation_real_proof mat xs us c))) ->
-      pr = 1 / w.
-    Proof.
-      intros m n l.
-      induction l as [|(a, p) l ihl].
-      +
-        intros * ha hb.
-        cbn in hb.
-        inversion hb.
-      +
-        intros * ha hb.
-        pose proof (ha a p (or_introl eq_refl)) as hc.
-        destruct hb as [hb | hb].
-        ++
-          inversion hb; subst; clear hb.
-          unfold mul_prob, Prob.one; cbn.
-          f_equal.
-          nia.
-        ++
-          cbn in hb.
-          eapply ihl.
-          intros ? ? hd.
-          exact (ha trx prx (or_intror hd)).
-          exact hb.
-    Qed.
-
+    (* Every transcript in the real distribution accepts, and it is
+       drawn uniformly. *)
     Lemma linear_relation_real_distribution_transcript_generic :
       ∀ (m n : nat) (lf : list F) (Hlf : lf <> List.nil)
         (mat : Vector.t (Vector.t G n) m) (pub : Vector.t G m)
@@ -621,80 +555,23 @@ Section LinearRelation.
       b = mk_prob 1 (Pos.of_nat (Nat.pow (List.length lf) n)).
     Proof.
       intros * ha hb.
+      unfold linear_relation_real_distribution in hb.
       refine (conj _ _).
       +
-        eapply linear_relation_real_distribution_transcript_accepting_generic.
+        destruct (bind_ret_in _ _ _ _ hb) as (us & q & hc & hd & he).
+        rewrite hd.
+        eapply linear_relation_completeness.
         exact ha.
-        exact hb.
       +
-        eapply linear_relation_real_distribution_transcript_probability_generic.
+        eapply bind_ret_prob.
         intros * hc.
         eapply uniform_probability_multidraw_prob.
         exact hc.
         exact hb.
     Qed.
 
-    Lemma linear_relation_simulator_distribution_transcript_accepting_generic :
-      ∀ (m n : nat) (l : dist (Vector.t F n))
-        (mat : Vector.t (Vector.t G n) m) (pub : Vector.t G m)
-        (trans : sigma_proto) (pr : prob) (c : F),
-      List.In (trans, pr)
-        (Bind l (λ zs : Vector.t F n,
-          Ret (construct_linear_relation_simulator_proof mat pub zs c))) ->
-      verify_linear_relation_proof mat pub trans = true.
-    Proof.
-      intros m n l.
-      induction l as [|(a, p) l ihl].
-      +
-        intros * ha.
-        cbn in ha.
-        inversion ha.
-      +
-        intros * ha.
-        cbn in ha.
-        destruct ha as [ha | ha].
-        ++
-          inversion ha.
-          eapply linear_relation_simulator_completeness.
-        ++
-          eapply ihl.
-          exact ha.
-    Qed.
-
-    Lemma linear_relation_simulator_distribution_transcript_probability_generic :
-      ∀ (m n : nat) (l : dist (Vector.t F n))
-        (mat : Vector.t (Vector.t G n) m) (pub : Vector.t G m)
-        (trans : sigma_proto) (pr : prob) (c : F) (w : nat),
-      (∀ (trx : Vector.t F n) (prx : prob),
-        List.In (trx, prx) l -> prx = 1 / w) ->
-      List.In (trans, pr)
-        (Bind l (λ zs : Vector.t F n,
-          Ret (construct_linear_relation_simulator_proof mat pub zs c))) ->
-      pr = 1 / w.
-    Proof.
-      intros m n l.
-      induction l as [|(a, p) l ihl].
-      +
-        intros * ha hb.
-        cbn in hb.
-        inversion hb.
-      +
-        intros * ha hb.
-        pose proof (ha a p (or_introl eq_refl)) as hc.
-        destruct hb as [hb | hb].
-        ++
-          inversion hb; subst; clear hb.
-          unfold mul_prob, Prob.one; cbn.
-          f_equal.
-          nia.
-        ++
-          cbn in hb.
-          eapply ihl.
-          intros ? ? hd.
-          exact (ha trx prx (or_intror hd)).
-          exact hb.
-    Qed.
-
+    (* Every transcript in the simulated distribution accepts, and
+       it is drawn uniformly. *)
     Lemma linear_relation_simulator_distribution_transcript_generic :
       ∀ (m n : nat) (lf : list F) (Hlf : lf <> List.nil)
         (mat : Vector.t (Vector.t G n) m) (pub : Vector.t G m)
@@ -705,20 +582,23 @@ Section LinearRelation.
       b = mk_prob 1 (Pos.of_nat (Nat.pow (List.length lf) n)).
     Proof.
       intros * ha.
+      unfold linear_relation_simulator_distribution in ha.
       refine (conj _ _).
       +
-        eapply linear_relation_simulator_distribution_transcript_accepting_generic.
-        exact ha.
+        destruct (bind_ret_in _ _ _ _ ha) as (zs & q & hb & hc & hd).
+        rewrite hc.
+        eapply linear_relation_simulator_completeness.
       +
-        eapply linear_relation_simulator_distribution_transcript_probability_generic.
+        eapply bind_ret_prob.
         intros * hb.
         eapply uniform_probability_multidraw_prob.
         exact hb.
         exact ha.
     Qed.
 
-    (* Special honest-verifier zero-knowledge: the real and the
-       simulated distributions are identical (information-theoretic). *)
+    (* Special honest-verifier zero-knowledge, accept-bit form: both
+       distributions consist of accepting transcripts drawn with the
+       same uniform probability. *)
     Theorem linear_relation_special_honest_verifier_zkp :
       ∀ (m n : nat) (lf : list F) (Hlfn : lf <> List.nil)
         (mat : Vector.t (Vector.t G n) m) (pub : Vector.t G m)
