@@ -1,0 +1,244 @@
+/* Stylesheet for the rocqdoc output of this development.
+ *
+ * rocqdoc ships a default coqdoc.css that paints every documentation
+ * block with a solid #90bdff background and caps it at 40em.  That is
+ * a reasonable choice for sources carrying a handful of short notes,
+ * but these sources are mostly prose, so the default turns each page
+ * into a wall of saturated blue.
+ *
+ * make-docs.sh copies this file over the generated one in every
+ * theory directory.  The class names below are the ones rocqdoc
+ * emits, so nothing outside this file has to change.
+ */
+
+:root {
+  --bg:        #ffffff;
+  --fg:        #1b1f24;
+  --muted:     #5b6470;
+  --rule:      #e3e7ec;
+  --code-bg:   #f6f8fa;
+  --code-fg:   #24292f;
+  --link:      #0a55d1;
+  --kw:        #a626a4;
+  --id:        #1f4bb8;
+  --ind:       #b3541e;
+  --accent:    #2f6feb;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:      #0f1216;
+    --fg:      #dfe3e8;
+    --muted:   #9aa4b2;
+    --rule:    #242a31;
+    --code-bg: #161b22;
+    --code-fg: #d6dae0;
+    --link:    #6ea8ff;
+    --kw:      #d08dd8;
+    --id:      #86b2ff;
+    --ind:     #e0a06a;
+    --accent:  #6ea8ff;
+  }
+}
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+}
+
+#page   { display: block; margin: 0; padding: 0 0 4rem; }
+
+/* rocqdoc emits an empty header div; keep it out of the way. */
+#header { display: block; margin: 0; padding: 0; border: 0; }
+#header h1 { margin: 0; padding: 0; }
+
+#main {
+  display: block;
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem;
+  color: var(--fg);
+  font-size: 100%;
+  line-height: 1.65;
+}
+
+/* ---------------- documentation prose ---------------- */
+
+/* The key change: no background slab, no 40em cap, real line height. */
+#main .doc {
+  margin: 0;
+  padding: 0.35rem 0;
+  max-width: none;
+  background: none;
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 100%;
+  line-height: 1.65;
+}
+
+/* rocqdoc separates paragraphs with an empty div rather than <p>. */
+.paragraph { height: 0.85em; }
+
+/* ---------------- headings ---------------- */
+
+.section,
+h1.section, h2.section, h3.section, h4.section {
+  background: none;
+  color: var(--fg);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+h1.section {
+  font-size: 1.7rem;
+  margin: 2.2rem 0 0.6rem;
+  padding: 0 0 0.4rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+h2.section { font-size: 1.28rem; margin: 2rem 0 0.5rem; padding: 0; }
+h3.section { font-size: 1.08rem; margin: 1.6rem 0 0.4rem; padding: 0; }
+h4.section { font-size: 1rem;    margin: 1.3rem 0 0.35rem; padding: 0;
+             color: var(--muted); }
+
+/* The "Library Foo" title rocqdoc puts at the top of every page. */
+h1.libtitle {
+  font-size: 1.45rem;
+  font-weight: 600;
+  margin: 0 0 1.5rem;
+  padding: 0 0 0.5rem;
+  border-bottom: 1px solid var(--rule);
+  line-height: 1.3;
+}
+
+/* ---------------- code ---------------- */
+
+.code {
+  display: block;
+  margin: 0.5rem 0;
+  padding: 0.6rem 0.85rem;
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  overflow-x: auto;
+  color: var(--code-fg);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+               "Liberation Mono", monospace;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  /* rocqdoc marks line breaks with <br/> and indentation with &nbsp;,
+     so the block must NOT be pre-formatted: honouring the source
+     newlines as well would double-space every line. */
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+/* Identifiers written as [foo] inside documentation. */
+.inlinecode,
+.doc .inlinecode,
+.doc .code {
+  display: inline;
+  padding: 0.1em 0.32em;
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  color: var(--code-fg);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+               "Liberation Mono", monospace;
+  font-size: 0.87em;
+  white-space: nowrap;
+}
+
+/* Inside a code block the inline wrapper must stay invisible. */
+.code .inlinecode,
+.code .code {
+  padding: 0; background: none; border: 0; font-size: inherit;
+  white-space: inherit;
+}
+
+.inlinecodenm { display: inline; color: var(--muted); }
+
+.comment {
+  display: inline;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-style: italic;
+}
+
+/* ---------------- syntax colours ---------------- */
+
+#main .keyword,
+.code .keyword           { color: var(--kw); font-weight: 500; }
+.code .id[title="var"]       { color: var(--fg); }
+.code .id[title="variable"]  { color: var(--fg); }
+.code .id[title="definition"],
+.code .id[title="lemma"],
+.code .id[title="constructor"],
+.code .id[title="abbreviation"],
+.code .id[title="record"],
+.code .id[title="projection"],
+.code .id[title="method"],
+.code .id[title="class"]     { color: var(--id); }
+.code .id[title="inductive"] { color: var(--ind); }
+.code .id[title="notation"]  { color: var(--muted); }
+
+/* In prose, keep bracketed identifiers calm rather than rainbow. */
+.doc .inlinecode .id,
+.doc .inlinecode .keyword { color: var(--code-fg); font-weight: inherit; }
+
+/* ---------------- links ---------------- */
+
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+#main a.idref:link,    #main a.idref:visited,
+#main a.modref:link,   #main a.modref:visited { color: inherit; text-decoration: none; }
+#main a.idref:hover,   #main a.modref:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 2px;
+}
+
+/* ---------------- table of contents and index ---------------- */
+
+#toc { padding: 0; }
+#toc h2 { font-size: 1.15rem; margin: 1.6rem 0 0.4rem; font-weight: 600; }
+#toc a  { color: var(--link); }
+
+ul.doclist { margin: 0.3rem 0 0.9rem; padding-left: 1.2rem; }
+ul.doclist li { margin: 0.15rem 0; }
+
+#index { max-width: 52rem; margin: 0 auto; padding: 2rem 1.25rem; }
+#index #frontispiece { margin: 0 0 1.5rem; }
+.booktitle   { font-size: 1.5rem; font-weight: 600; }
+.authors     { color: var(--muted); }
+.moreauthors { color: var(--muted); font-size: 0.9rem; }
+
+table { border-collapse: collapse; }
+table td { padding: 0.1rem 0.35rem; }
+
+/* ---------------- inference rules ---------------- */
+
+table.infrule { border: 0; margin: 0.8rem 0; }
+.infrulenamecol   { color: var(--muted); padding-left: 1rem; font-size: 0.9rem; }
+.infruleassumption { text-align: center; padding: 0 0.5rem; }
+.infrulemiddle     { border-top: 1px solid var(--fg); }
+.infruleconclusion { text-align: center; padding: 0 0.5rem; }
+
+hr { border: 0; border-top: 1px solid var(--rule); margin: 2rem 0; }
+
+/* ---------------- small screens ---------------- */
+
+@media (max-width: 42rem) {
+  body  { font-size: 15px; }
+  #main { padding: 1.25rem 1rem; }
+  .code { font-size: 0.8rem; }
+  h1.section { font-size: 1.4rem; }
+}

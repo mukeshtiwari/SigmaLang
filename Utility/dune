@@ -3,4 +3,5 @@
  (name Utility)
  (synopsis "Utility functions (vectors, decidability helpers)")
  (modules (:standard))
+ (rocqdoc_flags :standard --utf8)
  (theories Stdlib Algebra))

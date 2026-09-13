@@ -3,4 +3,5 @@
  (name Compiler)
  (synopsis "Verified sigma-protocol compiler")
  (modules (:standard))
+ (rocqdoc_flags :standard --utf8)
  (theories Stdlib Algebra Utility Probability Crypto))

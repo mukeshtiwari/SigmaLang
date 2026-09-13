@@ -23,52 +23,128 @@ Import MonadNotation
 
 #[local] Open Scope monad_scope.
 
-(*
-  Composition of linear-relation sigma protocols by structural
-  induction on a statement tree:
+(** * Composition: building large sigma protocols out of small ones
 
-      comp_rel ::= Leaf (mat, pub) | CAnd comp_rel comp_rel
-                 | COr comp_rel comp_rel
-                 | CThresh t k xs [r₁; …; rₖ]
+    ** What a sigma protocol is
 
-  - Leaf: the generic Maurer protocol of LinearRelation.v.
-  - CAnd: both children share the challenge.
-  - COr (CDS composition): the transcript stores the left child's
-    challenge c₁; the right child's challenge is c - c₁, so the two
-    sub-challenges always sum to the top-level challenge.  The prover
-    simulates the branch it has no witness for using a
-    pre-committed challenge and answers the other branch honestly.
-  - CThresh (Shamir / CDS threshold, t-out-of-k): child i receives
-    the value at node xs[i] of a polynomial of degree ≤ k - t through
-    (0, c).  The transcript stores the polynomial's values at the
-    first k - t nodes; the verifier re-interpolates.  The prover
-    picks exactly k - t children to simulate (every child it has no
-    witness for, plus enough others) and chooses their challenges
-    freely; the remaining t children are answered honestly at the
-    interpolated challenge.  Two accepting transcripts at different
-    top challenges induce interpolants differing at ≥ t nodes, so ≥ t
-    witnesses are extracted.  The node list xs and the side
-    conditions (0 ∉ xs, xs duplicate-free, |xs| = k, t ≤ k) are
-    carried by the constructor.
+    A sigma protocol is a three-message conversation between a
+    prover and a verifier.  The prover wants to convince the
+    verifier that it knows a secret, called the witness, without
+    revealing anything about it.
 
-  Witness, transcript, and randomness *types* are computed by
-  recursion on the tree (nested products) — no heterogeneous vector
-  machinery, and every function and proof proceeds by the same
-  structural induction (comp_rel_ind', which supplies a Forall
-  hypothesis for the children of a threshold node).
+    - The prover speaks first and sends an announcement, also
+      called a commitment.
+    - The verifier replies with a challenge, a random field
+      element.
+    - The prover answers with a response computed from the witness,
+      its own randomness, and the challenge.
 
-  Besides completeness, special soundness and the accept-bit form of
-  SHVZK, we prove that the real and simulated transcript
-  distributions are equal as distributions (permutations of each
-  other) when the challenge space is sampled from a duplicate-free,
-  complete enumeration of the field.  Witness indistinguishability
-  of the OR / threshold composition follows as a corollary.
-*)
+    The messages together form a transcript.  The verifier then
+    runs a public test on the transcript and either accepts or
+    rejects.
 
-(* ---------- generic list lemmas used by the threshold node ---------- *)
+    Three properties are wanted, and all three are proven in this
+    file.
+
+    - Completeness: an honest prover holding a real witness always
+      convinces the verifier.  See [comp_completeness].
+    - Special soundness: from two accepting transcripts that share
+      the same announcement but use two different challenges, one
+      can compute a witness.  A prover who does not know a witness
+      can therefore succeed for at most one challenge out of the
+      whole challenge space.  See [comp_special_soundness].
+    - Zero knowledge: the transcripts leak nothing about the
+      witness, because a simulator holding no witness at all can
+      produce transcripts that look exactly the same.  See
+      [comp_special_honest_verifier_zkp] and the much stronger
+      [comp_distribution_perm].
+
+    ** What this file composes
+
+    The leaf protocol lives in LinearRelation.v.  It proves
+    knowledge of a vector of scalars [xs] solving a system of group
+    equations [mat_evalC mat xs = pub], where the matrix [mat] of
+    group elements and the vector [pub] of group elements are
+    public.  Knowledge of a discrete logarithm, of a Pedersen
+    commitment opening, and many other statements are instances.
+
+    This file glues such leaves into a tree of statements,
+    [comp_rel], and equips the whole tree with a prover, a
+    verifier, a simulator, and proofs of the three properties
+    above.  There are four kinds of node.
+
+    - [Leaf]: a single linear-relation statement, handled by the
+      protocol of LinearRelation.v.
+    - [CAnd]: both children must hold.  Both are run at the same
+      challenge, so there is nothing to share out.
+    - [COr]: at least one child holds, and the verifier must not
+      learn which one.  The two children are run at two challenges
+      that add up to the verifier's challenge [c].  The transcript
+      stores the left child's challenge [c₁]; the right child's is
+      then forced to be the difference.  The prover first picks,
+      freely, the challenge of the branch it cannot prove and fakes
+      that branch; it then has no freedom left on the branch it can
+      prove.  This is the classic construction of Cramer, Damgard
+      and Schoenmakers.
+    - [CThresh]: at least [t] of the [k] children hold.  The
+      challenge is shared out in the style of Shamir secret
+      sharing.  The prover picks a polynomial of degree at most
+      [k - t] passing through the point [(zero, c)], and child
+      number [i] is run at the value of that polynomial at a fixed
+      public node, the [i]-th entry of [xs].  Such a polynomial has
+      exactly [k - t] degrees of freedom besides its value at
+      [zero], so the prover may choose the challenges of [k - t]
+      children by hand and fake them, while the remaining [t]
+      children receive challenges it cannot control and must be
+      answered honestly.  The transcript records the polynomial's
+      values at the first [k - t] nodes, which is all the verifier
+      needs to rebuild it.
+
+    ** How the types are built
+
+    The witness type, the transcript type and the prover randomness
+    type are not fixed in advance: each is computed from the tree by
+    recursion, producing nested pairs.  See [comp_witness],
+    [comp_transcript] and [comp_rand].  This keeps everything
+    first-order and avoids heterogeneous vector machinery.  Every
+    function and every theorem then proceeds by the same structural
+    induction, [comp_rel_ind'], which supplies an induction
+    hypothesis for every child of a threshold node.
+
+    ** Two forms of zero knowledge
+
+    [comp_special_honest_verifier_zkp] is the accept-bit form: real
+    and simulated transcripts are accepted with the same
+    probabilities.  It is cheap to state but weak, and in
+    particular it cannot tell apart a prover using one branch of a
+    [COr] from a prover using the other.
+
+    [comp_distribution_perm] is the strong form: the real and the
+    simulated transcript distributions are literally the same
+    distribution, one list being a permutation of the other.  It
+    needs the challenge space to be a duplicate-free enumeration of
+    the whole field.  Witness indistinguishability,
+    [comp_witness_indistinguishable], falls out of it at once: two
+    provers holding different witnesses are each equal to the same
+    witness-free simulator, hence to each other. *)
+
+(** ** Generic list lemmas
+
+    Small facts about [List.firstn], [List.combine] and
+    [List.seq].  They are ordinary bookkeeping, pulled out here so
+    that the cryptographic proofs below stay readable.  All of them
+    serve the threshold node, which has to juggle node lists, value
+    lists and flag lists of matching lengths. *)
 Section ListLemmas.
   Context {A : Type}.
 
+  (** Membership in a prefix implies membership in the whole list.
+
+      [List.firstn n l] is the list of the first [n] elements of
+      [l], so anything found there was already in [l].  It is used
+      to carry the side condition "the point [zero] is not one of
+      the interpolation nodes" from a full node list to a truncated
+      one. *)
   Lemma in_firstn : ∀ (l : list A) (n : nat) (x : A),
     List.In x (List.firstn n l) -> List.In x l.
   Proof.
@@ -77,6 +153,13 @@ Section ListLemmas.
     destruct hin as [hin | hin]; [left; exact hin | right; eapply ih; exact hin].
   Qed.
 
+  (** A prefix of a duplicate-free list is duplicate-free.
+
+      [List.NoDup l] says that no element of [l] occurs twice.
+      Deleting elements cannot create a repetition.  The threshold
+      node needs this because its interpolation nodes must be
+      pairwise distinct, and the verifier works with only the first
+      [k - t] of them. *)
   Lemma nodup_firstn : ∀ (l : list A) (n : nat),
     List.NoDup l -> List.NoDup (List.firstn n l).
   Proof.
@@ -85,6 +168,11 @@ Section ListLemmas.
     eapply List.NoDup_app_remove_r; exact hnd.
   Qed.
 
+  (** Reading inside a prefix agrees with reading the original
+      list.
+
+      If the position [i] lies below the cut point [n], then
+      [List.nth i] cannot tell whether the list was truncated. *)
   Lemma nth_firstn' : ∀ (l : list A) (n i : nat) (d : A),
     (i < n)%nat -> List.nth i (List.firstn n l) d = List.nth i l d.
   Proof.
@@ -93,6 +181,14 @@ Section ListLemmas.
     eapply ih; lia.
   Qed.
 
+  (** Zipping two lists of equal length and then projecting the
+      first components returns the first list.
+
+      [List.combine] pairs two lists element by element and stops at
+      the shorter one; the length hypothesis rules that truncation
+      out.  This is what lets us say that the nodes of an
+      interpolation point set are exactly the node list we started
+      from, which is the shape the lemmas of Lagrange.v ask for. *)
   Lemma combine_map_fst : ∀ {B : Type} (l : list A) (l' : list B),
     List.length l = List.length l' ->
     List.map fst (List.combine l l') = l.
@@ -102,6 +198,15 @@ Section ListLemmas.
     rewrite ih; [reflexivity | lia].
   Qed.
 
+  (** Reading position [i] of [List.map f (List.seq 0 k)] gives
+      [f i].
+
+      [List.seq 0 k] is the list of the first [k] natural numbers,
+      so mapping [f] over it tabulates [f].  The hypothesis
+      [i < k] keeps the read inside the list, where the default
+      value is never reached.  The threshold soundness proof builds
+      the two child challenge lists this way and then has to read
+      them back position by position. *)
   Lemma nth_map_seq : ∀ {B : Type} (f : nat -> B) (k i : nat) (d : B),
     (i < k)%nat -> List.nth i (List.map f (List.seq 0 k)) d = f i.
   Proof.
@@ -117,7 +222,20 @@ End ListLemmas.
 
 Section Composition.
 
-  (* Underlying Field of Vector Space *)
+  (** ** The ambient algebra
+
+      Everything below is parametric in a field [F] of scalars and
+      a group [G] of group elements, each given as a carrier plus
+      its operations.  Nothing depends on a particular choice, so
+      the results apply to whichever prime field and group a real
+      deployment uses.
+
+      The scalars: [zero] and [one] are the two constants, [add],
+      [mul], [sub] and [div] the four binary operations, [opp] is
+      negation and [inv] the multiplicative inverse.  [Fdec]
+      decides equality of scalars, which is what allows the
+      challenge comparisons in the soundness proof to be made by
+      computation. *)
   Context
     {F : Type}
     {zero one : F}
@@ -125,7 +243,12 @@ Section Composition.
     {opp inv : F -> F}
     {Fdec : forall x y : F, {x = y} + {x <> y}}.
 
-  (* Vector Element *)
+  (** The group is written multiplicatively.  [gid] is the neutral
+      element, [ginv] the inverse, [gop] the product, and
+      [gpow g x] is [g] raised to the power [x], the action of a
+      scalar on a group element.  [Gdec] decides equality of group
+      elements, which is what lets the verifier be a boolean
+      function. *)
   Context
     {G : Type}
     {gid : G}
@@ -134,16 +257,30 @@ Section Composition.
     {gpow : G -> F -> G}
     {Gdec : forall x y : G, {x = y} + {x <> y}}.
 
+  (** Local infix notations.  The power symbol denotes the group
+      power [gpow], and the four arithmetic symbols denote this
+      section's field operations, not those of the standard
+      library. *)
   #[local] Infix "^" := gpow.
   #[local] Infix "*" := mul.
   #[local] Infix "/" := div.
   #[local] Infix "+" := add.
   #[local] Infix "-" := sub.
 
+  (** Notation for the three-message record of Crypto/Sigma.v,
+      written as announcement, challenge, response. *)
   #[local] Notation "( a ; c ; r )" := (mk_sigma _ _ _ a c r).
 
-  (* The section-closed constants of LinearRelation.v, applied to
-     this section's group structure. *)
+  (** Shorthands for the constants imported from
+      LinearRelation.v and Lagrange.v, already applied to this
+      section's field and group operations.
+
+      - [row_evalC] evaluates one linear equation.
+      - [mat_evalC] evaluates a whole system of them.
+      - [verifyC] is the leaf verifier.
+      - [lag_interpF] is Lagrange interpolation: given a list of
+        node and value pairs it returns the unique function of low
+        enough degree passing through them. *)
   #[local] Notation row_evalC :=
     (@row_eval F G gid gop gpow _).
   #[local] Notation mat_evalC :=
@@ -153,11 +290,43 @@ Section Composition.
   #[local] Notation lag_interpF :=
     (@lag_interp F zero one add mul sub inv).
 
+  (** ** The statement tree, and the types computed from it *)
   Section Def.
 
-    (* The statement tree.  The children of a threshold node are a
-       vector so that the node list xs can be tied to their number
-       without mentioning comp_rel in a Prop (positivity). *)
+    (** The statement tree: what can be proven.
+
+        A [comp_rel] is a statement built from four kinds of node.
+
+        - [Leaf m n mat pub] is a single linear-relation
+          statement.  [mat] is a public matrix of group elements
+          with [m] rows and [n] columns, [pub] is a public vector
+          of [m] group elements, and the secret is a vector of [n]
+          scalars.
+        - [CAnd rl rr] holds when both children hold.
+        - [COr rl rr] holds when at least one child holds.
+        - [CThresh t k xs rs Hxs Ht] holds when at least [t] of the
+          [k] children listed in [rs] hold.  [xs] gives the [k]
+          public interpolation nodes, one per child.  [Hxs] says
+          that [zero] together with those nodes are pairwise
+          distinct; this is what makes the challenge sharing sound,
+          since the nodes must differ from one another and none of
+          them may coincide with [zero], which is the point where
+          the root challenge itself lives.  [Ht] says the threshold
+          does not exceed the number of children.
+
+        The children of a threshold node are a [Vector.t] rather
+        than a [list] on purpose.  Their number is then the same
+        [k] that indexes the node vector [xs], so the two are tied
+        together by typing alone.  The alternative, a list of
+        children plus a side condition equating its length with the
+        length of [xs], would place a proposition mentioning
+        [comp_rel] inside the declaration of [comp_rel] itself,
+        which the positivity checker rejects.
+
+        Because it recurses through [Vector.t], [comp_rel] is a
+        nested inductive type.  That is the reason for the custom
+        induction principle and the generic walkers further
+        down. *)
     Inductive comp_rel : Type :=
     | Leaf (m n : nat)
         (mat : Vector.t (Vector.t G n) m)
@@ -168,7 +337,12 @@ Section Composition.
         (Hxs : List.NoDup (List.cons zero (Vector.to_list xs)))
         (Ht : (t <= k)%nat) : comp_rel.
 
-    (* A predicate holding of every child *)
+    (** [vall P v] says that the predicate [P] holds of every child
+        in the vector [v].
+
+        It is written by hand rather than reused from the standard
+        library so that it unfolds by plain computation, which
+        keeps the proofs about threshold nodes short. *)
     Fixpoint vall (P : comp_rel -> Prop) {n : nat}
       (v : Vector.t comp_rel n) : Prop :=
       match v with
@@ -176,6 +350,14 @@ Section Composition.
       | r :: v' => P r ∧ vall P v'
       end.
 
+    (** [vall] is monotone: weakening the predicate weakens the
+        statement.
+
+        If [P] holds of every child and [P] implies [Q], then [Q]
+        holds of every child.  This is used to reshape the
+        induction hypothesis handed out by [comp_rel_ind'] into
+        whatever form the proof at hand needs; the clearest case is
+        the threshold branch of [comp_distribution_perm]. *)
     Lemma vall_mono :
       ∀ (P Q : comp_rel -> Prop) (n : nat) (v : Vector.t comp_rel n),
       vall P v -> (∀ r, P r -> Q r) -> vall Q v.
@@ -186,8 +368,21 @@ Section Composition.
         split; [eapply hpq; exact hr | eapply ih; assumption].
     Qed.
 
-    (* Structural induction with a hypothesis for every child of a
-       threshold node. *)
+    (** ** Structural induction over the statement tree
+
+        The induction principle Rocq generates for [comp_rel] is
+        useless at a threshold node: it offers no induction
+        hypothesis for the children, because they sit under a
+        [Vector.t].  [comp_rel_ind'] repairs this.  It takes the
+        usual four cases, except that the threshold case also
+        receives [vall P rs], the statement that [P] already holds
+        of every child.
+
+        The fixpoint builds that extra argument with an inner
+        recursion over the vector, which calls [comp_rel_ind'] on
+        each child.  This is the standard way of giving a nested
+        inductive type a usable induction principle.  Every
+        function and every theorem below is proven with it. *)
     Section Induction.
       Variable P : comp_rel -> Prop.
       Hypothesis HLeaf : ∀ (m n : nat) (mat : Vector.t (Vector.t G n) m)
@@ -199,6 +394,9 @@ Section Composition.
         (Hxs : List.NoDup (List.cons zero (Vector.to_list xs)))
         (Ht : (t <= k)%nat), vall P rs -> P (CThresh t k xs rs Hxs Ht).
 
+      (** The induction principle itself.  The inner fixpoint
+          walks the children of a threshold node and assembles
+          their individual proofs into a [vall]. *)
       Fixpoint comp_rel_ind' (r : comp_rel) : P r :=
         match r with
         | Leaf m n mat pub => HLeaf m n mat pub
@@ -214,12 +412,30 @@ Section Composition.
         end.
     End Induction.
 
-    (* ---------- per-child walkers ----------
-       comp_rel is a nested inductive (a threshold node holds a
-       vector of children), so recursion over the children is done
-       by generic walkers parameterised by the function being
-       defined; the local notations below instantiate them. *)
+    (** ** Generic walkers over the children of a threshold node
 
+        [comp_rel] is a nested inductive type, so a function defined
+        by recursion on the tree cannot simply recurse over the
+        vector of children with something like [Vector.map]: the
+        guard checker cannot see, through an opaque higher-order
+        argument, that the children are structurally smaller.
+
+        The way around this is to define, for each such traversal, a
+        separate fixpoint that recurses on the vector only and takes
+        the function being defined as a parameter.  Those are the
+        walkers whose names end in [_gen].  A definition such as
+        [comp_witness] may then call [wlist_gen comp_witness rs] on
+        its own children, which the guard checker does accept.  The
+        local notations further down ([wlist], [tlist], [provelist]
+        and the rest) are these walkers already applied to the
+        function they were meant for. *)
+
+    (** The type of the witness list of a threshold node.
+
+        [wlist_gen cw v] is a nested tuple with one slot per child,
+        each slot holding [option (cw r)]: the prover may or may
+        not have a witness for that child.  The parameter [cw] is
+        instantiated with [comp_witness]. *)
     Fixpoint wlist_gen (cw : comp_rel -> Type) {n : nat}
       (v : Vector.t comp_rel n) {struct v} : Type :=
       match v with
@@ -227,6 +443,11 @@ Section Composition.
       | r :: v' => (option (cw r) * wlist_gen cw v')%type
       end.
 
+    (** The type of the transcript list of a threshold node: a
+        nested tuple with one transcript per child.  Unlike
+        witnesses there is no [option] here, because every child,
+        faked or honest, contributes a transcript.  The parameter
+        [ct] is instantiated with [comp_transcript]. *)
     Fixpoint tlist_gen (ct : comp_rel -> Type) {n : nat}
       (v : Vector.t comp_rel n) {struct v} : Type :=
       match v with
@@ -234,10 +455,20 @@ Section Composition.
       | r :: v' => (ct r * tlist_gen ct v')%type
       end.
 
-    (* Witness type, computed from the tree: an OR witness is a
-       witness for one branch; a threshold witness is an optional
-       witness per child (the relation additionally requires at
-       least t of them to be present). *)
+    (** The type of a witness for a statement, computed from the
+        tree.
+
+        A witness is the secret whose knowledge the prover claims.
+
+        - At a [Leaf] it is the vector of [n] secret scalars.
+        - At a [CAnd] it is a pair, since both children need one.
+        - At a [COr] it is a sum type: a witness for the left child
+          or a witness for the right child.  Nothing outside the
+          prover says which.
+        - At a [CThresh] it is an optional witness per child.  The
+          type alone does not require [t] of them to be present;
+          that requirement belongs to the relation
+          [comp_rel_holds]. *)
     Fixpoint comp_witness (r : comp_rel) : Type :=
       match r with
       | Leaf m n _ _ => Vector.t F n
@@ -246,7 +477,13 @@ Section Composition.
       | CThresh _ _ _ rs _ _ => wlist_gen comp_witness rs
       end.
 
-    (* Number of witnesses present in a threshold witness *)
+    (** How many children of a threshold node actually come with a
+        witness.
+
+        It walks the nested tuple and counts one for every [Some].
+        The threshold relation demands [t <= wcount rs w], and the
+        prover uses the surplus, [wcount rs w - t], to decide how
+        many witness-holding children it may nevertheless fake. *)
     Fixpoint wcount {n : nat} (v : Vector.t comp_rel n) {struct v} :
       wlist_gen comp_witness v -> nat :=
       match v as v' return wlist_gen comp_witness v' -> nat with
@@ -256,6 +493,12 @@ Section Composition.
             wcount v' (snd w))%nat
       end.
 
+    (** Every witness that is present is a correct one.
+
+        [wholds_gen ch v w] says that whenever a child holds
+        [Some x], the relation [ch] holds of [x]; children holding
+        [None] impose no condition.  The parameter [ch] is
+        instantiated with [comp_rel_holds]. *)
     Fixpoint wholds_gen (ch : ∀ r : comp_rel, comp_witness r -> Prop)
       {n : nat} (v : Vector.t comp_rel n) {struct v} : wlist_gen comp_witness v -> Prop :=
       match v as v' return wlist_gen comp_witness v' -> Prop with
@@ -267,7 +510,18 @@ Section Composition.
            end) ∧ wholds_gen ch v' (snd w)
       end.
 
-    (* The relation the composed protocol proves *)
+    (** The relation the composed protocol proves: when is [w] a
+        genuine witness for the statement [r].
+
+        - At a [Leaf] the witness must solve the system of group
+          equations, [mat_evalC mat xs = pub].
+        - At a [CAnd] both halves of the pair must be witnesses.
+        - At a [COr] the branch that is present must be a witness.
+        - At a [CThresh] at least [t] children must carry a
+          witness, and every witness carried must be correct.
+
+        This is the statement [comp_completeness] assumes and the
+        statement [comp_special_soundness] produces. *)
     Fixpoint comp_rel_holds (r : comp_rel) :
       comp_witness r -> Prop :=
       match r return comp_witness r -> Prop with
@@ -283,12 +537,29 @@ Section Composition.
           (t <= wcount rs w)%nat ∧ wholds_gen comp_rel_holds rs w
       end.
 
-    (* Transcript shape, computed from the tree.  A leaf transcript
-       is (announcement, response); its challenge is supplied
-       externally.  An OR transcript additionally stores the left
-       child's challenge c₁ (the right child's is the difference).
-       A threshold transcript stores the k - t compressed
-       challenges (values at the first k - t nodes). *)
+    (** The shape of a transcript, computed from the tree.
+
+        The challenge is never stored inside a transcript; it is
+        handed to the verifier separately.  What is stored is the
+        extra data the verifier needs in order to derive the
+        children's challenges from the root challenge.
+
+        - At a [Leaf] a transcript is the announcement, a vector of
+          [m] group elements, together with the response, a vector
+          of [n] scalars.
+        - At a [CAnd] it is just the pair of child transcripts,
+          since both children run at the same challenge.
+        - At a [COr] it is the two child transcripts plus one field
+          element, the left child's challenge.  The right child's
+          challenge is the difference between the root challenge
+          and it, so it need not be stored.
+        - At a [CThresh] it is the child transcripts plus a list of
+          [k - t] field elements, the values of the sharing
+          polynomial at the first [k - t] nodes.  Together with the
+          value [c] at [zero] that is [k - t + 1] points, exactly
+          enough to determine a polynomial of degree at most
+          [k - t], so the verifier can rebuild every child
+          challenge from them. *)
     Fixpoint comp_transcript (r : comp_rel) : Type :=
       match r with
       | Leaf m n _ _ => (Vector.t G m * Vector.t F n)%type
@@ -298,9 +569,21 @@ Section Composition.
       | CThresh _ _ _ rs _ _ => (tlist_gen comp_transcript rs * list F)%type
       end.
 
-    (* Prover randomness: leaf commitment randomness, plus — at each
-       OR node — the challenge used for the simulated branch, and —
-       at each threshold node — the k - t free challenges. *)
+    (** The randomness the prover consumes, computed from the tree.
+
+        - At a [Leaf] it is the commitment randomness, one scalar
+          per secret scalar.
+        - At a [CAnd] it is the pair of the children's randomness.
+        - At a [COr] there is one extra scalar, the challenge used
+          for the branch being simulated.  Committing to it in
+          advance is what allows that branch to be faked.
+        - At a [CThresh] there are [k - t] extra scalars, the
+          challenges the prover is free to choose for the children
+          it fakes.
+
+        The simulator consumes randomness of exactly the same type.
+        That is what makes the real and the simulated distributions
+        comparable at all. *)
     Fixpoint comp_rand (r : comp_rel) : Type :=
       match r with
       | Leaf m n _ _ => Vector.t F n
@@ -310,7 +593,8 @@ Section Composition.
           (tlist_gen comp_rand rs * Vector.t F (k - t))%type
       end.
 
-    (* Number of field elements drawn by the prover / simulator *)
+    (** Total number of scalars drawn across the children of a
+        threshold node, used to size that node's randomness. *)
     Fixpoint slist_gen (cs : comp_rel -> nat) {n : nat}
       (v : Vector.t comp_rel n) {struct v} : nat :=
       match v with
@@ -318,6 +602,17 @@ Section Composition.
       | r :: v' => (cs r + slist_gen cs v')%nat
       end.
 
+    (** How many field elements the prover, or the simulator, draws
+        for the statement [r].
+
+        It is the size of [comp_rand r] counted as a flat list of
+        scalars: [n] at a leaf, the sum of the children at a
+        [CAnd], the sum plus one at a [COr] for the stored branch
+        challenge, and the sum plus [k - t] at a [CThresh] for the
+        free child challenges.  It appears in every probability
+        computation below, because each randomness is drawn with
+        probability one over the size of the challenge space raised
+        to the power [comp_size r]. *)
     Fixpoint comp_size (r : comp_rel) : nat :=
       match r with
       | Leaf m n _ _ => n
@@ -326,19 +621,63 @@ Section Composition.
       | CThresh t k _ rs _ _ => (slist_gen comp_size rs + (k - t))%nat
       end.
 
-    (* ---------- threshold challenge sharing ---------- *)
+    (** ** Sharing the challenge at a threshold node
 
-    (* The interpolant through (0, c) and the given (node, value)
-       pairs, as a function of the node. *)
+        The next four definitions implement the Shamir-style
+        sharing described at the top of the file.  The prover must
+        turn the single root challenge [c] into [k] child
+        challenges in such a way that it controls exactly [k - t]
+        of them, no more and no fewer. *)
+
+    (** The sharing polynomial, seen as a function of the node.
+
+        [expand_chal c nodes vals] is the interpolant through the
+        point [(zero, c)] together with the pairs formed from
+        [nodes] and [vals].  Its degree is at most the length of
+        [nodes].  It returns [c] at [zero], which is
+        [expand_chal_zero], and it returns [vals] at [nodes],
+        which is [expand_chal_nodes].
+
+        Both the prover and the verifier call it, but with
+        different node lists.  The prover interpolates through the
+        nodes of the children it fakes; the verifier interpolates
+        through the first [k - t] nodes, which is where the
+        transcript records its values.  The two functions
+        nevertheless coincide, because they have the same degree
+        bound and the same value at [zero]; that is
+        [expand_agree]. *)
     Definition expand_chal (c : F) (nodes vals : list F) : F -> F :=
       lag_interpF (List.cons (zero, c) (List.combine nodes vals)).
 
-    (* Challenge of child i: the interpolant at node xs[i]. *)
+    (** The challenge handed to child number [i]: the sharing
+        polynomial [f] evaluated at the [i]-th public node of [xs].
+
+        Reading past the end of [xs] would return the default
+        [zero], but that never happens, since the index always
+        ranges below the number of children. *)
     Definition chal_of (xs : list F) (f : F -> F) (i : nat) : F :=
       f (List.nth i xs zero).
 
-    (* Which children the prover simulates: every child without a
-       witness, plus the first `seeds` children with one. *)
+    (** Which children the prover is going to fake.
+
+        [sim_flags v w seeds] returns one boolean per child:
+        [true] means simulate, [false] means prove honestly.  Every
+        child without a witness has to be simulated.  On top of
+        those, the first [seeds] children that do hold a witness
+        are simulated as well.
+
+        The prover calls it with [seeds] equal to
+        [wcount rs w - t], the number of witnesses it holds in
+        excess of the threshold.  The number of flagged children
+        then comes out at exactly [k - t], which is
+        [sim_flags_count], and that is precisely how many child
+        challenges a polynomial of degree at most [k - t] lets it
+        choose freely.
+
+        Padding up to [k - t] is not an optimisation but a security
+        requirement.  If the prover faked only the children it
+        cannot prove, the number of faked children would reveal how
+        many witnesses it holds. *)
     Fixpoint sim_flags {n : nat} (v : Vector.t comp_rel n) {struct v} :
       wlist_gen comp_witness v -> nat -> list bool :=
       match v as v' return wlist_gen comp_witness v' -> nat -> list bool with
@@ -354,13 +693,20 @@ Section Composition.
           end
       end.
 
+    (** How many entries of a flag list are [true], that is, how
+        many children are being simulated. *)
     Fixpoint count_true (fl : list bool) : nat :=
       match fl with
       | List.nil => 0
       | List.cons b fl' => ((if b then 1 else 0) + count_true fl')%nat
       end.
 
-    (* The nodes of the flagged children *)
+    (** The public nodes of the flagged children.
+
+        [select_nodes xs fl] walks the node list and the flag list
+        together and keeps a node whenever its flag is [true].
+        These are the nodes at which the prover pins its sharing
+        polynomial down to challenges of its own choosing. *)
     Fixpoint select_nodes (xs : list F) (fl : list bool) : list F :=
       match xs, fl with
       | List.cons x xs', List.cons b fl' =>
@@ -369,7 +715,14 @@ Section Composition.
       | _, _ => List.nil
       end.
 
-    (* Simulate every child at its challenge *)
+    (** Simulate every child of a threshold node.
+
+        [simlist_gen cs v s chal i] runs the simulator [cs] on each
+        child, giving child number [i] the challenge [chal i] and
+        the randomness taken from [s], and collects the resulting
+        transcripts into the nested tuple.  The index counts up as
+        the walk proceeds, so every child receives its own
+        challenge. *)
     Fixpoint simlist_gen
       (cs : ∀ r : comp_rel, comp_rand r -> F -> comp_transcript r)
       {n : nat} (v : Vector.t comp_rel n) {struct v} :
@@ -380,8 +733,29 @@ Section Composition.
           (cs r (fst s) (chal i), simlist_gen cs v' (snd s) chal (S i))
       end.
 
-    (* Simulator: builds an accepting transcript for challenge c
-       without any witness. *)
+    (** The simulator: an accepting transcript for the challenge
+        [c], built with no witness at all.
+
+        The existence of such a procedure is what makes the
+        protocol zero knowledge.  A transcript on its own proves
+        nothing, since anybody could have manufactured it; what
+        convinces the verifier is only that the challenge was
+        chosen after the announcement was fixed.
+
+        - At a [Leaf] the response is chosen first, as the drawn
+          randomness, and the announcement is then computed
+          backwards from the verification equation.
+        - At a [CAnd] both children are simulated at the same
+          challenge.
+        - At a [COr] the branch challenge taken from the randomness
+          becomes the left child's challenge and the difference
+          becomes the right child's, mirroring the verifier
+          exactly.
+        - At a [CThresh] the free scalars of the randomness are
+          read as the polynomial's values at the first [k - t]
+          nodes, every child is simulated at its resulting
+          challenge, and those same scalars are recorded in the
+          transcript. *)
     Fixpoint comp_simulate (r : comp_rel) :
       comp_rand r -> F -> comp_transcript r :=
       match r return comp_rand r -> F -> comp_transcript r with
@@ -401,8 +775,15 @@ Section Composition.
            Vector.to_list (snd s))
       end.
 
-    (* Prove the unflagged children (which hold a witness) and
-       simulate the flagged ones, all at their challenge *)
+    (** Walk the children of a threshold node, proving some and
+        faking the rest.
+
+        [provelist_gen cp cs v w s fl chal i] gives child number
+        [i] the challenge [chal i].  A child is proven with [cp]
+        when it holds a witness and its flag in [fl] is [false]; in
+        every other case it is simulated with [cs].  The flag list
+        comes from [sim_flags], so exactly [k - t] children take
+        the simulated route. *)
     Fixpoint provelist_gen
       (cp : ∀ r : comp_rel, comp_witness r -> comp_rand r -> F -> comp_transcript r)
       (cs : ∀ r : comp_rel, comp_rand r -> F -> comp_transcript r)
@@ -420,9 +801,34 @@ Section Composition.
            provelist_gen cp cs v' (snd w) (snd s) (List.tl fl) chal (S i))
       end.
 
-    (* Prover: honest on the branches it has witnesses for,
-       simulated (with the pre-committed challenge from the
-       randomness) on the others. *)
+    (** The honest prover.
+
+        Given a witness [w], randomness [s] and the verifier's
+        challenge [c], it produces a transcript that [comp_verify]
+        accepts; that is [comp_completeness].
+
+        - At a [Leaf] the announcement is the matrix applied to the
+          randomness, and the response is the randomness plus [c]
+          times the secret, coordinate by coordinate.
+        - At a [CAnd] both children are proven at the same
+          challenge.
+        - At a [COr] the branch the prover cannot do is simulated
+          at the challenge committed to in the randomness, and the
+          branch it can do is proven at whatever remains of [c].
+          The field element recorded is always the left child's
+          challenge: it is [c] minus the committed value when the
+          left branch is the real one, and the committed value
+          itself when the right branch is.  From outside, the two
+          cases look identical.
+        - At a [CThresh] the prover uses [sim_flags] to decide
+          which [k - t] children to fake, treats the free scalars
+          of its randomness as those children's challenges by
+          interpolating through their nodes, and answers the
+          remaining [t] children honestly at the challenges that
+          the interpolation forces upon them.  The transcript
+          records the polynomial's values at the first [k - t]
+          nodes, which is the form the verifier expects and which
+          hides which children were faked. *)
     Fixpoint comp_prove (r : comp_rel) :
       comp_witness r -> comp_rand r -> F -> comp_transcript r :=
       match r return comp_witness r -> comp_rand r -> F -> comp_transcript r with
@@ -456,6 +862,9 @@ Section Composition.
              (List.firstn (k - t) (Vector.to_list xs)))
       end.
 
+    (** Verify every child of a threshold node, each at its own
+        challenge [chal i], and take the conjunction of the
+        answers. *)
     Fixpoint verlist_gen
       (cv : ∀ r : comp_rel, F -> comp_transcript r -> bool)
       {n : nat} (v : Vector.t comp_rel n) {struct v} :
@@ -466,10 +875,26 @@ Section Composition.
           cv r (chal i) (fst tr) && verlist_gen cv v' chal (snd tr) (S i)
       end.
 
-    (* Verifier: leaf checks are the linear-relation checks; an AND
-       passes the same challenge down; an OR verifies the left child
-       at the stored challenge c₁ and the right child at c - c₁; a
-       threshold node re-expands the compressed challenges. *)
+    (** The verifier: a boolean test on a transcript, given the
+        challenge [c].
+
+        It mirrors the prover node by node, and it uses no secret
+        information, so anybody can run it.
+
+        - A [Leaf] runs the linear-relation check of
+          LinearRelation.v.
+        - A [CAnd] passes the same challenge to both children.
+        - A [COr] reads the recorded field element as the left
+          child's challenge and uses the difference for the right
+          child, so the two child challenges always add up to [c],
+          whichever branch was the real one.
+        - A [CThresh] first checks that exactly [k - t] values were
+          recorded, then rebuilds the sharing polynomial from those
+          values together with the point [(zero, c)], and checks
+          every child at its interpolated challenge.  The length
+          check is what caps the degree of the polynomial, and
+          hence what forces the prover to answer [t] children
+          honestly. *)
     Fixpoint comp_verify (r : comp_rel) :
       F -> comp_transcript r -> bool :=
       match r return F -> comp_transcript r -> bool with
@@ -487,6 +912,8 @@ Section Composition.
             (fst tr) 0
       end.
 
+    (** Two transcript lists for the same children carry the same
+        announcements, child by child. *)
     Fixpoint salist_gen
       (csa : ∀ r : comp_rel, comp_transcript r -> comp_transcript r -> Prop)
       {n : nat} (v : Vector.t comp_rel n) {struct v} :
@@ -497,9 +924,19 @@ Section Composition.
           csa r (fst t) (fst t') ∧ salist_gen csa v' (snd t) (snd t')
       end.
 
-    (* Two transcripts with the same announcements everywhere
-       (challenges and responses may differ) — the hypothesis of
-       special soundness. *)
+    (** Two transcripts for the same statement carry the same
+        announcements everywhere.
+
+        Only leaves have announcements, so the recursion bottoms
+        out in an equality of leaf announcement vectors;
+        challenges, responses and recorded challenge data are free
+        to differ.
+
+        This is the hypothesis of special soundness.  Rewinding a
+        prover means running it twice from the same first message
+        and answering with two different challenges, which produces
+        exactly a pair of transcripts related by this
+        predicate. *)
     Fixpoint comp_same_announcement (r : comp_rel) :
       comp_transcript r -> comp_transcript r -> Prop :=
       match r return comp_transcript r -> comp_transcript r -> Prop with
@@ -514,6 +951,8 @@ Section Composition.
           salist_gen comp_same_announcement rs (fst t) (fst t')
       end.
 
+    (** Draw randomness independently for every child of a
+        threshold node and collect it into the nested tuple. *)
     Fixpoint rand_list_gen (cd : ∀ r : comp_rel, dist (comp_rand r))
       {n : nat} (v : Vector.t comp_rel n) {struct v} : dist (tlist_gen comp_rand v) :=
       match v as v' return dist (tlist_gen comp_rand v') with
@@ -524,7 +963,20 @@ Section Composition.
           Ret (x, xs)
       end.
 
-    (* Uniform distribution over the prover randomness *)
+    (** The uniform distribution over the prover's randomness.
+
+        [lf] is the challenge space, given as a list of field
+        elements, and [Hlfn] says it is not empty, so that drawing
+        from it makes sense.  Every scalar the prover needs is
+        drawn uniformly and independently from [lf]: the leaf
+        commitment randomness, the branch challenge at a [COr], and
+        the free child challenges at a [CThresh].  A distribution
+        here is a concrete list of value and probability pairs,
+        built with the monad of Probability/Distr.v.
+
+        Since all draws are uniform and independent, every
+        randomness comes out with the same probability; that is
+        [comp_rand_distribution_prob]. *)
     Fixpoint comp_rand_distribution
       (lf : list F) (Hlfn : lf <> List.nil) (r : comp_rel) {struct r} :
       dist (comp_rand r) :=
@@ -548,12 +1000,20 @@ Section Composition.
           Ret (rl, d)
       end.
 
+    (** The distribution of transcripts the honest prover
+        produces: draw the randomness, then run [comp_prove] on the
+        witness [w] and the challenge [c]. *)
     Definition comp_real_distribution
       (lf : list F) (Hlfn : lf <> List.nil) (r : comp_rel)
       (w : comp_witness r) (c : F) : dist (comp_transcript r) :=
       s <- comp_rand_distribution lf Hlfn r ;;
       Ret (comp_prove r w s c).
 
+    (** The distribution of transcripts the simulator produces:
+        draw randomness of the very same type, then run
+        [comp_simulate] on the challenge [c] alone.  Zero knowledge
+        is the statement that this equals the distribution
+        above. *)
     Definition comp_simulator_distribution
       (lf : list F) (Hlfn : lf <> List.nil) (r : comp_rel)
       (c : F) : dist (comp_transcript r) :=
@@ -562,7 +1022,12 @@ Section Composition.
 
   End Def.
 
-  (* The walkers instantiated at the functions above *)
+  (** ** The walkers, instantiated
+
+      Each of these notations applies one generic walker of the
+      previous section to the function it was designed for, so that
+      the proofs below can write [wlist], [provelist] and so on
+      without repeating the parameter every time. *)
   #[local] Notation wlist := (wlist_gen comp_witness).
   #[local] Notation wholds := (wholds_gen comp_rel_holds).
   #[local] Notation tlist := (tlist_gen comp_transcript).
@@ -575,14 +1040,28 @@ Section Composition.
   #[local] Notation rand_list lf Hlfn :=
     (rand_list_gen (comp_rand_distribution lf Hlfn)).
 
+  (** ** The proofs *)
   Section Proofs.
 
+    (** The proofs need more than bare operations.  [Hvec] states
+        that the field [F] acts on the group [G] as a vector space,
+        which is what makes the leaf verification equation
+        algebraically true, and it carries a field structure on [F]
+        along with it.  The [field] tactic is registered so that
+        routine scalar identities are discharged automatically. *)
     Context
       {Hvec : @vector_space F (@eq F) zero one add mul sub
         div opp inv G (@eq G) gid ginv gop gpow}.
     Add Field field : (@field_theory_for_stdlib_tactic F
       eq zero one opp add mul sub inv div vector_space_field).
 
+    (** Shorthands for the imported results.  [lag_evalF] says an
+        interpolant takes the prescribed value at a prescribed
+        node; [lag_uniqF] is the uniqueness theorem for
+        interpolants of low enough degree; [thresh_extractF] is the
+        counting theorem [threshold_extraction] of Shamir.v; and
+        [agreebF] is its boolean test for "the two challenge lists
+        agree at position [i]". *)
     #[local] Notation lag_evalF :=
       (@lag_interp_eval F zero one add mul sub div opp inv
         vector_space_field).
@@ -594,8 +1073,19 @@ Section Composition.
         vector_space_field).
     #[local] Notation agreebF := (@agreeb F zero Fdec).
 
-    (* ---------- threshold bookkeeping ---------- *)
+    (** ** Bookkeeping for the threshold node
 
+        A block of small lemmas about [sim_flags], [select_nodes]
+        and the interpolation helpers.  Their only job is to
+        establish the one fact the interesting proofs need: the
+        prover flags exactly [k - t] children, hence selects
+        exactly [k - t] pairwise distinct nodes, hence builds an
+        interpolant of exactly the degree the verifier expects. *)
+
+    (** A threshold node cannot hold more witnesses than it has
+        children.  Needed to know that [wcount v w - t] is a
+        sensible number of extra children to fake, and to simplify
+        the minimum in [sim_flags_count]. *)
     Lemma wcount_le :
       ∀ (n : nat) (v : Vector.t comp_rel n) (w : wlist v),
       (wcount v w <= n)%nat.
@@ -605,6 +1095,11 @@ Section Composition.
       + destruct (fst w); specialize (ih (snd w)); lia.
     Qed.
 
+    (** [sim_flags] returns exactly one flag per child.
+
+        Immediate by construction, but needed explicitly whenever a
+        flag list is matched up against the node list, which also
+        has length [k]. *)
     Lemma sim_flags_length :
       ∀ (n : nat) (v : Vector.t comp_rel n) (w : wlist v) (s : nat),
       List.length (sim_flags v w s) = n.
@@ -614,6 +1109,21 @@ Section Composition.
       + destruct (fst w); [destruct s |]; cbn; rewrite ih; reflexivity.
     Qed.
 
+    (** Exactly how many children get flagged for simulation.
+
+        Of the [n] children, the [n - wcount v w] that hold no
+        witness are always flagged, and [seeds] more are flagged
+        among those that do hold one, capped by how many such
+        children exist.  When the prover uses [seeds] equal to
+        [wcount v w - t], and the relation guarantees
+        [t <= wcount v w], the minimum simplifies and the total
+        comes out at [n - t].
+
+        This is the key counting fact of the whole threshold
+        construction.  It is what makes the prover's interpolant
+        have degree at most [k - t], which is exactly the degree
+        cap the verifier enforces by checking the length of the
+        recorded value list. *)
     Lemma sim_flags_count :
       ∀ (n : nat) (v : Vector.t comp_rel n) (w : wlist v) (s : nat),
       count_true (sim_flags v w s) =
@@ -626,6 +1136,10 @@ Section Composition.
         destruct (wcount v (snd w)) eqn:hw; lia.
     Qed.
 
+    (** Selecting nodes by a flag list keeps as many nodes as there
+        are [true] flags, provided the two lists have the same
+        length.  Combined with [sim_flags_count], this pins down
+        the number of interpolation points the prover uses. *)
     Lemma select_nodes_length :
       ∀ (xs : list F) (fl : list bool),
       List.length fl = List.length xs ->
@@ -636,6 +1150,9 @@ Section Composition.
       destruct b; cbn; rewrite ih; lia.
     Qed.
 
+    (** Selected nodes come from the original node list.  Used to
+        carry distinctness, and the fact that [zero] is not among
+        them, from the full node list down to the selection. *)
     Lemma select_nodes_incl :
       ∀ (xs : list F) (fl : list bool) (x : F),
       List.In x (select_nodes xs fl) -> List.In x xs.
@@ -647,6 +1164,10 @@ Section Composition.
       + right; eapply ih; exact hin.
     Qed.
 
+    (** Selecting from a duplicate-free node list leaves a
+        duplicate-free node list.  Interpolation requires pairwise
+        distinct nodes, so this side condition has to travel with
+        every selection. *)
     Lemma select_nodes_nodup :
       ∀ (xs : list F) (fl : list bool),
       List.NoDup xs -> List.NoDup (select_nodes xs fl).
@@ -661,6 +1182,13 @@ Section Composition.
       + eapply ih; exact hnd'.
     Qed.
 
+    (** The point [zero], where the root challenge sits, remains
+        distinct from every selected node.
+
+        This is the exact shape of side condition the interpolation
+        lemmas ask for: [zero] consed onto the node list must be
+        duplicate-free.  It is inherited from the [Hxs] field
+        carried by the [CThresh] constructor. *)
     Lemma nodup_zero_select :
       ∀ (xs : list F) (fl : list bool),
       List.NoDup (List.cons zero xs) ->
@@ -673,6 +1201,9 @@ Section Composition.
       eapply select_nodes_nodup; exact hnd'.
     Qed.
 
+    (** The same statement for the verifier's node list: [zero]
+        together with the first [n] public nodes are still pairwise
+        distinct. *)
     Lemma nodup_zero_firstn :
       ∀ (xs : list F) (n : nat),
       List.NoDup (List.cons zero xs) ->
@@ -685,8 +1216,18 @@ Section Composition.
       eapply nodup_firstn; exact hnd'.
     Qed.
 
-    (* The interpolant through (0, c) and the given points takes
-       value c at 0. *)
+    (** The sharing polynomial returns the root challenge at
+        [zero].
+
+        By construction [(zero, c)] is one of the interpolation
+        points, and an interpolant passes through its own points.
+        The two hypotheses are the usual ones: the nodes together
+        with [zero] must be pairwise distinct, and there must be as
+        many values as nodes, so that [List.combine] loses nothing.
+
+        Soundness rests on this.  It is what lets the rewinding
+        argument say that the two reconstructed polynomials really
+        do take the two different root challenges at [zero]. *)
     Lemma expand_chal_zero :
       ∀ (c : F) (nodes vals : list F),
       List.NoDup (List.cons zero nodes) ->
@@ -699,7 +1240,13 @@ Section Composition.
       + left; reflexivity.
     Qed.
 
-    (* A function agreeing with a list of values on a list of nodes *)
+    (** A function that matches a list of values on a list of
+        nodes, pointwise, maps those nodes onto exactly those
+        values.
+
+        A plain induction, stated on its own because this is the
+        only place where the pairing performed by [List.combine]
+        has to be undone element by element. *)
     Lemma map_of_combine :
       ∀ (nodes vals : list F) (f : F -> F),
       (∀ x v, List.In (x, v) (List.combine nodes vals) -> f x = v) ->
@@ -714,8 +1261,13 @@ Section Composition.
         intros y u hin; eapply hf; right; exact hin.
     Qed.
 
-    (* The interpolant through (0, c) and (nodes, vals) takes the
-       values vals on nodes. *)
+    (** The sharing polynomial returns the prescribed values at the
+        prescribed nodes.
+
+        The companion of [expand_chal_zero] for the remaining
+        interpolation points.  It is what lets the prover claim
+        that the children it faked really did receive the
+        challenges it picked for them. *)
     Lemma expand_chal_nodes :
       ∀ (c : F) (nodes vals : list F),
       List.NoDup (List.cons zero nodes) ->
@@ -731,6 +1283,9 @@ Section Composition.
       + right; exact hin.
     Qed.
 
+    (** Zipping a list with its own image under [f] contains the
+        pair of every element with its image.  A small step inside
+        [expand_agree]. *)
     Lemma in_combine_map :
       ∀ (l : list F) (f : F -> F) (x : F),
       List.In x l -> List.In (x, f x) (List.combine l (List.map f l)).
@@ -742,8 +1297,30 @@ Section Composition.
         ++ right; eapply ih; exact hin.
     Qed.
 
-    (* Re-expanding from the values at another node list of the
-       same size gives the same interpolant. *)
+    (** The prover's polynomial and the verifier's polynomial are
+        the same function.
+
+        The prover pins its polynomial down at the nodes [src], the
+        nodes of the children it fakes.  The transcript, however,
+        records the polynomial's values at a different node list
+        [dst], the first [k - t] public nodes, and that is what the
+        verifier re-interpolates from.  This lemma says that
+        re-interpolating from the values at [dst] gives back the
+        very same function, provided [dst] has the same length as
+        [src] and both lists are pairwise distinct and avoid
+        [zero].
+
+        The reason is uniqueness of interpolation, [lag_uniqF] from
+        Lagrange.v.  Both functions have degree at most the common
+        length, and they agree at [zero] and at all of [dst], which
+        is one point more than two different functions of that
+        degree could agree on.
+
+        This is the hinge of the whole threshold node.
+        Completeness needs it, to know that the honest children
+        were checked at the challenges they were answered at; the
+        distribution proof needs it, to know that the prover's and
+        the simulator's challenge functions coincide. *)
     Lemma expand_agree :
       ∀ (c : F) (src vals dst : list F),
       List.NoDup (List.cons zero src) ->
@@ -777,8 +1354,15 @@ Section Composition.
           +++ right; eapply in_combine_map; exact hin.
     Qed.
 
-    (* ------------------ Simulator correctness ------------------ *)
+    (** ** The simulator always convinces the verifier *)
 
+    (** Every simulated child of a threshold node passes its own
+        check.
+
+        The [vall] hypothesis is the induction hypothesis for the
+        children, supplied by [comp_rel_ind'].  The lemma exists
+        only to carry that hypothesis across the walk over the
+        vector of children. *)
     Lemma verlist_simlist :
       ∀ (n : nat) (v : Vector.t comp_rel n) (s : rlist v)
         (chal : nat -> F) (i : nat),
@@ -793,6 +1377,15 @@ Section Composition.
         eapply hr. eapply ih; exact hall.
     Qed.
 
+    (** The simulator's output is accepted, for every statement,
+        every randomness and every challenge.
+
+        On its own this is not a security property but a sanity
+        check: a simulator producing rejected transcripts would be
+        trivial to write and would say nothing about zero
+        knowledge.  It is also used inside [comp_completeness],
+        because the honest prover itself simulates the branches it
+        has no witness for. *)
     Theorem comp_simulate_completeness :
       ∀ (r : comp_rel) (s : comp_rand r) (c : F),
       comp_verify r c (comp_simulate r s c) = true.
@@ -817,8 +1410,24 @@ Section Composition.
         eapply verlist_simlist; exact ihrs.
     Qed.
 
-    (* ------------------ Completeness ------------------ *)
+    (** ** Completeness *)
 
+    (** Every child of a threshold node passes its check, whether
+        it was proven or faked.
+
+        The [vall] hypothesis is again the induction hypothesis for
+        the children, and [wholds v w] says that every witness
+        present is genuine.
+
+        The pair of challenge functions [chal] and [chal'],
+        assumed equal at every index, is there for a concrete
+        reason: the prover and the verifier reach a child's
+        challenge by two syntactically different routes.  The
+        prover interpolates through the nodes it selected, the
+        verifier through the first [k - t] nodes.  [expand_agree]
+        shows the two routes give the same function, and this
+        lemma is stated so that it can take that agreement as a
+        hypothesis instead of rediscovering it. *)
     Lemma verlist_provelist :
       ∀ (n : nat) (v : Vector.t comp_rel n) (w : wlist v) (s : rlist v)
         (fl : list bool) (chal chal' : nat -> F) (i : nat),
@@ -843,6 +1452,19 @@ Section Composition.
           eapply ih; assumption.
     Qed.
 
+    (** Completeness: an honest prover holding a genuine witness
+        always convinces the verifier.
+
+        The proof is the structural induction.  Leaves are the
+        completeness of the linear-relation protocol.  [CAnd] is
+        immediate.  At a [COr] the point worth noticing is that the
+        branch simulated at the committed challenge is checked by
+        the verifier at the root challenge minus its complement,
+        which is the committed challenge again.  At a [CThresh] the
+        counting lemmas give that exactly [k - t] values are
+        recorded, so the length test passes, and [expand_agree]
+        gives that each child is checked at the very challenge it
+        was answered at. *)
     Theorem comp_completeness :
       ∀ (r : comp_rel) (w : comp_witness r) (s : comp_rand r) (c : F),
       comp_rel_holds r w ->
@@ -899,9 +1521,24 @@ Section Composition.
           +++ rewrite hsl; eapply List.firstn_length_le; lia.
     Qed.
 
-    (* ------------------ Special soundness ------------------ *)
+    (** ** Special soundness *)
 
-    (* Extract a witness for every child whose two challenges differ. *)
+    (** From two accepting runs of the children of a threshold
+        node, extract a witness for every child whose two
+        challenges differed.
+
+        The [vall] hypothesis is the children's induction
+        hypothesis; [salist v ts ts'] says the two runs used the
+        same announcements child by child; the two [verlist]
+        hypotheses say both runs were accepted.
+
+        The conclusion is deliberately quantitative.  It does not
+        merely produce a witness list: it states that the number of
+        witnesses obtained is exactly the number of positions in
+        the index range where the two challenge functions disagree.
+        That number is what the counting theorem of Shamir.v bounds
+        from below, so the two results fit together to give the
+        threshold condition [t <= wcount rs w]. *)
     Lemma extract_list :
       ∀ (n : nat) (v : Vector.t comp_rel n) (i : nat)
         (chal chal' : nat -> F) (ts ts' : tlist v),
@@ -939,6 +1576,37 @@ Section Composition.
           split; [split; [exact hx | exact hw'] | rewrite hcnt; reflexivity].
     Qed.
 
+    (** Special soundness: two accepting transcripts with the same
+        announcements but different challenges yield a witness.
+
+        This is the precise sense in which the protocol proves
+        knowledge.  A prover able to answer two different
+        challenges after committing to a single announcement could,
+        by this theorem, compute a witness.  So a prover that
+        cannot compute one succeeds for at most one challenge out
+        of the whole challenge space.
+
+        Node by node:
+
+        - At a [Leaf] the two responses differ by the challenge
+          difference times the secret, and dividing recovers the
+          secret.  That is the special soundness of
+          LinearRelation.v.
+        - At a [CAnd] the same pair of challenges serves both
+          children, giving a witness for each.
+        - At a [COr] the two child challenges add up to the root
+          challenge in both runs.  Since the root challenges
+          differ, the left pair and the right pair cannot both
+          agree.  Whichever side differs is the side that yields a
+          witness, and the proof simply case-splits on that.
+        - At a [CThresh] the two runs induce two sharing
+          polynomials, each of degree at most [k - t], taking the
+          two different root challenges at [zero].  If they agreed
+          at more than [k - t] of the public nodes they would be
+          the same polynomial and would then agree at [zero] as
+          well.  Hence they disagree at at least [t] nodes, which
+          is [thresh_extractF] from Shamir.v, and [extract_list]
+          turns every disagreeing child into a witness. *)
     Theorem comp_special_soundness :
       ∀ (r : comp_rel) (c c' : F)
         (tr tr' : comp_transcript r),
@@ -1053,8 +1721,16 @@ Section Composition.
         rewrite !hnth; [reflexivity | lia | lia].
     Qed.
 
-    (* ------------------ SHVZK ------------------ *)
+    (** ** Zero knowledge, accept-bit form *)
 
+    (** Every randomness for the children of a threshold node is
+        drawn with the same probability.
+
+        That probability is one over the size of the challenge
+        space raised to [slist v], the total number of scalars
+        drawn across the children.  The draws for different
+        children are independent, so the probabilities multiply and
+        the exponents add. *)
     Lemma rand_list_prob :
       ∀ (n : nat) (v : Vector.t comp_rel n) (lf : list F)
         (Hlfn : lf <> List.nil) (s : rlist v) (q : prob),
@@ -1085,6 +1761,14 @@ Section Composition.
         eapply PeanoNat.Nat.pow_nonzero; exact hL.
     Qed.
 
+    (** The prover randomness is uniform: every value occurring in
+        [comp_rand_distribution lf Hlfn r] carries probability one
+        over the size of [lf] raised to the power [comp_size r].
+
+        Nothing in the definition favours any value, since it is
+        built only from uniform draws and independent products.
+        The proof is the structural induction, splitting a product
+        of two uniform probabilities at each internal node. *)
     Lemma comp_rand_distribution_prob :
       ∀ (r : comp_rel) (lf : list F) (Hlfn : lf <> List.nil)
         (s : comp_rand r) (q : prob),
@@ -1148,6 +1832,13 @@ Section Composition.
         rewrite PeanoNat.Nat.pow_add_r; nia.
     Qed.
 
+    (** Everything the real prover can output is accepted, and is
+        output with the uniform probability.
+
+        The first half is [comp_completeness] transported along the
+        [Ret] at the end of the distribution; the second half is
+        [comp_rand_distribution_prob].  This is one of the two
+        halves of the accept-bit zero-knowledge theorem. *)
     Lemma comp_real_distribution_transcript_generic :
       ∀ (r : comp_rel) (lf : list F) (Hlfn : lf <> List.nil)
         (w : comp_witness r) (c : F) (t : comp_transcript r)
@@ -1175,6 +1866,9 @@ Section Composition.
         exact hc.
     Qed.
 
+    (** The same for the simulator, and this time with no witness
+        hypothesis at all: everything the simulator can output is
+        accepted, and carries the same uniform probability. *)
     Lemma comp_simulator_distribution_transcript_generic :
       ∀ (r : comp_rel) (lf : list F) (Hlfn : lf <> List.nil)
         (c : F) (t : comp_transcript r) (p : prob),
@@ -1199,9 +1893,24 @@ Section Composition.
         exact hb.
     Qed.
 
-    (* Special honest-verifier zero-knowledge, accept-bit form: both
-       distributions consist of accepting transcripts drawn with the
-       same uniform probability. *)
+    (** Special honest-verifier zero knowledge, accept-bit form.
+
+        Map every transcript in the real distribution to its accept
+        bit, keeping its probability; do the same for the simulated
+        distribution; the two resulting lists are equal.
+
+        Honest-verifier means the challenge [c] is fixed in advance
+        rather than chosen adversarially after the announcement is
+        seen.  The statement says that an observer who only sees
+        whether transcripts are accepted, and how likely they are,
+        learns nothing: both distributions consist entirely of
+        accepting transcripts occurring with the same uniform
+        probability.
+
+        This form is weak.  It says nothing about the transcripts
+        themselves, so it cannot tell whether the prover used the
+        left or the right branch of a [COr].  The strong statement
+        is [comp_distribution_perm] below. *)
     Theorem comp_special_honest_verifier_zkp :
       ∀ (r : comp_rel) (lf : list F) (Hlfn : lf <> List.nil)
         (w : comp_witness r) (c : F),
@@ -1228,18 +1937,37 @@ Section Composition.
         exact hb.
     Qed.
 
-    (* ---------- Distribution equality and witness indistinguishability ---------- *)
-    (*
-      The accept-bit theorem above cannot distinguish a prover using
-      one OR / threshold witness from one using another.  Here we
-      show the stronger fact that the real and simulated
-      distributions are permutations of each other, assuming the
-      challenge space lf enumerates the field without duplicates.
-      Since Bind and Ret build lists, permutation is the natural
-      notion of distribution equality (dist_equiv in Distr.v).
-    *)
+    (** ** Zero knowledge as equality of distributions *)
+    (** The accept-bit theorem above compares only accept bits, so
+        it cannot distinguish a prover using one witness of a [COr]
+        or a [CThresh] from a prover using another: both are simply
+        accepted.
 
-    (* Normalise nested Bind/Ret towers, descending under binders. *)
+        What follows proves the real thing.  The real and the
+        simulated transcript distributions are equal as
+        distributions.  A distribution here is a concrete list of
+        value and probability pairs, built by [Bind] and [Ret], so
+        equality of distributions means equality up to reordering,
+        that is [Permutation]; this is [dist_equiv] in
+        Probability/Distr.v.
+
+        One extra assumption is needed, and it is the natural one:
+        the challenge space [lf] must enumerate the field without
+        duplicates.  Every proof below works by exhibiting a
+        bijection of the prover's randomness that carries the real
+        output to the simulated output, and a bijection permutes a
+        uniform draw only when that draw really does list every
+        value exactly once.
+
+        Witness indistinguishability,
+        [comp_witness_indistinguishable], then follows in three
+        lines. *)
+
+    (** A tactic that flattens a nested tower of [Bind] and [Ret]
+        into a normal form, descending under binders.  Pure
+        bookkeeping: the definitions of the distributions produce
+        towers associated differently from the ones the statements
+        below are written with, and this makes the two match. *)
     Ltac norm_bind :=
       repeat first
         [ rewrite bind_assoc
@@ -1247,6 +1975,9 @@ Section Composition.
         | progress cbn [fst snd]
         | (eapply bind_ext; intro) ].
 
+    (** [zip_with] computed on a pair of non-empty vectors.  True
+        by definition, stated as a lemma so that it can be
+        rewritten with underneath a binder. *)
     Lemma zip_with_cons :
       ∀ {A B C : Type} (n : nat) (f : A -> B -> C)
         (a : A) (v : Vector.t A n) (b : B) (w : Vector.t B n),
@@ -1255,8 +1986,19 @@ Section Composition.
       intros *; reflexivity.
     Qed.
 
-    (* ---- uniform multidraws and bijections ---- *)
+    (** ** Uniform multidraws and bijections of the randomness *)
 
+    (** Drawing [n] scalars uniformly and independently: a pair of
+        a vector and a probability occurs in the distribution
+        exactly when the probability is the uniform one.
+
+        The left-to-right direction is uniformity.  The
+        right-to-left direction is completeness of the enumeration,
+        and this is where the hypotheses that [lf] is duplicate-free
+        and contains every field element are used.  Together they
+        say that the multidraw lists every vector of [n] scalars
+        exactly once, which is precisely what a bijection needs in
+        order to permute it. *)
     Lemma multidraw_in_iff :
       ∀ (lf : list F) (Hlfn : lf <> List.nil) (n : nat)
         (v : Vector.t F n) (p : prob),
@@ -1273,7 +2015,23 @@ Section Composition.
         exact hq.
     Qed.
 
-    (* A bijection of F^n permutes the uniform multidraw. *)
+    (** A bijection of the randomness only permutes the
+        distribution.
+
+        [φ] and [ψ] are mutually inverse maps on vectors of [n]
+        scalars, as stated by the two round-trip hypotheses.
+        Drawing [v] uniformly and continuing with [g] applied to
+        [φ v] yields the same list of outcomes, up to order, as
+        drawing [v] and continuing with [g] directly: the bijection
+        merely renames which draw produces which outcome, and all
+        draws are equally likely.
+
+        This is the engine of the strong zero-knowledge proof.  At
+        each kind of node one exhibits the bijection turning the
+        prover's randomness into the simulator's, and this lemma
+        converts it into an equality of distributions.  At a
+        threshold node that bijection is the change of
+        interpolation nodes, [shift_nodes]. *)
     Lemma multidraw_bij_perm {B : Type} :
       ∀ (lf : list F) (Hlfn : lf <> List.nil) (n : nat)
         (φ ψ : Vector.t F n -> Vector.t F n) (g : Vector.t F n -> dist B),
@@ -1317,8 +2075,19 @@ Section Composition.
           +++ eapply multidraw_in_iff; try assumption; reflexivity.
     Qed.
 
-    (* Shifting every coordinate of a uniform multidraw by a field
-       translation permutes the distribution (the Leaf case). *)
+    (** The leaf bijection: translating every coordinate of a
+        uniform multidraw permutes it.
+
+        The map sends the commitment randomness [us] to
+        [zip_with (fun u x => u + c * x) us xs], which is exactly
+        the honest prover's response.  Adding a fixed field element
+        is a bijection of a field, so the uniform distribution is
+        unchanged.
+
+        This single fact is the whole of zero knowledge at a leaf:
+        the honest response is a uniformly random vector, and
+        therefore tells the verifier nothing about the secret
+        [xs]. *)
     Lemma multidraw_shift_perm :
       ∀ (n : nat) (lf : list F) (Hlfn : lf <> List.nil) (c : F)
         (xs : Vector.t F n) {B : Type} (f : Vector.t F n -> dist B),
@@ -1363,12 +2132,16 @@ Section Composition.
         eapply ihn with (f := fun v => f (u :: v)); assumption.
     Qed.
 
-    (* ---- the Shamir share bijection ---- *)
+    (** ** The Shamir share bijection *)
 
+    (** Transport a vector along a proof that its length equals
+        another number.  Plumbing: it lets a list known to have
+        length [m] be used where a [Vector.t A m] is expected. *)
     Definition vec_cast {A : Type} {n m : nat} (H : n = m)
       (v : Vector.t A n) : Vector.t A m :=
       eq_rect n (Vector.t A) v m H.
 
+    (** Casting a vector does not change its underlying list. *)
     Lemma to_list_vec_cast :
       ∀ {A : Type} {n m : nat} (H : n = m) (v : Vector.t A n),
       Vector.to_list (vec_cast H v) = Vector.to_list v.
@@ -1376,13 +2149,26 @@ Section Composition.
       intros *; destruct H; reflexivity.
     Qed.
 
-    (* The values, at the nodes dst, of the interpolant through
-       (0, c) and the pairs (src, d). *)
+    (** Re-express a set of shares at a different set of nodes.
+
+        [shift_nodes c m src dst Hdst d] reads the [m] values [d]
+        as the values of the sharing polynomial at the nodes [src],
+        rebuilds that polynomial, and returns its values at the
+        nodes [dst].
+
+        This is the map relating the prover to the simulator at a
+        threshold node.  The prover draws its free scalars and
+        treats them as values at the nodes of the children it
+        fakes; the simulator draws the same scalars and treats them
+        as values at the first [k - t] nodes.  [shift_nodes]
+        converts one reading into the other. *)
     Definition shift_nodes (c : F) (m : nat) (src dst : list F)
       (Hdst : List.length dst = m) (d : Vector.t F m) : Vector.t F m :=
       Vector.map (expand_chal c src (Vector.to_list d))
         (vec_cast Hdst (Vector.of_list dst)).
 
+    (** [shift_nodes] viewed as an operation on lists: it maps the
+        rebuilt sharing polynomial over the destination nodes. *)
     Lemma to_list_shift_nodes :
       ∀ (c : F) (m : nat) (src dst : list F) (Hdst : List.length dst = m)
         (d : Vector.t F m),
@@ -1394,6 +2180,14 @@ Section Composition.
       reflexivity.
     Qed.
 
+    (** Changing nodes and then changing back is the identity.
+
+        Both node lists have the same length [m], and both are
+        pairwise distinct and avoid [zero], so both readings
+        determine the same polynomial of degree at most [m];
+        going one way and back therefore returns the original
+        values.  This is what makes [shift_nodes] one half of the
+        bijection pair required by [multidraw_bij_perm]. *)
     Lemma shift_nodes_inv :
       ∀ (c : F) (m : nat) (src dst : list F)
         (Hsrc : List.length src = m) (Hdst : List.length dst = m)
@@ -1413,8 +2207,18 @@ Section Composition.
       congruence.
     Qed.
 
-    (* ---- normal forms of the distributions at each node ---- *)
+    (** ** Normal forms of the two distributions at each node
 
+        Each of the next seven lemmas unfolds one distribution at
+        one kind of node into an explicit tower of [Bind] and
+        [Ret] over the children's distributions.  They hold by
+        computation alone.  They exist so that the permutation
+        proof can work node by node without ever unfolding the
+        prover or the simulator again. *)
+
+    (** The real distribution at a [CAnd] node is the independent
+        product of the two children's real distributions, both
+        taken at the same challenge. *)
     Lemma comp_real_and_eq :
       ∀ (rl rr : comp_rel) (lf : list F) (Hlfn : lf <> List.nil)
         (wl : comp_witness rl) (wr : comp_witness rr) (c : F),
@@ -1429,6 +2233,7 @@ Section Composition.
       norm_bind; reflexivity.
     Qed.
 
+    (** The same shape for the simulator at a [CAnd] node. *)
     Lemma comp_sim_and_eq :
       ∀ (rl rr : comp_rel) (lf : list F) (Hlfn : lf <> List.nil) (c : F),
       comp_simulator_distribution lf Hlfn (CAnd rl rr) c =
@@ -1442,6 +2247,10 @@ Section Composition.
       norm_bind; reflexivity.
     Qed.
 
+    (** The real distribution at a [COr] node when the prover holds
+        a left witness: draw the branch challenge [c₁] uniformly,
+        prove the left child at [c - c₁], simulate the right child
+        at [c₁], and record [c - c₁] as the stored challenge. *)
     Lemma comp_real_or_inl_eq :
       ∀ (rl rr : comp_rel) (lf : list F) (Hlfn : lf <> List.nil)
         (wl : comp_witness rl) (c : F),
@@ -1457,6 +2266,15 @@ Section Composition.
       norm_bind; reflexivity.
     Qed.
 
+    (** The real distribution at a [COr] node when the prover holds
+        a right witness: draw [c₁], simulate the left child at
+        [c₁], prove the right child at [c - c₁], and record [c₁].
+
+        Note that this already has the shape of the simulated
+        distribution with one simulator call replaced by a prover
+        call, so the induction closes immediately.  The left-witness
+        case above needs a change of variable first, because there
+        the roles of [c₁] and [c - c₁] are swapped. *)
     Lemma comp_real_or_inr_eq :
       ∀ (rl rr : comp_rel) (lf : list F) (Hlfn : lf <> List.nil)
         (wr : comp_witness rr) (c : F),
@@ -1472,6 +2290,9 @@ Section Composition.
       norm_bind; reflexivity.
     Qed.
 
+    (** The simulated distribution at a [COr] node: draw [c₁] and
+        simulate both children, the left at [c₁] and the right at
+        [c - c₁]. *)
     Lemma comp_sim_or_eq :
       ∀ (rl rr : comp_rel) (lf : list F) (Hlfn : lf <> List.nil) (c : F),
       comp_simulator_distribution lf Hlfn (COr rl rr) c =
@@ -1486,6 +2307,12 @@ Section Composition.
       norm_bind; reflexivity.
     Qed.
 
+    (** The real distribution at a [CThresh] node, written out:
+        draw the [k - t] free scalars, draw the children's
+        randomness, then prove or fake each child at the challenge
+        obtained by interpolating through the selected nodes, and
+        record the polynomial's values at the first [k - t]
+        nodes. *)
     Lemma comp_real_thresh_eq :
       ∀ (t k : nat) (xs : Vector.t F k) (rs : Vector.t comp_rel k) Hxs Ht
         (lf : list F) (Hlfn : lf <> List.nil)
@@ -1508,6 +2335,15 @@ Section Composition.
       norm_bind; reflexivity.
     Qed.
 
+    (** The simulated distribution at a [CThresh] node: draw the
+        same randomness, read the free scalars directly as the
+        values at the first [k - t] nodes, simulate every child at
+        the resulting challenge, and record those scalars
+        unchanged.
+
+        Comparing this with [comp_real_thresh_eq] shows exactly
+        what the bijection has to do: move the free scalars from
+        the selected nodes to the first [k - t] nodes. *)
     Lemma comp_sim_thresh_eq :
       ∀ (t k : nat) (xs : Vector.t F k) (rs : Vector.t comp_rel k) Hxs Ht
         (lf : list F) (Hlfn : lf <> List.nil) (c : F),
@@ -1526,7 +2362,11 @@ Section Composition.
       norm_bind; reflexivity.
     Qed.
 
-    (* Pairing a constant onto a Bind/Ret preserves permutation. *)
+    (** Attaching one and the same constant [z] to both sides of a
+        permutation preserves it.  Used at the threshold node,
+        where the recorded challenge values are literally identical
+        on both sides once the bijection has been applied, so that
+        only the child transcripts still need comparing. *)
     Lemma bind_ret_pair_perm {A B C : Type} :
       ∀ (d : dist A) (f g : A -> B) (z : C),
       Permutation (Bind d (fun x => Ret (f x))) (Bind d (fun x => Ret (g x))) ->
@@ -1542,7 +2382,9 @@ Section Composition.
       eapply bind_perm_left; exact ha.
     Qed.
 
-    (* Splitting a product Ret over two independent draws *)
+    (** Two independent draws combined into a pair can be
+        rearranged so that each draw is mapped on its own first.
+        Bookkeeping for [bind_prod_perm]. *)
     Lemma bind_split {A B C D : Type} :
       ∀ (d₁ : dist A) (d₂ : dist B) (f : A -> C) (g : B -> D),
       Bind d₁ (fun x => Bind d₂ (fun y => Ret (f x, g y))) =
@@ -1553,8 +2395,15 @@ Section Composition.
       norm_bind; reflexivity.
     Qed.
 
-    (* Two independent draws whose images are permutation-equal
-       give permutation-equal products. *)
+    (** Independent products of permutation-equal distributions are
+        permutation-equal.
+
+        If mapping [f] and mapping [f'] over the first draw agree
+        up to order, and likewise [g] and [g'] over the second,
+        then the distributions of pairs agree up to order.  This is
+        how the induction combines the two children of a [CAnd],
+        and the children of a threshold node one at a time inside
+        [walk_perm]. *)
     Lemma bind_prod_perm {A B C D : Type} :
       ∀ (d₁ : dist A) (d₂ : dist B) (f f' : A -> C) (g g' : B -> D),
       Permutation (Bind d₁ (fun x => Ret (f x))) (Bind d₁ (fun x => Ret (f' x))) ->
@@ -1572,7 +2421,10 @@ Section Composition.
       exact hb.
     Qed.
 
-    (* Drawing randomness for a cons of children, under a Ret *)
+    (** Drawing randomness for a non-empty vector of children
+        splits into the first child's draw followed by the draw for
+        the rest.  Stated underneath a [Ret], because that is the
+        shape the permutation proofs manipulate. *)
     Lemma rand_list_cons_bind {C : Type} :
       ∀ (lf : list F) (Hlfn : lf <> List.nil) (n : nat) (r : comp_rel)
         (v : Vector.t comp_rel n) (P : rlist (r :: v) -> C),
@@ -1585,9 +2437,25 @@ Section Composition.
       norm_bind; reflexivity.
     Qed.
 
-    (* The walk over the children: proving (resp. simulating) each
-       child at its challenge gives permutation-equal distributions
-       when every proven child does. *)
+    (** The walk over the children of a threshold node carries the
+        real distribution onto the simulated one.
+
+        The [vall] hypothesis says that for every child the real
+        and the simulated distributions are already known to be
+        permutations of each other; it is the induction hypothesis
+        of [comp_distribution_perm].  [wholds v w] says the
+        witnesses present are genuine.
+
+        The conclusion is that proving some children and faking the
+        rest, at a fixed challenge function, is distributed exactly
+        like faking all of them.  Faked children contribute
+        identical terms on both sides, and proven children
+        contribute terms the hypothesis equates.
+
+        Note that the flag list [fl] is completely arbitrary here.
+        Which children the prover chose to fake makes no difference
+        to the distribution, and that is exactly why a threshold
+        proof hides which witnesses the prover holds. *)
     Lemma walk_perm :
       ∀ (n : nat) (v : Vector.t comp_rel n) (lf : list F)
         (Hlfn : lf <> List.nil) (w : wlist v) (fl : list bool)
@@ -1620,8 +2488,23 @@ Section Composition.
           eapply ih; assumption.
     Qed.
 
-    (* At a leaf, the real prover's transcript for randomness us is
-       the simulator's transcript for randomness us + c·xs. *)
+    (** At a leaf, the honest prover and the simulator produce the
+        same transcript once the randomness is translated.
+
+        Precisely: the prover run on commitment randomness [us]
+        produces the transcript the simulator produces on
+        randomness [zip_with (fun u x => u + c * x) us xs].  The
+        hypothesis is that [xs] really is a witness.
+
+        The computation is the verification equation itself.  The
+        simulator rebuilds the announcement as the matrix applied
+        to the response, divided by the public value raised to the
+        challenge, and the two occurrences of the public value
+        cancel because the witness solves the system.
+
+        Composed with [multidraw_shift_perm], which says the
+        translation is a bijection of the randomness, this gives
+        zero knowledge at a leaf. *)
     Lemma comp_leaf_prove_simulate :
       ∀ (m n : nat) (mat : Vector.t (Vector.t G n) m)
         (pub : Vector.t G m) (xs us : Vector.t F n) (c : F),
@@ -1645,6 +2528,35 @@ Section Composition.
       reflexivity.
     Qed.
 
+    (** Zero knowledge, strong form: the real and the simulated
+        transcript distributions are one and the same distribution.
+
+        The two hypotheses on [lf] say that the challenge space is
+        a duplicate-free enumeration of the whole field, which is
+        what allows a bijection of the randomness to permute a
+        uniform draw.  [comp_rel_holds r w] says the prover really
+        holds a witness.
+
+        At each kind of node the proof exhibits a bijection of the
+        randomness carrying the prover's output to the simulator's.
+
+        - At a [Leaf] it is the translation of the commitment
+          randomness: [comp_leaf_prove_simulate] identifies the two
+          outputs, and [multidraw_shift_perm] says the translation
+          is a bijection.
+        - At a [CAnd] there is nothing to do beyond combining the
+          two children.
+        - At a [COr] with a left witness it is the reflection
+          sending the recorded branch challenge [c₁] to [c - c₁],
+          which is its own inverse.  With a right witness the two
+          distributions already line up.
+        - At a [CThresh] it is [shift_nodes], moving the free
+          scalars from the nodes of the faked children to the first
+          [k - t] nodes, together with [walk_perm] for the children
+          themselves.
+
+        The simulated side never mentions the witness, and that is
+        exactly what [comp_witness_indistinguishable] exploits. *)
     Theorem comp_distribution_perm :
       ∀ (r : comp_rel) (lf : list F) (Hlfn : lf <> List.nil)
         (w : comp_witness r) (c : F),
@@ -1787,10 +2699,22 @@ Section Composition.
         eapply hr0; assumption.
     Qed.
 
-    (* Witness indistinguishability: two provers holding different
-       witnesses for the same statement (e.g. the two branches of an
-       OR, or two qualified subsets of a threshold) produce the same
-       transcript distribution. *)
+    (** Witness indistinguishability.
+
+        Two provers holding different witnesses [w₁] and [w₂] for
+        the same statement produce exactly the same transcript
+        distribution.
+
+        For a [COr] this says the verifier cannot tell which branch
+        the prover is actually able to do.  For a [CThresh] it says
+        the verifier cannot tell which qualified subset of children
+        the prover used.  That is the property these compositions
+        exist for.
+
+        The proof is immediate from [comp_distribution_perm]: both
+        real distributions are permutations of the one simulated
+        distribution, which mentions no witness at all, so they are
+        permutations of each other. *)
     Theorem comp_witness_indistinguishable :
       ∀ (r : comp_rel) (lf : list F) (Hlfn : lf <> List.nil)
         (w₁ w₂ : comp_witness r) (c : F),

@@ -3,4 +3,5 @@
  (name Algebra)
  (synopsis "Abstract algebra: groups, rings, fields, vector spaces")
  (modules (:standard))
+ (rocqdoc_flags :standard --utf8)
  (theories Stdlib))

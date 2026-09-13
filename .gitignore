@@ -1,0 +1,16 @@
+# dune build output
+_build/
+
+# Rocq auxiliary files (one per .v, written next to the source)
+.*.aux
+
+# caches written by the lia / nia tactics
+.lia.cache
+.nia.cache
+
+# macOS
+.DS_Store
+
+# local working files, deliberately not in version control
+CLAUDE.md
+Todo.md

@@ -3,11 +3,13 @@
 -Q Probability Probability
 -Q Crypto Crypto
 -Q Compiler Compiler
+-Q Examples Examples
 -Q _build/default/Algebra Algebra
 -Q _build/default/Utility Utility
 -Q _build/default/Probability Probability
 -Q _build/default/Crypto Crypto
 -Q _build/default/Compiler Compiler
+-Q _build/default/Examples Examples
 
 # Files in dependency order: Algebra -> Utility -> Probability -> Crypto.
 Algebra/Monoid.v
@@ -34,3 +36,20 @@ Crypto/Sigma.v
 
 Compiler/LinearRelation.v
 Compiler/Composition.v
+Compiler/Lagrange.v
+Compiler/Shamir.v
+Compiler/VarType.v
+Compiler/Dsl.v
+Compiler/DslNecessity.v
+Compiler/DslSubst.v
+Compiler/DslDistrib.v
+Compiler/DslRename.v
+Compiler/DslRepair.v
+Compiler/DslNeq.v
+Compiler/DslRange.v
+Compiler/Surface.v
+Compiler/Nizk.v
+Compiler/Serialization.v
+Compiler/Decide.v
+Examples/Prime.v
+Examples/ThresholdIns.v

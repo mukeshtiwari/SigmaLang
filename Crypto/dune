@@ -3,4 +3,5 @@
  (name Crypto)
  (synopsis "Schnorr sigma protocol (leaf definitions)")
  (modules (:standard))
+ (rocqdoc_flags :standard --utf8)
  (theories Stdlib Algebra Utility Probability))

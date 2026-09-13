@@ -3,4 +3,5 @@
  (name Probability)
  (synopsis "Finite probability distributions")
  (modules (:standard))
+ (rocqdoc_flags :standard --utf8)
  (theories Stdlib ExtLib Utility))

@@ -1,0 +1,10 @@
+(subdir Thresholdlib
+ (rocq.extraction
+  (prelude Extraction)
+  (extracted_files Ascii0.ml Ascii0.mli BinInt.ml BinInt.mli BinNat.ml BinNat.mli BinNums.ml BinNums.mli BinPos.ml BinPos.mli Byte0.ml Byte0.mli Byte1.ml Byte1.mli Composition.ml Composition.mli Datatypes.ml Datatypes.mli Decimal0.ml Decimal0.mli DecimalString.ml DecimalString.mli Dsl.ml Dsl.mli DslNeq.ml DslNeq.mli DslRange.ml DslRange.mli DslRepair.ml DslRepair.mli DslSubst.ml DslSubst.mli EqdepFacts.ml EqdepFacts.mli Functions.ml Functions.mli Lagrange.ml Lagrange.mli LinearRelation.ml LinearRelation.mli List0.ml List0.mli ListDef.ml ListDef.mli Nat0.ml Nat0.mli Nizk.ml Nizk.mli PeanoNat.ml PeanoNat.mli PosDef.ml PosDef.mli Serialization.ml Serialization.mli Sha256.ml Sha256.mli Sigma.ml Sigma.mli Specif.ml Specif.mli String0.ml String0.mli Surface.ml Surface.mli ThresholdIns.ml ThresholdIns.mli Util.ml Util.mli VarType.ml VarType.mli Vector.ml Vector.mli VectorDef.ml VectorDef.mli Zpstar.ml Zpstar.mli )
+  (theories ExtLib Stdlib Utility Crypto Algebra
+   Probability Examples Compiler))
+ (library
+   (name Thresholdlib)
+   (libraries zarith)
+   (modules :standard)))
