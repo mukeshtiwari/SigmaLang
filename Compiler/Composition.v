@@ -190,11 +190,14 @@ Section Composition.
        threshold node. *)
     Section Induction.
       Variable P : comp_rel -> Prop.
-      Hypothesis HLeaf : ∀ m n mat pub, P (Leaf m n mat pub).
-      Hypothesis HAnd : ∀ rl rr, P rl -> P rr -> P (CAnd rl rr).
-      Hypothesis HOr : ∀ rl rr, P rl -> P rr -> P (COr rl rr).
-      Hypothesis HThresh : ∀ t k xs rs Hxs Ht,
-        vall P rs -> P (CThresh t k xs rs Hxs Ht).
+      Hypothesis HLeaf : ∀ (m n : nat) (mat : Vector.t (Vector.t G n) m)
+        (pub : Vector.t G m), P (Leaf m n mat pub).
+      Hypothesis HAnd : ∀ (rl rr : comp_rel), P rl -> P rr -> P (CAnd rl rr).
+      Hypothesis HOr : ∀ (rl rr : comp_rel), P rl -> P rr -> P (COr rl rr).
+      Hypothesis HThresh : ∀ (t k : nat) (xs : Vector.t F k) 
+        (rs : Vector.t comp_rel k) 
+        (Hxs : List.NoDup (List.cons zero (Vector.to_list xs)))
+        (Ht : (t <= k)%nat), vall P rs -> P (CThresh t k xs rs Hxs Ht).
 
       Fixpoint comp_rel_ind' (r : comp_rel) : P r :=
         match r with
