@@ -1,338 +1,244 @@
-body { padding: 0px 0px;
-       margin: 0px 0px; 
-       background-color: white }
+/* Stylesheet for the rocqdoc output of this development.
+ *
+ * rocqdoc ships a default coqdoc.css that paints every documentation
+ * block with a solid #90bdff background and caps it at 40em.  That is
+ * a reasonable choice for sources carrying a handful of short notes,
+ * but these sources are mostly prose, so the default turns each page
+ * into a wall of saturated blue.
+ *
+ * make-docs.sh copies this file over the generated one in every
+ * theory directory.  The class names below are the ones rocqdoc
+ * emits, so nothing outside this file has to change.
+ */
 
-#page { display: block;
-        padding: 0px;
-        margin: 0px;
-        padding-bottom: 10px; }
-
-#header { display: block;
-          position: relative;
-          padding: 0;
-          margin: 0;
-          vertical-align: middle;
-          border-bottom-style: solid;
-          border-width: thin }
-
-#header h1 { padding: 0; 
-             margin: 0;}
-
-
-/* Contents */
-
-#main{ display: block;
-       padding: 10px;
-       font-family: sans-serif;
-       font-size: 100%;
-       line-height: 100% }
-
-#main  h1 { line-height: 95% } /* allow for multi-line headers */
-
-#main  a.idref:visited {color : #416DFF; text-decoration : none; }
-#main  a.idref:link {color : #416DFF; text-decoration : none; }
-#main  a.idref:hover {text-decoration : none; }
-#main  a.idref:active {text-decoration : none; }
-
-#main  a.modref:visited {color : #416DFF; text-decoration : none; }
-#main  a.modref:link {color : #416DFF; text-decoration : none; }
-#main  a.modref:hover {text-decoration : none; }
-#main  a.modref:active {text-decoration : none; }
-
-#main .keyword { color : #cf1d1d }
-#main { color: black }
-
-.section { background-color: rgb(60%,60%,100%);
-           padding-top: 13px; 
-           padding-bottom: 13px; 
-           padding-left: 3px; 
-           margin-top: 5px;
-           margin-bottom: 5px;
-           font-size : 175% }
-
-h2.section { background-color: rgb(80%,80%,100%);
-             padding-left: 3px; 
-             padding-top: 12px; 
-             padding-bottom: 10px; 
-             font-size : 130% }
-
-h3.section { background-color: rgb(90%,90%,100%);
-             padding-left: 3px; 
-             padding-top: 7px; 
-             padding-bottom: 7px; 
-             font-size : 115% }
-
-h4.section { 
-/*
-                   background-color: rgb(80%,80%,80%);
-                   max-width: 20em;
-                   padding-left: 5px; 
-                   padding-top: 5px; 
-                   padding-bottom: 5px; 
-*/
-                   background-color: white;
-                   padding-left: 0px; 
-                   padding-top: 0px; 
-                   padding-bottom: 0px; 
-                   font-size : 100%;
-                   font-weight : bold;
-                   text-decoration : underline;
- }
-
-#main .doc { margin: 0px;
-             font-family: sans-serif;
-             font-size: 100%;
-	     line-height: 125%;
-             max-width: 40em;
-             color: black;
-	     padding: 10px;
-             background-color: #90bdff }
-
-.inlinecode { 
-    display: inline;
-/*    font-size: 125%; */
-    color: #666666;
-    font-family: monospace } 
-
-.doc .inlinecode { 
-    display: inline;
-    font-size: 120%; 
-    color: rgb(30%,30%,70%);
-    font-family: monospace } 
-
-.doc .inlinecode .id { 
-    color: rgb(30%,30%,70%); 
-} 
-
-.inlinecodenm { 
-    display: inline;
-    color: #444444;
+:root {
+  --bg:        #ffffff;
+  --fg:        #1b1f24;
+  --muted:     #5b6470;
+  --rule:      #e3e7ec;
+  --code-bg:   #f6f8fa;
+  --code-fg:   #24292f;
+  --link:      #0a55d1;
+  --kw:        #a626a4;
+  --id:        #1f4bb8;
+  --ind:       #b3541e;
+  --accent:    #2f6feb;
 }
 
-.doc .code { 
-    display: inline;
-    font-size: 120%; 
-    color: rgb(30%,30%,70%); 
-    font-family: monospace } 
-
-.comment { 
-    display: inline;
-    font-family: monospace;
-    color: rgb(50%,50%,80%); 
-} 
-
-.code { 
-    display: block;
-/*  padding-left: 15px; */
-    font-size: 110%; 
-    font-family: monospace;
- } 
-
-table.infrule {
-  border: 0px;
-  margin-left: 50px;
-  margin-top: 10px;
-  margin-bottom: 10px;
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:      #0f1216;
+    --fg:      #dfe3e8;
+    --muted:   #9aa4b2;
+    --rule:    #242a31;
+    --code-bg: #161b22;
+    --code-fg: #d6dae0;
+    --link:    #6ea8ff;
+    --kw:      #d08dd8;
+    --id:      #86b2ff;
+    --ind:     #e0a06a;
+    --accent:  #6ea8ff;
+  }
 }
 
-td.infrule {
-    font-family: monospace;
-    text-align: center;
-/*    color: rgb(35%,35%,70%);  */
-    padding: 0px;
-    line-height: 100%;
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
 }
 
-tr.infrulemiddle hr {
-    margin: 1px 0 1px 0;
+#page   { display: block; margin: 0; padding: 0 0 4rem; }
+
+/* rocqdoc emits an empty header div; keep it out of the way. */
+#header { display: block; margin: 0; padding: 0; border: 0; }
+#header h1 { margin: 0; padding: 0; }
+
+#main {
+  display: block;
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem;
+  color: var(--fg);
+  font-size: 100%;
+  line-height: 1.65;
 }
 
-.infrulenamecol {
-    color: rgb(60%,60%,60%); 
-    font-size: 80%;
-    padding-left: 1em;
-    padding-bottom: 0.1em
+/* ---------------- documentation prose ---------------- */
+
+/* The key change: no background slab, no 40em cap, real line height. */
+#main .doc {
+  margin: 0;
+  padding: 0.35rem 0;
+  max-width: none;
+  background: none;
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 100%;
+  line-height: 1.65;
 }
 
-/* Pied de page */
+/* rocqdoc separates paragraphs with an empty div rather than <p>. */
+.paragraph { height: 0.85em; }
 
-#footer { font-size: 65%;
-          font-family: sans-serif; }
+/* ---------------- headings ---------------- */
 
-/* Identifiers: <span class="id" title="...">) */
-
-.id { display: inline; }
-
-.id[title="constructor"] {
-    color: rgb(60%,0%,0%);
+.section,
+h1.section, h2.section, h3.section, h4.section {
+  background: none;
+  color: var(--fg);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
 }
 
-.id[title="var"] {
-    color: rgb(40%,0%,40%);
+h1.section {
+  font-size: 1.7rem;
+  margin: 2.2rem 0 0.6rem;
+  padding: 0 0 0.4rem;
+  border-bottom: 1px solid var(--rule);
 }
 
-.id[title="variable"] {
-    color: rgb(40%,0%,40%);
+h2.section { font-size: 1.28rem; margin: 2rem 0 0.5rem; padding: 0; }
+h3.section { font-size: 1.08rem; margin: 1.6rem 0 0.4rem; padding: 0; }
+h4.section { font-size: 1rem;    margin: 1.3rem 0 0.35rem; padding: 0;
+             color: var(--muted); }
+
+/* The "Library Foo" title rocqdoc puts at the top of every page. */
+h1.libtitle {
+  font-size: 1.45rem;
+  font-weight: 600;
+  margin: 0 0 1.5rem;
+  padding: 0 0 0.5rem;
+  border-bottom: 1px solid var(--rule);
+  line-height: 1.3;
 }
 
-.id[title="definition"] {
-    color: rgb(0%,40%,0%);
+/* ---------------- code ---------------- */
+
+.code {
+  display: block;
+  margin: 0.5rem 0;
+  padding: 0.6rem 0.85rem;
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  overflow-x: auto;
+  color: var(--code-fg);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+               "Liberation Mono", monospace;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  /* rocqdoc marks line breaks with <br/> and indentation with &nbsp;,
+     so the block must NOT be pre-formatted: honouring the source
+     newlines as well would double-space every line. */
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
-.id[title="abbreviation"] {
-    color: rgb(0%,40%,0%);
+/* Identifiers written as [foo] inside documentation. */
+.inlinecode,
+.doc .inlinecode,
+.doc .code {
+  display: inline;
+  padding: 0.1em 0.32em;
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  color: var(--code-fg);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+               "Liberation Mono", monospace;
+  font-size: 0.87em;
+  white-space: nowrap;
 }
 
-.id[title="lemma"] {
-    color: rgb(0%,40%,0%);
+/* Inside a code block the inline wrapper must stay invisible. */
+.code .inlinecode,
+.code .code {
+  padding: 0; background: none; border: 0; font-size: inherit;
+  white-space: inherit;
 }
 
-.id[title="instance"] {
-    color: rgb(0%,40%,0%);
+.inlinecodenm { display: inline; color: var(--muted); }
+
+.comment {
+  display: inline;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-style: italic;
 }
 
-.id[title="projection"] {
-    color: rgb(0%,40%,0%);
+/* ---------------- syntax colours ---------------- */
+
+#main .keyword,
+.code .keyword           { color: var(--kw); font-weight: 500; }
+.code .id[title="var"]       { color: var(--fg); }
+.code .id[title="variable"]  { color: var(--fg); }
+.code .id[title="definition"],
+.code .id[title="lemma"],
+.code .id[title="constructor"],
+.code .id[title="abbreviation"],
+.code .id[title="record"],
+.code .id[title="projection"],
+.code .id[title="method"],
+.code .id[title="class"]     { color: var(--id); }
+.code .id[title="inductive"] { color: var(--ind); }
+.code .id[title="notation"]  { color: var(--muted); }
+
+/* In prose, keep bracketed identifiers calm rather than rainbow. */
+.doc .inlinecode .id,
+.doc .inlinecode .keyword { color: var(--code-fg); font-weight: inherit; }
+
+/* ---------------- links ---------------- */
+
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+#main a.idref:link,    #main a.idref:visited,
+#main a.modref:link,   #main a.modref:visited { color: inherit; text-decoration: none; }
+#main a.idref:hover,   #main a.modref:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 2px;
 }
 
-.id[title="method"] {
-    color: rgb(0%,40%,0%);
-}
+/* ---------------- table of contents and index ---------------- */
 
-.id[title="inductive"] {
-    color: rgb(0%,0%,80%);
-}
+#toc { padding: 0; }
+#toc h2 { font-size: 1.15rem; margin: 1.6rem 0 0.4rem; font-weight: 600; }
+#toc a  { color: var(--link); }
 
-.id[title="record"] {
-    color: rgb(0%,0%,80%);
-}
+ul.doclist { margin: 0.3rem 0 0.9rem; padding-left: 1.2rem; }
+ul.doclist li { margin: 0.15rem 0; }
 
-.id[title="class"] {
-    color: rgb(0%,0%,80%);
-}
+#index { max-width: 52rem; margin: 0 auto; padding: 2rem 1.25rem; }
+#index #frontispiece { margin: 0 0 1.5rem; }
+.booktitle   { font-size: 1.5rem; font-weight: 600; }
+.authors     { color: var(--muted); }
+.moreauthors { color: var(--muted); font-size: 0.9rem; }
 
-.id[title="keyword"] {
- color : #cf1d1d;
-/*     color: black; */
-}
+table { border-collapse: collapse; }
+table td { padding: 0.1rem 0.35rem; }
 
-/* Deprecated rules using the 'type' attribute of <span> (not xhtml valid) */
+/* ---------------- inference rules ---------------- */
 
-.id[type="constructor"] { 
-    color: rgb(60%,0%,0%);
-}
+table.infrule { border: 0; margin: 0.8rem 0; }
+.infrulenamecol   { color: var(--muted); padding-left: 1rem; font-size: 0.9rem; }
+.infruleassumption { text-align: center; padding: 0 0.5rem; }
+.infrulemiddle     { border-top: 1px solid var(--fg); }
+.infruleconclusion { text-align: center; padding: 0 0.5rem; }
 
-.id[type="var"] { 
-    color: rgb(40%,0%,40%);
-}
+hr { border: 0; border-top: 1px solid var(--rule); margin: 2rem 0; }
 
-.id[type="variable"] { 
-    color: rgb(40%,0%,40%);
-}
+/* ---------------- small screens ---------------- */
 
-.id[title="binder"] {
-    color: rgb(40%,0%,40%);
-}
-
-.id[type="definition"] { 
-    color: rgb(0%,40%,0%);
-}
-
-.id[type="abbreviation"] { 
-    color: rgb(0%,40%,0%);
-}
-
-.id[type="lemma"] { 
-    color: rgb(0%,40%,0%);
-}
-
-.id[type="instance"] { 
-    color: rgb(0%,40%,0%);
-}
-
-.id[type="projection"] { 
-    color: rgb(0%,40%,0%);
-}
-
-.id[type="method"] { 
-    color: rgb(0%,40%,0%);
-}
-
-.id[type="inductive"] { 
-    color: rgb(0%,0%,80%);
-}
-
-.id[type="record"] { 
-    color: rgb(0%,0%,80%);
-}
-
-.id[type="class"] { 
-    color: rgb(0%,0%,80%);
-}
-
-.id[type="keyword"] { 
- color : #cf1d1d;
-/*     color: black; */
-}
-
-.inlinecode .id {
-    color: rgb(0%,0%,0%);
-}
-
-
-/* TOC */
-
-#toc h2 {
-    padding: 10px;
-    background-color: rgb(60%,60%,100%);
-}
-
-#toc li {
-    padding-bottom: 8px;
-}
-
-/* Index */
-
-#index {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-}
-
-#index #frontispiece {
-    margin: 1em auto;
-    padding: 1em;
-    width: 60%;
-}
-
-.booktitle { font-size : 140%  }
-.authors { font-size : 90%;
-	         line-height: 115%;  }
-.moreauthors { font-size : 60%  }
-
-#index #entrance {
-    text-align: center;
-}
-
-#index #entrance .spacer {
-    margin: 0 30px 0 30px;
-}
-
-#index #footer {
-    position: absolute;
-    bottom: 0;
-}
-
-.paragraph {
-    height: 0.75em;
-}
-
-ul.doclist {
-    margin-top: 0em;
-    margin-bottom: 0em;
-}
-
-.code :target {
-    border: 2px solid #D4D4D4;
-    background-color: #e5eecc;
+@media (max-width: 42rem) {
+  body  { font-size: 15px; }
+  #main { padding: 1.25rem 1rem; }
+  .code { font-size: 0.8rem; }
+  h1.section { font-size: 1.4rem; }
 }
