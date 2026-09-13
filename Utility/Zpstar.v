@@ -821,26 +821,32 @@ Module Schnorr.
 
     
     (* multiplication *)
-    Definition mul_schnorr_group 
-      (u v : Schnorr_group) : Schnorr_group.
-      refine(
-        match u, v with 
-        | mk_schnorr au Hua Hub, 
-          mk_schnorr av Hva Hvb => 
-            mk_schnorr (Z.modulo (au * av) p) 
-            (@multiplication_bound p Hp au av Hua Hva)  _
-        end).
-        (* everything good upto this point*)
-        + pose proof @Hp_2_p p Hp.
-          pose proof @Hp_2_p q Hq.
-          rewrite Zpow_mod_correct in Hub, Hvb |- *.
-          rewrite <-Zpower_mod,
-          Zmult_power,
-          Zmult_mod, Hub, Hvb,
-          Z.mod_1_l;
-          try reflexivity.
-        all: try (abstract nia).
-    Defined.
+    (* The membership proof of a product, as an opaque lemma: keeping
+       it out of the definition body makes in-Rocq evaluation of
+       products (vm_compute on compiled statements) fast, since the
+       evaluator then never unfolds it. *)
+    Lemma mul_schnorr_group_subproof :
+      forall au av : Z,
+      Zpow_mod au q p = 1 -> Zpow_mod av q p = 1 ->
+      Zpow_mod (Z.modulo (au * av) p) q p = 1.
+    Proof.
+      intros au av Hub Hvb.
+      pose proof @Hp_2_p p Hp.
+      pose proof @Hp_2_p q Hq.
+      rewrite Zpow_mod_correct in Hub, Hvb |- *.
+      rewrite <-Zpower_mod, Zmult_power, Zmult_mod, Hub, Hvb, Z.mod_1_l;
+      try reflexivity.
+      all: try nia.
+    Qed.
+
+    Definition mul_schnorr_group
+      (u v : Schnorr_group) : Schnorr_group :=
+      match u, v with
+      | mk_schnorr au Hua Hub, mk_schnorr av Hva Hvb =>
+          mk_schnorr (Z.modulo (au * av) p)
+            (@multiplication_bound p Hp au av Hua Hva)
+            (mul_schnorr_group_subproof au av Hub Hvb)
+      end.
     
 
     Lemma inv_schnorr_group_subproof_first : 
