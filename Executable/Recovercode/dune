@@ -1,0 +1,7 @@
+(executable
+ (name main)
+ ; Cryptokit raises an alert on SHA-1, correctly: it is collision
+ ; broken.  Deployed Helios derives its challenges with it, so any
+ ; verifier for published ballots has no choice but to use it.
+ (flags (:standard -alert -crypto))
+ (libraries Helioslib unix cryptokit yojson))

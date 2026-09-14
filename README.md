@@ -164,7 +164,40 @@ coefficients and is not mechanised here; what is proven in Rocq is
 that batching preserves the relation, which is the direction an honest
 server needs.
 
-### 5. Threshold composition
+### 5. Recovering the statement a published election proves
+
+Asks a different question from the verifier above. Not "do these
+ballots verify?" but "what do they prove?". Those are different
+questions, and only the second is about the protocol rather than about
+whichever verifier happened to be run.
+
+```sh
+./_build/default/Executable/Recovercode/main.exe Heliosdata/IACR2024.txt 40
+```
+
+`Examples/Recover.v` lays out eight candidate readings of the Helios
+ballot proof, varying which side of each equality carries the secret
+and which announcement elements reach the Fiat-Shamir hash. Each
+candidate is a statement, so each compiles and each arrives with the
+compiler's theorems already proven of it. The driver runs all eight
+against real published ballots and reports which accept. Exactly one
+does.
+
+That is a recovery rather than a coincidence because of two results.
+`recovered_relation_holds` says two accepting runs sharing an
+announcement and differing in the challenge yield a witness for the
+candidate's relation, so acceptance is evidence about the protocol.
+The cross-verification matrix the driver prints is diagonal, so the
+eight readings are pairwise distinguishable.
+
+We established the right reading by hand the first time, which took a
+day and a detour through Python. This makes it a search.
+
+The second argument caps how many ballots are read. Without it the run
+checks the whole election under all eight candidates, which is eight
+times the work of the verifier above and takes about fifteen minutes.
+
+### 6. Threshold composition
 
 A three-way threshold statement over a small group, proved and verified
 both interactively and non-interactively, with a wire round trip and a
@@ -197,7 +230,7 @@ deliberately invisible to `rocqdoc`.
 | `Probability/` | finite distributions, used to state zero knowledge |
 | `Crypto/` | the single-equation Schnorr protocol |
 | `Compiler/` | the languages, the compiler, and the security proofs |
-| `Examples/` | concrete instances: Helios, CMZ, Privacy Pass, a threshold example |
+| `Examples/` | concrete instances: Helios, CMZ, Privacy Pass, statement recovery, a threshold example |
 | `Extraction/`, `Executable/` | extraction to OCaml and the drivers |
 | `Heliosdata/` | published transcripts of the IACR 2023 and 2024 elections |
 
