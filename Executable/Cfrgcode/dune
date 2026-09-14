@@ -1,0 +1,3 @@
+(executable
+ (name main)
+ (modules shake128 sponge main))
