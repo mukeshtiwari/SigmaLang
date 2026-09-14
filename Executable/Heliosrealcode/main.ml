@@ -84,6 +84,83 @@ let single_transcript a b responses =
 
 (* ---------------- the election ---------------- *)
 
+(* ---------- statement quality over the deployed corpus ----------
+ *
+ * Every zero-knowledge check in this file verifies a proof against a
+ * statement the verifier builds for itself from the ballot.  This
+ * section asks a different question: is that statement worth proving?
+ * Compiler/LeafStatus.v decides it, and Degeneracy.v says what a bad
+ * answer costs - a second witness beside every first one, so the
+ * proof establishes less than it appears to.
+ *
+ * The statements here are not fixed.  ballot_rel builds its matrix
+ * out of the ciphertext the voter submitted, so a voter chooses part
+ * of the statement they are then asked to prove.  That is exactly the
+ * setting where a degenerate statement could be reached on purpose,
+ * and it is why running this over real ballots says something that
+ * running it over a draft's seven example relations does not. *)
+
+let rec leaves_of (r : (Helios.coq_F, Helios.coq_G) Composition.comp_rel) =
+  match r with
+  | Composition.Leaf (m, n, mat, pub) -> [ (m, n, mat, pub) ]
+  | Composition.CAnd (a, b) | Composition.COr (a, b) ->
+      leaves_of a @ leaves_of b
+  | Composition.CThresh (_, k, _, rs) ->
+      List.concat_map leaves_of (Vector.to_list k rs)
+
+(* A column that is the identity in every row supports the kernel
+   vector concentrated there.  The verdict still checks it. *)
+let dead_column_proposal m n mat =
+  let rows = List.map (Vector.to_list n) (Vector.to_list m mat) in
+  let ni = Big_int_Z.int_of_big_int n in
+  let dead j =
+    rows <> [] &&
+    List.for_all (fun row -> Helios.gdec (List.nth row j) Helios.gone) rows in
+  let rec find j =
+    if j >= ni then None else if dead j then Some j else find (j + 1) in
+  match find 0 with
+  | None -> None
+  | Some j ->
+      Some (Vector.of_list
+              (List.init ni
+                 (fun k -> if k = j then Helios.fone else Helios.fzero)))
+
+(* A compiled branch claims only the secrets it mentions.  The DSL
+   gives every leaf the width of the global private-variable vector,
+   so a branch of a disjunction carries columns for the other
+   branch's secrets and never mentions them; those are abstention,
+   not degeneracy, and live_claim is what says so. *)
+let classify_one (m, n, mat, pub) =
+  LeafStatus.classify_leaf
+    Helios.fzero Helios.fadd Helios.fdec Helios.gone Helios.gdec
+    m n mat pub
+    (Claim.live_claim Helios.gone Helios.gdec m n mat)
+    (dead_column_proposal m n mat)
+
+type qtally =
+  { mutable det : int; mutable deg : int; mutable und : int
+  ; mutable vac : int; mutable uns : int; mutable ok : int
+  ; mutable tot : int }
+
+let qt = { det = 0; deg = 0; und = 0; vac = 0; uns = 0; ok = 0; tot = 0 }
+
+let record_quality r =
+  List.iter
+    (fun l ->
+       let c = classify_one l in
+       qt.tot <- qt.tot + 1;
+       (match c.LeafStatus.lc_determination with
+        | LeafStatus.Cert_determined -> qt.det <- qt.det + 1
+        | LeafStatus.Cert_degenerate _ -> qt.deg <- qt.deg + 1
+        | LeafStatus.Cert_determination_undecided -> qt.und <- qt.und + 1);
+       (match c.LeafStatus.lc_vacuity with
+        | LeafStatus.Cert_vacuous -> qt.vac <- qt.vac + 1
+        | LeafStatus.Cert_unsatisfiable _ -> qt.uns <- qt.uns + 1
+        | LeafStatus.Cert_vacuity_undecided -> ());
+       let (m, n, _, _) = l in
+       if LeafStatus.leaf_acceptable m n c then qt.ok <- qt.ok + 1)
+    (leaves_of r)
+
 let () =
   (* With no argument, use the copy of the 2024 election kept in the
      repository, so the verifier runs out of the box from the
@@ -136,6 +213,7 @@ let () =
        let pk = gof (str (member "y" (member "public_key" t))) in
        let pok = member "pok" t in
        let rel = get (Helios.pok_rel pk) in
+       record_quality rel;
        (* a key proof has one equation, so its announcement is one
           element; the leaf still expects a pair, so reuse it *)
        let a = gof (str (member "commitment" pok)) in
@@ -159,6 +237,7 @@ let () =
                  let alpha = gof (str (member "alpha" ch))
                  and beta = gof (str (member "beta" ch)) in
                  let rel = get (Helios.ballot_rel h alpha beta) in
+                 record_quality rel;
                  let t = ballot_transcript (to_list pf) in
                  incr nproofs;
                  if not (Helios.helios_ballot_verify sha1_bigint rel t) then incr nbad)
@@ -198,6 +277,7 @@ let () =
             let d = gof (str fac) in
             let (a, _) = List.nth aggr i in
             let rel = get (Helios.decrypt_rel pk a d) in
+            record_quality rel;
             let com = member "commitment" pf in
             let t' =
               single_transcript
@@ -235,6 +315,16 @@ let () =
   Printf.printf "  published tally : [%s]\n"
     (String.concat "; " (List.map string_of_int tally));
   let agree = List.for_all2 (fun r t -> r = Some t) recovered tally in
-  Printf.printf "\n  VERDICT: proofs %s, tally %s\n"
+  Printf.printf "\n  Statement quality over every leaf checked\n";
+  Printf.printf "    %d leaves from ballot, key-proof and decryption statements\n" qt.tot;
+  Printf.printf "    witness determined %d, DEGENERATE %d, undecided %d\n"
+    qt.det qt.deg qt.und;
+  Printf.printf "    vacuity: VACUOUS %d, UNSATISFIABLE %d, neither %d\n"
+    qt.vac qt.uns (qt.tot - qt.vac - qt.uns);
+  Printf.printf "    fit to compile: %d of %d\n" qt.ok qt.tot;
+
+  Printf.printf "\n  VERDICT: proofs %s, tally %s, statements %s\n"
     (if !nbad = 0 && !dec_ok && !pok_ok then "all verify" else "FAILED")
     (if agree then "matches" else "MISMATCH")
+    (if qt.ok = qt.tot then "all sound"
+     else Printf.sprintf "%d NOT SOUND" (qt.tot - qt.ok))

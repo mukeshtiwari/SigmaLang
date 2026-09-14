@@ -131,6 +131,10 @@ let classify (l : Cfrg.leaf) : B.big_int LeafStatus.leaf_cert =
     m n
     (Vector.of_list rows)
     (Vector.of_list (Array.to_list l.Cfrg.target))
+    (* An instance off the wire declares its own scalars, so it claims
+     * all of them: a declared scalar constrained by nothing is a
+     * defect, which is the standard's E1 control. *)
+    (Claim.full_claim n)
     (match dead_column_proposal l with
      | None -> None
      | Some v -> Some (Vector.of_list (Array.to_list v)))

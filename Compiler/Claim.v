@@ -123,6 +123,18 @@ Section Claim.
       rewrite (htriv v hv); unfold wzero; apply nth_const.
   Qed.
 
+  (** A statement with no slack at all determines whatever it claims,
+      whatever that claim is.  This is what lets the sufficient
+      acceptance test of IncidenceDecide.v serve every claim. *)
+  Lemma trivial_kernel_determines_any :
+    ∀ (m n : nat) (mat : Vector.t (Vector.t G n) m) (cl : claim n),
+    (∀ v : Vector.t F n, incidence_zeroC mat v -> v = wzeroC n) ->
+    determines mat cl.
+  Proof.
+    intros m n mat cl htriv v hv j _.
+    rewrite (htriv v hv); unfold wzero; apply nth_const.
+  Qed.
+
   (** ** The live claim ignores what the leaf does not mention
 
       A compiled branch claims the secrets it mentions.  Slack
@@ -232,6 +244,58 @@ Section Claim.
       rewrite <- hs.
       apply hv; cbn; exact hg.
     - rewrite h1 in hcl; discriminate hcl.
+  Qed.
+
+  (** ** Checking a proposed defect against a claim
+
+      A rejection certificate is a solution of the incidence system
+      that is nonzero somewhere the claim reaches.  Nonzero *outside*
+      the claim is abstention and certifies nothing, so the test is
+      relative to the claim rather than to the whole vector. *)
+  Fixpoint claimed_nonzerob (n : nat) : claim n -> Vector.t F n -> bool :=
+    match n with
+    | O => fun _ _ => false
+    | S n' => fun cl v =>
+        orb (andb (Vector.hd cl)
+               (if Fdec (Vector.hd v) zero then false else true))
+            (claimed_nonzerob n' (Vector.tl cl) (Vector.tl v))
+    end.
+
+  Lemma claimed_nonzerob_sound :
+    ∀ (n : nat) (cl : claim n) (v : Vector.t F n),
+    claimed_nonzerob n cl v = true ->
+    ∃ j : Fin.t n, Vector.nth cl j = true ∧ Vector.nth v j <> zero.
+  Proof.
+    induction n as [| n ih]; intros cl v hb; cbn in hb.
+    - discriminate hb.
+    - destruct (vector_inv_S cl) as (b & cl' & hcl).
+      destruct (vector_inv_S v) as (a & v' & hv).
+      subst; cbn [Vector.hd Vector.tl Vector.caseS] in hb.
+      apply Bool.orb_true_iff in hb as [hhead | hrest].
+      + apply Bool.andb_true_iff in hhead as (hbt & hat).
+        exists Fin.F1; cbn; split; [exact hbt |].
+        destruct (Fdec a zero) as [_ | hne];
+          [discriminate hat | exact hne].
+      + destruct (ih cl' v' hrest) as (j & hj & hvj).
+        exists (Fin.FS j); cbn; split; [exact hj | exact hvj].
+  Qed.
+
+  (** The rejection certificate, relative to a claim: a checked
+      solution that is nonzero where the claim reaches means the
+      statement does not determine what it says it determines. *)
+  Theorem claimed_certificate_refutes :
+    ∀ (m n : nat) (mat : Vector.t (Vector.t G n) m)
+      (cl : claim n) (v : Vector.t F n),
+    @incidence_zerob F zero add Fdec G gid Gdec m n mat v = true ->
+    claimed_nonzerob n cl v = true ->
+    ~ determines mat cl.
+  Proof.
+    intros m n mat cl v hinc hnz hdet.
+    destruct (claimed_nonzerob_sound n cl v hnz) as (j & hj & hvj).
+    apply hvj.
+    apply hdet; [| exact hj].
+    exact (proj1 (@incidence_zerob_spec F zero one add mul sub div opp inv
+                    Fdec G gid ginv gop gpow Gdec Hvec m n mat v) hinc).
   Qed.
 
 End Claim.
