@@ -208,14 +208,86 @@ Section Degeneracy.
     rewrite hp.
     apply right_identity.
   Qed.
-  (** Adding a nonzero vector really does move the witness, so the
-      two solutions above are genuinely different. *)
-  Lemma wadd_nonzero_moves :
-    ∀ (n : nat) (x v : Vector.t F n),
-    v <> wzero n -> wadd x v <> x.
+  (** ** Witnesses form a coset of the kernel
+
+      This is the theorem the rest of the development rests on, and
+      the reason the search for degeneracies is a search for kernel
+      vectors and for nothing else.
+
+      [mat_eval mat] is a homomorphism from the additive group of
+      witnesses to the group, so the witnesses for a given target are
+      either none at all or a coset of its kernel.  A statement
+      therefore determines its witness exactly when that kernel is
+      trivial.  There is no third thing a checker could be looking
+      for, which is what makes the question closable at all. *)
+  Definition wsub {n : nat} (x y : Vector.t F n) : Vector.t F n :=
+    zip_with sub x y.
+
+  Lemma gpow_one : ∀ g : G, g ^ one = g.
+  Proof. intro g; exact (vector_space_field_one (vector_space := Hvec) g). Qed.
+
+  Lemma row_eval_sub :
+    ∀ (n : nat) (row : Vector.t G n) (x y : Vector.t F n),
+    row_evalC row (wsub x y) =
+    gop (row_evalC row x) (ginv (row_evalC row y)).
   Proof.
-    intros n x v hv hbad.
-    apply hv.
+    intros n row x y.
+    (* the special-soundness lemma of LinearRelation.v, at scale one *)
+    assert (heq : wsub x y = zip_with (fun a b => mul (sub a b) one) x y).
+    { apply Vector.eq_nth_iff; intros p q hpq; subst q.
+      unfold wsub; rewrite !nth_zip_with; field. }
+    rewrite heq, row_eval_sub_scale, gpow_one; reflexivity.
+  Qed.
+
+  Lemma mat_eval_sub :
+    ∀ (m n : nat) (mat : Vector.t (Vector.t G n) m) (x y : Vector.t F n),
+    mat_evalC mat (wsub x y) =
+    zip_with (fun a b => gop a (ginv b)) (mat_evalC mat x) (mat_evalC mat y).
+  Proof.
+    intros m n mat x y.
+    apply Vector.eq_nth_iff; intros p q hpq; subst q.
+    unfold mat_eval.
+    rewrite nth_zip_with, !(Vector.nth_map _ _ p p eq_refl).
+    apply row_eval_sub.
+  Qed.
+
+  Theorem witness_difference_in_kernel :
+    ∀ (m n : nat) (mat : Vector.t (Vector.t G n) m) (pub : Vector.t G m)
+      (x y : Vector.t F n),
+    mat_evalC mat x = pub -> mat_evalC mat y = pub ->
+    in_kernel mat (wsub y x).
+  Proof.
+    intros m n mat pub x y hx hy.
+    unfold in_kernel; rewrite mat_eval_sub, hx, hy.
+    apply Vector.eq_nth_iff; intros p q hpq; subst q.
+    rewrite nth_zip_with, nth_const.
+    apply right_inverse.
+  Qed.
+
+  Lemma witness_shifted_by_difference :
+    ∀ (n : nat) (x y : Vector.t F n), wadd x (wsub y x) = y.
+  Proof.
+    intros n x y.
+    apply Vector.eq_nth_iff; intros p q hpq; subst q.
+    unfold wadd, wsub; rewrite !nth_zip_with; field.
+  Qed.
+
+  Lemma wadd_wzero : ∀ (n : nat) (x : Vector.t F n), wadd x (wzero n) = x.
+  Proof.
+    intros n x.
+    apply Vector.eq_nth_iff; intros p q hpq; subst q.
+    unfold wadd, wzero; rewrite nth_zip_with, nth_const; field.
+  Qed.
+
+  (** Adding a vector to a witness moves it unless the vector is
+      zero.  Stated positively, as cancellation, because the
+      disequality form would have to be inverted classically and this
+      development stays axiom-free.  It is also the form the coset
+      theorem below needs. *)
+  Lemma wadd_cancel :
+    ∀ (n : nat) (x v : Vector.t F n), wadd x v = x -> v = wzero n.
+  Proof.
+    intros n x v hbad.
     apply Vector.eq_nth_iff; intros p q hpq; subst q.
     unfold wzero; rewrite nth_const.
     assert (h : Vector.nth (wadd x v) p = Vector.nth x p)
@@ -230,6 +302,39 @@ Section Degeneracy.
     assert (hfin : b = zero) by (apply (f_equal (fun t => sub t a)) in hz; field_simplify in hz; exact hz).
     exact hfin.
   Qed.
+
+  Lemma wadd_nonzero_moves :
+    ∀ (n : nat) (x v : Vector.t F n),
+    v <> wzero n -> wadd x v <> x.
+  Proof.
+    intros n x v hv hbad; exact (hv (wadd_cancel n x v hbad)).
+  Qed.
+
+  (** The reduction.  A satisfiable statement determines its witness
+      exactly when its kernel is trivial. *)
+  Theorem determination_is_trivial_kernel :
+    ∀ (m n : nat) (mat : Vector.t (Vector.t G n) m) (pub : Vector.t G m),
+    (∃ x : Vector.t F n, mat_evalC mat x = pub) ->
+    ((∀ x y : Vector.t F n,
+        mat_evalC mat x = pub -> mat_evalC mat y = pub -> x = y)
+     <-> (∀ v : Vector.t F n, in_kernel mat v -> v = wzero n)).
+  Proof.
+    intros m n mat pub (x & hx); split.
+    - (* a kernel vector shifts the witness to another witness, and
+         determination collapses the two *)
+      intros hdet v hv.
+      apply (wadd_cancel n x v).
+      symmetry.
+      apply hdet; [exact hx |].
+      exact (kernel_shifts_witness m n mat pub x v hv hx).
+    - (* two witnesses differ by a kernel vector, which must be zero *)
+      intros htriv y z hy hz.
+      pose proof (witness_difference_in_kernel m n mat pub y z hy hz) as hk.
+      pose proof (htriv _ hk) as hzero.
+      rewrite <- (witness_shifted_by_difference n y z), hzero.
+      symmetry; apply wadd_wzero.
+  Qed.
+
 
   (** ** Vectors supported at a single position
 
