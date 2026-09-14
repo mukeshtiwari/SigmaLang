@@ -5,10 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>SigmaLang — machine-checked documentation</title>
 <style>
-  :root { color-scheme: light dark; }
+  /* Light, unconditionally: these pages sit next to rocqdoc's own
+     output, which is white, and a landing page that followed the
+     reader's system theme would not match it. */
+  :root { color-scheme: light; }
   body { font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI",
          Roboto, Helvetica, Arial, sans-serif;
-         max-width: 46rem; margin: 0 auto; padding: 2.5rem 1.25rem; }
+         max-width: 46rem; margin: 0 auto; padding: 2.5rem 1.25rem;
+         background: #fff; color: #1a1a1a; }
+  a { color: #0b5fa5; }
   h1 { font-size: 1.6rem; margin-bottom: .25rem; }
   p.sub { margin-top: 0; opacity: .75; }
   h2 { font-size: 1.1rem; margin-top: 2rem; }
@@ -18,6 +23,7 @@
   a:hover { text-decoration: underline; }
   .name { font-weight: 600; }
   .desc { opacity: .75; }
+  p.sub, .desc { color: #444; opacity: 1; }
 </style>
 </head>
 <body>
@@ -31,8 +37,9 @@ protocols, with every security property machine-checked in Rocq.</p>
     <span class="desc">— the statement languages, the compiler, the
     composed protocol and its security proofs.</span></li>
 <li><a href="Examples/toc.html"><span class="name">Examples</span></a>
-    <span class="desc">— a complete instance over a concrete group,
-    extracted to OCaml.</span></li>
+    <span class="desc">— concrete instances over a real group: Helios
+    ballots and decryption, CMZ credentials, Privacy Pass tokens, and
+    the statement identifier.</span></li>
 </ul>
 
 <h2>Supporting libraries</h2>
@@ -45,8 +52,9 @@ protocols, with every security property machine-checked in Rocq.</p>
     <span class="desc">— finite distributions, used to state zero
     knowledge.</span></li>
 <li><a href="Utility/toc.html"><span class="name">Utility</span></a>
-    <span class="desc">— vectors, a concrete prime-order group, SHA-256
-    and string encodings.</span></li>
+    <span class="desc">— vectors, a concrete prime-order group, SHA-256,
+    string encodings, and a search space with a proof that its
+    enumeration misses nothing.</span></li>
 </ul>
 
 <h2>Where to start</h2>
@@ -59,6 +67,12 @@ protocols, with every security property machine-checked in Rocq.</p>
     thresholds.</span></li>
 <li><a href="Compiler/Compiler.Surface.html"><span class="name">Surface</span></a>
     <span class="desc">— the language a user actually writes.</span></li>
+<li><a href="Compiler/Compiler.DslNecessity.html"><span class="name">DslNecessity</span></a>
+    <span class="desc">— why the well-formedness checker cannot be
+    dropped.</span></li>
+<li><a href="Compiler/Compiler.LeafValidity.html"><span class="name">LeafValidity</span></a>
+    <span class="desc">— two more side conditions, and what goes wrong
+    without them.</span></li>
 </ul>
 </body>
 </html>

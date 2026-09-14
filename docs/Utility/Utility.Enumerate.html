@@ -1,0 +1,314 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<title>Utility.Enumerate</title>
+</head>
+
+<body>
+
+<div id="page">
+
+<div id="header">
+</div>
+
+<div id="main">
+
+<h1 class="libtitle">Library Utility.Enumerate</h1>
+
+<div class="code">
+<span class="id" title="keyword">From</span> <span class="id" title="var">Stdlib</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <span class="id" title="library">Utf8</span> <span class="id" title="library">List</span> <span class="id" title="library">Arith</span> <span class="id" title="library">Lia</span>.<br/>
+<span class="id" title="keyword">Import</span> <span class="id" title="module">ListNotations</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab1"></a><h1 class="section">Enumerating a search space, with a proof that nothing is missed</h1>
+
+
+<div class="paragraph"> </div>
+
+    When a search reports that exactly one candidate survives, the
+    report is only as good as the space searched.  A list of
+    candidates written out by hand carries no guarantee at all: a
+    reader has to take on trust that the author did not omit the
+    interesting case, and an author who already knows the answer
+    cannot easily prove otherwise even to themselves.
+
+<div class="paragraph"> </div>
+
+    This module replaces the list with a specification and an
+    enumerator, and proves the two directions that make the pair
+    worth having.  Soundness says the enumerator produces nothing
+    outside the specification, so a survivor really is a candidate of
+    the kind claimed.  Completeness says it produces everything inside
+    it, so a search that finds one survivor has genuinely ruled the
+    others out.  A reader then audits a predicate, which is short,
+    instead of a list, which is long and unrevealing.
+
+<div class="paragraph"> </div>
+
+<a id="lab2"></a><h2 class="section">What is being enumerated</h2>
+
+
+<div class="paragraph"> </div>
+
+    The space is repetition-free sequences of positions.  A
+    Fiat-Shamir hash input is built by picking some of the
+    announcement elements, in some order, so a candidate rule is
+    exactly a list of distinct indices into the announcement.
+    Dropping an index models a rule that omits an element, which is
+    the shape behind weak Fiat-Shamir; reordering models the ordering
+    ambiguities that implementations disagree about.
+
+<div class="paragraph"> </div>
+
+    Repetitions are excluded deliberately.  Hashing the same element
+    twice is not a rule any implementation follows, and admitting it
+    would enlarge the space without adding a candidate anyone would
+    write. 
+</div>
+<div class="code">
+<span class="id" title="keyword">Section</span> <a id="Enumerate" class="idref" href="#Enumerate"><span class="id" title="section">Enumerate</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab3"></a><h2 class="section">The enumerator</h2>
+
+
+<div class="paragraph"> </div>
+
+      <span class="inlinecode"><span class="id" title="var">injections</span></span> <span class="inlinecode"><span class="id" title="var">fuel</span></span> <span class="inlinecode"><span class="id" title="var">avail</span></span> lists every repetition-free sequence
+      drawn from <span class="inlinecode"><span class="id" title="var">avail</span></span>.  The fuel bounds the recursion: each step
+      removes the chosen element from the pool, and the pool shrinks,
+      so <span class="inlinecode"><span class="id" title="var">length</span></span> <span class="inlinecode"><span class="id" title="var">avail</span></span> fuel always suffices.  Carrying fuel
+      explicitly is what lets this be a structural fixpoint, since
+      <span class="inlinecode"><span class="id" title="var">remove</span></span> is not syntactically smaller than its argument. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Fixpoint</span> <a id="injections" class="idref" href="#injections"><span class="id" title="definition">injections</span></a> (<a id="fuel:1" class="idref" href="#fuel:1"><span class="id" title="binder">fuel</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) (<a id="avail:2" class="idref" href="#avail:2"><span class="id" title="binder">avail</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Utility.Enumerate.html#fuel:1"><span class="id" title="variable">fuel</span></a> <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#O"><span class="id" title="constructor">O</span></a> ⇒ <span class="id" title="notation">[</span> <span class="id" title="notation">[]</span> <span class="id" title="notation">]</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#S"><span class="id" title="constructor">S</span></a> <span class="id" title="var">f</span> ⇒<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">[]</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a> <span class="id" title="definition">flat_map</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="keyword">fun</span> <a id="i:5" class="idref" href="#i:5"><span class="id" title="binder">i</span></a> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#map"><span class="id" title="definition">map</span></a> (<span class="id" title="keyword">fun</span> <a id="l:6" class="idref" href="#l:6"><span class="id" title="binder">l</span></a> ⇒ <a class="idref" href="Utility.Enumerate.html#i:5"><span class="id" title="variable">i</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a> <a class="idref" href="Utility.Enumerate.html#l:6"><span class="id" title="variable">l</span></a>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<a class="idref" href="Utility.Enumerate.html#injections:3"><span class="id" title="definition">injections</span></a> <span class="id" title="var">f</span> (<span class="id" title="definition">remove</span> <span class="id" title="lemma">Nat.eq_dec</span> <a class="idref" href="Utility.Enumerate.html#i:5"><span class="id" title="variable">i</span></a> <a class="idref" href="Utility.Enumerate.html#avail:2"><span class="id" title="variable">avail</span></a>)))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Utility.Enumerate.html#avail:2"><span class="id" title="variable">avail</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">end</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Every repetition-free sequence of positions below <span class="inlinecode"><span class="id" title="var">n</span></span>. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="all_selections" class="idref" href="#all_selections"><span class="id" title="definition">all_selections</span></a> (<a id="n:7" class="idref" href="#n:7"><span class="id" title="binder">n</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Utility.Enumerate.html#injections"><span class="id" title="definition">injections</span></a> <a class="idref" href="Utility.Enumerate.html#n:7"><span class="id" title="variable">n</span></a> (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#seq"><span class="id" title="definition">seq</span></a> 0 <a class="idref" href="Utility.Enumerate.html#n:7"><span class="id" title="variable">n</span></a>).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab4"></a><h2 class="section">Soundness: nothing outside the specification</h2>
+
+
+<div class="paragraph"> </div>
+
+      Everything the enumerator produces is repetition-free and drawn
+      from the pool.  Without this, a surviving candidate might not be
+      a candidate of the kind the search claims to be searching. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="injections_sound" class="idref" href="#injections_sound"><span class="id" title="lemma">injections_sound</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="fuel:8" class="idref" href="#fuel:8"><span class="id" title="binder">fuel</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) (<a id="avail:9" class="idref" href="#avail:9"><span class="id" title="binder">avail</span></a> <a id="l:10" class="idref" href="#l:10"><span class="id" title="binder">l</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="definition">In</span> <a class="idref" href="Utility.Enumerate.html#l:10"><span class="id" title="variable">l</span></a> (<a class="idref" href="Utility.Enumerate.html#injections"><span class="id" title="definition">injections</span></a> <a class="idref" href="Utility.Enumerate.html#fuel:8"><span class="id" title="variable">fuel</span></a> <a class="idref" href="Utility.Enumerate.html#avail:9"><span class="id" title="variable">avail</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <span class="id" title="inductive">NoDup</span> <a class="idref" href="Utility.Enumerate.html#l:10"><span class="id" title="variable">l</span></a> <span class="id" title="notation">∧</span> <span class="id" title="definition">incl</span> <a class="idref" href="Utility.Enumerate.html#l:10"><span class="id" title="variable">l</span></a> <a class="idref" href="Utility.Enumerate.html#avail:9"><span class="id" title="variable">avail</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">induction</span> <span class="id" title="var">fuel</span> <span class="id" title="keyword">as</span> [| <span class="id" title="var">f</span> <span class="id" title="var">ih</span>]; <span class="id" title="tactic">intros</span> <span class="id" title="var">avail</span> <span class="id" title="var">l</span> <span class="id" title="var">hin</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;- <br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> <span class="id" title="var">hin</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">heq</span> | []]; <span class="id" title="tactic">subst</span> <span class="id" title="var">l</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">split</span>; [<span class="id" title="tactic">constructor</span> | <span class="id" title="tactic">apply</span> <span class="id" title="lemma">incl_nil_l</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="var">cbn</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hin</span>. <span class="id" title="tactic">destruct</span> <span class="id" title="var">hin</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">heq</span> | <span class="id" title="var">hin</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="tactic">subst</span> <span class="id" title="var">l</span>; <span class="id" title="tactic">split</span>; [<span class="id" title="tactic">constructor</span> | <span class="id" title="tactic">apply</span> <span class="id" title="lemma">incl_nil_l</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="tactic">apply</span> <span class="id" title="lemma">in_flat_map</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hin</span> <span class="id" title="keyword">as</span> (<span class="id" title="var">i</span> &amp; <span class="id" title="var">hi</span> &amp; <span class="id" title="var">hin</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">apply</span> <span class="id" title="lemma">in_map_iff</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hin</span> <span class="id" title="keyword">as</span> (<span class="id" title="var">l'</span> &amp; <span class="id" title="var">heq</span> &amp; <span class="id" title="var">hin</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">subst</span> <span class="id" title="var">l</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">apply</span> <span class="id" title="var">ih</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hin</span> <span class="id" title="keyword">as</span> (<span class="id" title="var">hnd</span> &amp; <span class="id" title="var">hincl</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">split</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;× <span class="id" title="tactic">constructor</span>; [| <span class="id" title="tactic">exact</span> <span class="id" title="var">hnd</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intro</span> <span class="id" title="var">hbad</span>. <span class="id" title="tactic">apply</span> <span class="id" title="var">hincl</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hbad</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">exact</span> (<span class="id" title="lemma">remove_In</span> <span class="id" title="lemma">Nat.eq_dec</span> <span class="id" title="var">avail</span> <span class="id" title="var">i</span> <span class="id" title="var">hbad</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;× <span class="id" title="tactic">intros</span> <span class="id" title="var">x</span> <span class="id" title="var">hx</span>. <span class="id" title="tactic">destruct</span> <span class="id" title="var">hx</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">heq</span> | <span class="id" title="var">hx</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-- <span class="id" title="tactic">subst</span> <span class="id" title="var">x</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hi</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-- <span class="id" title="tactic">apply</span> <span class="id" title="var">hincl</span>, <span class="id" title="lemma">in_remove</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hx</span> <span class="id" title="keyword">as</span> (<span class="id" title="var">hx</span> &amp; <span class="id" title="var">_</span>); <span class="id" title="tactic">exact</span> <span class="id" title="var">hx</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab5"></a><h2 class="section">Completeness: nothing inside it is missed</h2>
+
+
+<div class="paragraph"> </div>
+
+      Every repetition-free sequence drawn from the pool is produced,
+      given enough fuel.  This is the direction that makes a search
+      result meaningful: a candidate absent from the enumeration was
+      never tested, and its absence from the survivors would say
+      nothing. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="injections_complete" class="idref" href="#injections_complete"><span class="id" title="lemma">injections_complete</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="l:11" class="idref" href="#l:11"><span class="id" title="binder">l</span></a> <a id="avail:12" class="idref" href="#avail:12"><span class="id" title="binder">avail</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) (<a id="fuel:13" class="idref" href="#fuel:13"><span class="id" title="binder">fuel</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="inductive">NoDup</span> <a class="idref" href="Utility.Enumerate.html#l:11"><span class="id" title="variable">l</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <span class="id" title="definition">incl</span> <a class="idref" href="Utility.Enumerate.html#l:11"><span class="id" title="variable">l</span></a> <a class="idref" href="Utility.Enumerate.html#avail:12"><span class="id" title="variable">avail</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> <a class="idref" href="Utility.Enumerate.html#avail:12"><span class="id" title="variable">avail</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#cb53cf0ee22c036a03b4a9281c68b5a3"><span class="id" title="notation">≤</span></a> <a class="idref" href="Utility.Enumerate.html#fuel:13"><span class="id" title="variable">fuel</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="definition">In</span> <a class="idref" href="Utility.Enumerate.html#l:11"><span class="id" title="variable">l</span></a> (<a class="idref" href="Utility.Enumerate.html#injections"><span class="id" title="definition">injections</span></a> <a class="idref" href="Utility.Enumerate.html#fuel:13"><span class="id" title="variable">fuel</span></a> <a class="idref" href="Utility.Enumerate.html#avail:12"><span class="id" title="variable">avail</span></a>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">induction</span> <span class="id" title="var">l</span> <span class="id" title="keyword">as</span> [| <span class="id" title="var">i</span> <span class="id" title="var">l'</span> <span class="id" title="var">ih</span>]; <span class="id" title="tactic">intros</span> <span class="id" title="var">avail</span> <span class="id" title="var">fuel</span> <span class="id" title="var">hnd</span> <span class="id" title="var">hincl</span> <span class="id" title="var">hlen</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;- <br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> <span class="id" title="var">fuel</span>; <span class="id" title="var">cbn</span>; <span class="id" title="tactic">left</span>; <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">assert</span> (<span class="id" title="var">hi</span> : <span class="id" title="definition">In</span> <span class="id" title="var">i</span> <span class="id" title="var">avail</span>) <span class="id" title="tactic">by</span> (<span class="id" title="tactic">apply</span> <span class="id" title="var">hincl</span>; <span class="id" title="tactic">left</span>; <span class="id" title="tactic">reflexivity</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> <span class="id" title="var">fuel</span> <span class="id" title="keyword">as</span> [| <span class="id" title="var">f</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">exfalso</span>. <span class="id" title="tactic">destruct</span> <span class="id" title="var">avail</span> <span class="id" title="keyword">as</span> [| <span class="id" title="var">a</span> <span class="id" title="var">avail'</span>]; [<span class="id" title="var">contradiction</span> |].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">cbn</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hlen</span>; <span class="id" title="var">lia</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="var">cbn</span>. <span class="id" title="tactic">right</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">apply</span> <span class="id" title="lemma">in_flat_map</span>. <span class="id" title="tactic">∃</span> <span class="id" title="var">i</span>. <span class="id" title="tactic">split</span>; [<span class="id" title="tactic">exact</span> <span class="id" title="var">hi</span> |].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">apply</span> <span class="id" title="lemma">in_map_iff</span>. <span class="id" title="tactic">∃</span> <span class="id" title="var">l'</span>. <span class="id" title="tactic">split</span>; [<span class="id" title="tactic">reflexivity</span> |].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">apply</span> <span class="id" title="var">ih</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;× <span class="id" title="tactic">inversion</span> <span class="id" title="var">hnd</span>; <span class="id" title="tactic">assumption</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;× <span class="id" title="tactic">intros</span> <span class="id" title="var">x</span> <span class="id" title="var">hx</span>. <span class="id" title="tactic">apply</span> <span class="id" title="lemma">in_in_remove</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-- <span class="id" title="tactic">intro</span> <span class="id" title="var">heq</span>; <span class="id" title="tactic">subst</span> <span class="id" title="var">x</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">inversion</span> <span class="id" title="var">hnd</span> <span class="id" title="keyword">as</span> [| ? ? <span class="id" title="var">hni</span> ?]; <span class="id" title="tactic">exact</span> (<span class="id" title="var">hni</span> <span class="id" title="var">hx</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-- <span class="id" title="tactic">apply</span> <span class="id" title="var">hincl</span>; <span class="id" title="tactic">right</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hx</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;× <span class="id" title="tactic">pose</span> <span class="id" title="var">proof</span> (<span class="id" title="lemma">remove_length_lt</span> <span class="id" title="lemma">Nat.eq_dec</span> <span class="id" title="var">avail</span> <span class="id" title="var">i</span> <span class="id" title="var">hi</span>); <span class="id" title="var">lia</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab6"></a><h2 class="section">The specification, and the enumerator against it</h2>
+
+
+<div class="paragraph"> </div>
+
+      <span class="inlinecode"><span class="id" title="var">valid_selection</span></span> <span class="inlinecode"><span class="id" title="var">n</span></span> <span class="inlinecode"><span class="id" title="var">l</span></span> is the whole of what a candidate hash rule
+      may be.  It is three lines, and it is what a reader has to
+      accept in place of a hand-written list. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="valid_selection" class="idref" href="#valid_selection"><span class="id" title="definition">valid_selection</span></a> (<a id="n:14" class="idref" href="#n:14"><span class="id" title="binder">n</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) (<a id="l:15" class="idref" href="#l:15"><span class="id" title="binder">l</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <span class="id" title="keyword">Prop</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="inductive">NoDup</span> <a class="idref" href="Utility.Enumerate.html#l:15"><span class="id" title="variable">l</span></a> <span class="id" title="notation">∧</span> <span class="id" title="notation">∀</span> <a id="i:16" class="idref" href="#i:16"><span class="id" title="binder">i</span></a><span class="id" title="notation">,</span> <span class="id" title="definition">In</span> <a class="idref" href="Utility.Enumerate.html#i:16"><span class="id" title="variable">i</span></a> <a class="idref" href="Utility.Enumerate.html#l:15"><span class="id" title="variable">l</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Utility.Enumerate.html#i:16"><span class="id" title="variable">i</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Peano.html#::nat_scope:x_'&lt;'_x"><span class="id" title="notation">&lt;</span></a> <a class="idref" href="Utility.Enumerate.html#n:14"><span class="id" title="variable">n</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="all_selections_sound" class="idref" href="#all_selections_sound"><span class="id" title="lemma">all_selections_sound</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="n:17" class="idref" href="#n:17"><span class="id" title="binder">n</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) (<a id="l:18" class="idref" href="#l:18"><span class="id" title="binder">l</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="definition">In</span> <a class="idref" href="Utility.Enumerate.html#l:18"><span class="id" title="variable">l</span></a> (<a class="idref" href="Utility.Enumerate.html#all_selections"><span class="id" title="definition">all_selections</span></a> <a class="idref" href="Utility.Enumerate.html#n:17"><span class="id" title="variable">n</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Utility.Enumerate.html#valid_selection"><span class="id" title="definition">valid_selection</span></a> <a class="idref" href="Utility.Enumerate.html#n:17"><span class="id" title="variable">n</span></a> <a class="idref" href="Utility.Enumerate.html#l:18"><span class="id" title="variable">l</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">n</span> <span class="id" title="var">l</span> <span class="id" title="var">hin</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">apply</span> <a class="idref" href="Utility.Enumerate.html#injections_sound"><span class="id" title="lemma">injections_sound</span></a> <span class="id" title="tactic">in</span> <span class="id" title="var">hin</span> <span class="id" title="keyword">as</span> (<span class="id" title="var">hnd</span> &amp; <span class="id" title="var">hincl</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">split</span>; [<span class="id" title="tactic">exact</span> <span class="id" title="var">hnd</span> |].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">i</span> <span class="id" title="var">hi</span>. <span class="id" title="tactic">apply</span> <span class="id" title="var">hincl</span>, <span class="id" title="lemma">in_seq</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hi</span>. <span class="id" title="var">lia</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="all_selections_complete" class="idref" href="#all_selections_complete"><span class="id" title="lemma">all_selections_complete</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="n:19" class="idref" href="#n:19"><span class="id" title="binder">n</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) (<a id="l:20" class="idref" href="#l:20"><span class="id" title="binder">l</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Utility.Enumerate.html#valid_selection"><span class="id" title="definition">valid_selection</span></a> <a class="idref" href="Utility.Enumerate.html#n:19"><span class="id" title="variable">n</span></a> <a class="idref" href="Utility.Enumerate.html#l:20"><span class="id" title="variable">l</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <span class="id" title="definition">In</span> <a class="idref" href="Utility.Enumerate.html#l:20"><span class="id" title="variable">l</span></a> (<a class="idref" href="Utility.Enumerate.html#all_selections"><span class="id" title="definition">all_selections</span></a> <a class="idref" href="Utility.Enumerate.html#n:19"><span class="id" title="variable">n</span></a>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">n</span> <span class="id" title="var">l</span> (<span class="id" title="var">hnd</span> &amp; <span class="id" title="var">hlt</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">apply</span> <a class="idref" href="Utility.Enumerate.html#injections_complete"><span class="id" title="lemma">injections_complete</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">exact</span> <span class="id" title="var">hnd</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">intros</span> <span class="id" title="var">i</span> <span class="id" title="var">hi</span>. <span class="id" title="tactic">apply</span> <span class="id" title="lemma">in_seq</span>. <span class="id" title="tactic">split</span>; [<span class="id" title="var">lia</span> | <span class="id" title="var">cbn</span>; <span class="id" title="tactic">apply</span> <span class="id" title="var">hlt</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hi</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">rewrite</span> <span class="id" title="lemma">length_seq</span>; <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Membership in the enumeration is exactly the specification.
+      Stated as an iff because that is the form a reader should check:
+      neither direction alone justifies a search result. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Corollary</span> <a id="all_selections_spec" class="idref" href="#all_selections_spec"><span class="id" title="lemma">all_selections_spec</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="n:21" class="idref" href="#n:21"><span class="id" title="binder">n</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) (<a id="l:22" class="idref" href="#l:22"><span class="id" title="binder">l</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="definition">In</span> <a class="idref" href="Utility.Enumerate.html#l:22"><span class="id" title="variable">l</span></a> (<a class="idref" href="Utility.Enumerate.html#all_selections"><span class="id" title="definition">all_selections</span></a> <a class="idref" href="Utility.Enumerate.html#n:21"><span class="id" title="variable">n</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;-&gt;'_x"><span class="id" title="notation">↔</span></a> <a class="idref" href="Utility.Enumerate.html#valid_selection"><span class="id" title="definition">valid_selection</span></a> <a class="idref" href="Utility.Enumerate.html#n:21"><span class="id" title="variable">n</span></a> <a class="idref" href="Utility.Enumerate.html#l:22"><span class="id" title="variable">l</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">n</span> <span class="id" title="var">l</span>; <span class="id" title="tactic">split</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<span class="id" title="tactic">apply</span> <a class="idref" href="Utility.Enumerate.html#all_selections_sound"><span class="id" title="lemma">all_selections_sound</span></a> | <span class="id" title="tactic">apply</span> <a class="idref" href="Utility.Enumerate.html#all_selections_complete"><span class="id" title="lemma">all_selections_complete</span></a>].<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab7"></a><h2 class="section">Applying a selection</h2>
+
+
+<div class="paragraph"> </div>
+
+      A selection is turned into a rule by reading the chosen
+      positions out of a list.  <span class="inlinecode"><span class="id" title="var">d</span></span> is returned for an index out of
+      range, which <span class="inlinecode"><span class="id" title="var">all_selections_sound</span></span> guarantees never happens for
+      an enumerated selection applied to a list of the right length. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="apply_selection" class="idref" href="#apply_selection"><span class="id" title="definition">apply_selection</span></a> {<a id="A:23" class="idref" href="#A:23"><span class="id" title="binder">A</span></a> : <span class="id" title="keyword">Type</span>} (<a id="d:24" class="idref" href="#d:24"><span class="id" title="binder">d</span></a> : <a class="idref" href="Utility.Enumerate.html#A:23"><span class="id" title="variable">A</span></a>) (<a id="idxs:25" class="idref" href="#idxs:25"><span class="id" title="binder">idxs</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;(<a id="l:26" class="idref" href="#l:26"><span class="id" title="binder">l</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Utility.Enumerate.html#A:23"><span class="id" title="variable">A</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Utility.Enumerate.html#A:23"><span class="id" title="variable">A</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#map"><span class="id" title="definition">map</span></a> (<span class="id" title="keyword">fun</span> <a id="i:27" class="idref" href="#i:27"><span class="id" title="binder">i</span></a> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#nth"><span class="id" title="definition">nth</span></a> <a class="idref" href="Utility.Enumerate.html#i:27"><span class="id" title="variable">i</span></a> <a class="idref" href="Utility.Enumerate.html#l:26"><span class="id" title="variable">l</span></a> <a class="idref" href="Utility.Enumerate.html#d:24"><span class="id" title="variable">d</span></a>) <a class="idref" href="Utility.Enumerate.html#idxs:25"><span class="id" title="variable">idxs</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Selecting every position in order is the identity, so the rule
+      that hashes the whole announcement is in the space. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Lemma</span> <a id="apply_selection_id" class="idref" href="#apply_selection_id"><span class="id" title="lemma">apply_selection_id</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="A:28" class="idref" href="#A:28"><span class="id" title="binder">A</span></a> : <span class="id" title="keyword">Type</span>) (<a id="d:29" class="idref" href="#d:29"><span class="id" title="binder">d</span></a> : <a class="idref" href="Utility.Enumerate.html#A:28"><span class="id" title="variable">A</span></a>) (<a id="l:30" class="idref" href="#l:30"><span class="id" title="binder">l</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Utility.Enumerate.html#A:28"><span class="id" title="variable">A</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Utility.Enumerate.html#apply_selection"><span class="id" title="definition">apply_selection</span></a> <a class="idref" href="Utility.Enumerate.html#d:29"><span class="id" title="variable">d</span></a> (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#seq"><span class="id" title="definition">seq</span></a> 0 (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> <a class="idref" href="Utility.Enumerate.html#l:30"><span class="id" title="variable">l</span></a>)) <a class="idref" href="Utility.Enumerate.html#l:30"><span class="id" title="variable">l</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Utility.Enumerate.html#l:30"><span class="id" title="variable">l</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">A</span> <span class="id" title="var">d</span> <span class="id" title="var">l</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">unfold</span> <a class="idref" href="Utility.Enumerate.html#apply_selection"><span class="id" title="definition">apply_selection</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">apply</span> (<span class="id" title="lemma">nth_ext</span> <span class="id" title="var">_</span> <span class="id" title="var">_</span> <span class="id" title="var">d</span> <span class="id" title="var">d</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">rewrite</span> <span class="id" title="lemma">length_map</span>, <span class="id" title="lemma">length_seq</span>; <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">intros</span> <span class="id" title="var">k</span> <span class="id" title="var">hk</span>. <span class="id" title="tactic">rewrite</span> <span class="id" title="lemma">length_map</span>, <span class="id" title="lemma">length_seq</span> <span class="id" title="tactic">in</span> <span class="id" title="var">hk</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> (<span class="id" title="lemma">nth_indep</span> (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#map"><span class="id" title="definition">map</span></a> (<span class="id" title="keyword">fun</span> <a id="i:32" class="idref" href="#i:32"><span class="id" title="binder"><span id="i:34" class="id"><span id="i:36" class="id"><span id="i:38" class="id">i</span></span></span></span></a> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#nth"><span class="id" title="definition">nth</span></a> <a class="idref" href="Utility.Enumerate.html#i:32"><span class="id" title="variable">i</span></a> <span class="id" title="var">l</span> <span class="id" title="var">d</span>) (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#seq"><span class="id" title="definition">seq</span></a> 0 (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> <span class="id" title="var">l</span>))) <span class="id" title="var">d</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;((<span class="id" title="keyword">fun</span> <a id="i:31" class="idref" href="#i:31"><span class="id" title="binder"><span id="i:33" class="id"><span id="i:35" class="id"><span id="i:37" class="id">i</span></span></span></span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#nth"><span class="id" title="definition">nth</span></a> <a class="idref" href="Utility.Enumerate.html#i:31"><span class="id" title="variable">i</span></a> <span class="id" title="var">l</span> <span class="id" title="var">d</span>) 0)).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="tactic">rewrite</span> (<span class="id" title="lemma">map_nth</span> (<span class="id" title="keyword">fun</span> <a id="i:39" class="idref" href="#i:39"><span class="id" title="binder"><span id="i:40" class="id"><span id="i:41" class="id">i</span></span></span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#nth"><span class="id" title="definition">nth</span></a> <a class="idref" href="Utility.Enumerate.html#i:39"><span class="id" title="variable">i</span></a> <span class="id" title="var">l</span> <span class="id" title="var">d</span>) (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Lists.ListDef.html#seq"><span class="id" title="definition">seq</span></a> 0 (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> <span class="id" title="var">l</span>)) 0 <span class="id" title="var">k</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <span class="id" title="lemma">seq_nth</span> <span class="id" title="tactic">by</span> <span class="id" title="tactic">exact</span> <span class="id" title="var">hk</span>. <span class="id" title="var">cbn</span>. <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="id" title="tactic">rewrite</span> <span class="id" title="lemma">length_map</span>, <span class="id" title="lemma">length_seq</span>; <span class="id" title="tactic">exact</span> <span class="id" title="var">hk</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+How large the space is, for reporting. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="selection_count" class="idref" href="#selection_count"><span class="id" title="definition">selection_count</span></a> (<a id="n:42" class="idref" href="#n:42"><span class="id" title="binder">n</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a> := <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#length"><span class="id" title="definition">length</span></a> (<a class="idref" href="Utility.Enumerate.html#all_selections"><span class="id" title="definition">all_selections</span></a> <a class="idref" href="Utility.Enumerate.html#n:42"><span class="id" title="variable">n</span></a>).<br/>
+
+<br/>
+<span class="id" title="keyword">End</span> <a class="idref" href="Utility.Enumerate.html#Enumerate"><span class="id" title="section">Enumerate</span></a>.<br/>
+</div>
+</div>
+
+<div id="footer">
+<hr/><a href="index.html">Index</a><hr/>This page has been generated by <a href="http://rocq-prover.org/">coqdoc</a>
+</div>
+
+</div>
+
+</body>
+</html>
