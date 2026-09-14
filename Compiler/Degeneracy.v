@@ -468,18 +468,37 @@ Section Degeneracy.
     - intro h1; exact h1.
   Qed.
 
-  (** Every entry of a vector appears in its list form, which is what
-      supplies the covering list in the theorem below. *)
+  (** Every entry of a vector appears in its list form, and every
+      element of the list form is an entry.  The first supplies the
+      covering list in the theorem below; the second is what lets a
+      list-shaped boolean test be read back as a statement about
+      positions, which IncidenceDecide.v needs.  Both are stated for
+      an arbitrary element type because they are used at [G] and at
+      vectors over [G]. *)
   Lemma in_to_list :
-    ∀ (n : nat) (row : Vector.t G n) (j : Fin.t n),
-    List.In (Vector.nth row j) (Vector.to_list row).
+    ∀ (A : Type) (n : nat) (w : Vector.t A n) (j : Fin.t n),
+    List.In (Vector.nth w j) (Vector.to_list w).
   Proof.
-    intros n row j; revert row.
-    induction j as [p | p j ih]; intros row;
-      destruct (vector_inv_S row) as (b & row' & hrow); subst row;
+    intros A n w j; revert w.
+    induction j as [p | p j ih]; intros w;
+      destruct (vector_inv_S w) as (b & w' & hw); subst w;
       rewrite Vector.to_list_cons; cbn.
     - left; reflexivity.
-    - right; exact (ih row').
+    - right; exact (ih w').
+  Qed.
+
+  Lemma in_to_list_inv :
+    ∀ (A : Type) (n : nat) (w : Vector.t A n) (a : A),
+    List.In a (Vector.to_list w) -> ∃ j : Fin.t n, Vector.nth w j = a.
+  Proof.
+    intros A n; induction n as [| n ih]; intros w a hin.
+    - rewrite (vector_inv_0 w) in hin; cbn in hin; contradiction.
+    - destruct (vector_inv_S w) as (b & w' & hw); subst w.
+      rewrite Vector.to_list_cons in hin.
+      destruct hin as [heq | hin].
+      + exists Fin.F1; cbn; exact heq.
+      + destruct (ih w' a hin) as (j & hj).
+        exists (Fin.FS j); cbn; exact hj.
   Qed.
 
   Lemma row_eval_incidence_zero_aux :
