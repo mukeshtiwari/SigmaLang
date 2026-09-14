@@ -137,6 +137,66 @@ let () =
              (if ok then "holds" else "FAILS"))
         batch;
 
+      Printf.printf "\nThe same vectors, checked by the VERIFIED verifier\n";
+      Printf.printf "  (extracted from Rocq, instantiated at our P-256; the code\n";
+      Printf.printf "   is verified, the group it runs on is not)\n";
+      List.iter
+        (fun e ->
+           let ib = Vectors.unhex e.Vectors.instance
+           and pb = Vectors.unhex e.Vectors.proof in
+           let inst = Cfrg.parse_instance ib in
+           let leaf = Cfrg.to_leaf inst in
+           let tr = Cfrg.parse_batchable inst pb in
+           let nc = P256.ne * Array.length inst.Cfrg.equations in
+           let c = Cfrg.derive_challenge ~tag:e.Vectors.tag ~instance_bytes:ib
+                     ~commitment_bytes:(String.sub pb 0 nc) in
+           let ok = Verified.verify leaf tr c in
+           if not ok then incr failures;
+           Printf.printf "  %-34s %s\n" e.Vectors.relation
+             (if ok then "accepted" else "REJECTED"))
+        batch;
+
+      (* Negative controls. A verifier that accepts everything would have
+         passed every check above; these are the ones that discriminate. *)
+      let ipath = Filename.concat dir "sigma-proofs-invalid_Shake128_P256.json" in
+      if Sys.file_exists ipath then begin
+        Printf.printf "\nInvalid vectors, checked by the VERIFIED verifier\n";
+        let inv = List.filter (fun e -> e.Vectors.flavor = "batchable")
+                    (Vectors.load ipath) in
+        let wrong = ref 0 and shown = ref 0 in
+        List.iter
+          (fun e ->
+             let verdict =
+               try
+                 let ib = Vectors.unhex e.Vectors.instance
+                 and pb = Vectors.unhex e.Vectors.proof in
+                 let inst = Cfrg.parse_instance ib in
+                 let leaf = Cfrg.to_leaf inst in
+                 let tr = Cfrg.parse_batchable inst pb in
+                 let nc = P256.ne * Array.length inst.Cfrg.equations in
+                 let c = Cfrg.derive_challenge ~tag:e.Vectors.tag
+                           ~instance_bytes:ib
+                           ~commitment_bytes:(String.sub pb 0 nc) in
+                 if Verified.verify leaf tr c then "accept" else "reject"
+               with _ ->
+                 (* a malformed instance or proof is a rejection too *)
+                 "reject" in
+             let ok = verdict = e.Vectors.expected in
+             if not ok then begin
+               incr wrong;
+               Printf.printf "  %-22s wanted %-6s got %-6s  %s\n"
+                 e.Vectors.relation e.Vectors.expected verdict e.Vectors.comment
+             end else if !shown < 3 then begin
+               incr shown;
+               Printf.printf "  %-22s wanted %-6s got %-6s\n"
+                 e.Vectors.relation e.Vectors.expected verdict
+             end)
+          inv;
+        Printf.printf "  %d invalid-file vectors, %d disagreements\n"
+          (List.length inv) !wrong;
+        if !wrong > 0 then incr failures
+      end;
+
       Printf.printf "\nSolving for the relation from the transcript alone\n";
       Printf.printf "  Given: the published elements and the proof.\n";
       Printf.printf "  Hidden: which element sits in which slot, and each target.\n\n";

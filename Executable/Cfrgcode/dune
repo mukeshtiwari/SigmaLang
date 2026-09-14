@@ -1,4 +1,4 @@
 (executable
  (name main)
- (libraries zarith mirage-crypto-ec yojson)
- (modules shake128 sponge p256 cfrg vectors main))
+ (libraries zarith mirage-crypto-ec yojson Helioslib)
+ (modules shake128 sponge p256 cfrg vectors verified main))

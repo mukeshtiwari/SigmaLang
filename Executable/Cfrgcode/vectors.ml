@@ -20,16 +20,29 @@ let unhex (h : string) : string =
 type entry = {
   relation : string; flavor : string; tag : string;
   instance : string; proof : string;
+  expected : string;   (* "accept" or "reject"; only the invalid file sets it *)
+  comment : string;
 }
 
 let load (path : string) : entry list =
   Yojson.Safe.from_file path |> to_list
   |> List.map (fun j ->
-      { relation = j |> member "Relation" |> to_string;
+      { relation = (match j |> member "Relation" with
+                    | `String v -> v
+                    | _ -> (* the invalid file names the case, not the relation *)
+                      (match j |> member "Id" with
+                       | `String v ->
+                           (match List.rev (String.split_on_char '/' v) with
+                            | last :: _ -> last | [] -> v)
+                       | _ -> "?"));
         flavor   = j |> member "Flavor"   |> to_string;
         tag      = j |> member "Tag"      |> to_string;
         instance = j |> member "Instance" |> to_string;
-        proof    = j |> member "NargString" |> to_string })
+        proof    = j |> member "NargString" |> to_string;
+        expected = (match j |> member "Expected" with
+                    | `String v -> v | _ -> "accept");
+        comment  = (match j |> member "Comment" with
+                    | `String v -> v | _ -> "") })
 
 (* ---------- question one: does the stated relation check out? ---------- *)
 
