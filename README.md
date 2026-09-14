@@ -175,10 +175,14 @@ whichever verifier happened to be run.
 ./_build/default/Executable/Recovercode/main.exe Heliosdata/IACR2024.txt 40
 ```
 
-`Examples/Recover.v` defines a space of candidate readings of the
-Helios ballot proof, varying which side of each equality carries the
-secret, which announcement positions reach the Fiat-Shamir hash and in
-what order, and whether the instance is hashed alongside. The space is
+`Examples/Recover.v` defines a space of candidate readings, varying
+which side of each equality carries the secret, which announcement
+positions reach the Fiat-Shamir hash and in what order, and whether
+the instance is hashed alongside. A *target* says which protocol to
+point the search at: its statement, its names, its private variables,
+how an instance becomes a point environment, and how wide an
+announcement is. Two are defined, ballot validity and correct
+decryption, and the run below identifies both. The space is
 not a list someone wrote down. It is specified by `valid_candidate`,
 and `all_candidates_spec` proves the enumeration is exactly that
 specification, so a reader audits a three-line predicate instead of
@@ -186,7 +190,15 @@ trusting a list. For Helios it comes to 390 readings.
 
 Each candidate is a statement, so each compiles and each arrives with
 the compiler's theorems already proven of it. The driver runs all 390
-against real published ballots. Exactly one is consistent with them.
+against the published ballots. Exactly one is consistent with them.
+The decryption statement is narrower, 30 readings over two
+announcement elements, and is identified from the election's 21
+published decryption proofs.
+
+The two orientations are not written out per target.
+`flip_eqs` turns every equality in a statement around, and
+`flip_eqs_involutive` proves doing so twice restores the original, so
+a target supplies one statement and the search covers both readings.
 
 Three results make that an identification rather than a coincidence.
 `all_candidates_spec` says nothing was omitted from the search.

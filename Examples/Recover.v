@@ -123,31 +123,64 @@ Section Recover.
   #[local] Notation elabC :=
     (@elab F fzero fone fadd fopp string VarTypeString "A" "B").
 
-  (** ** Dimension one: which side carries the secret *)
+  (** ** Dimension one: which side carries the secret
+
+      [TEq a b] elaborates to [a] times the inverse of [b], so the side
+      carrying the secret must be written on the left.  Written the
+      other way the statement is still well formed and still compiles;
+      every exponent in the compiled matrix is negated and no
+      published proof verifies.  Getting this wrong is silent, which
+      is why it is a dimension of the search rather than a convention
+      we assert.
+
+      Rather than write both readings of every target by hand, we
+      derive one from the other.  [flip_eqs] turns every equality in a
+      statement around and leaves the rest alone, so a target supplies
+      one statement and the search covers both readings of it.  This
+      also makes the dimension mechanical, which is the point of this
+      section: a reader checks [flip_eqs], not a pair of statements
+      per target. *)
 
   Inductive orient : Type := OLeft | ORight.
 
-  (** The ballot statement under each reading.  [OLeft] is Helios as it
-      actually is; [ORight] is the same sentence with each equality
-      turned around, which is what one writes if one reads the
-      protocol description as "the ciphertext equals a power of the
-      generator" rather than "a power of the generator equals the
-      ciphertext". *)
-  Definition ballot_stmt_or (o : orient) : @sstmt F string :=
-    match o with
-    | OLeft =>
-        TOr
-          (TAnd (TEq (YPow "g" (XPriv "r0")) (YPt "alpha"))
-                (TEq (YPow "h" (XPriv "r0")) (YPt "beta")))
-          (TAnd (TEq (YPow "g" (XPriv "r1")) (YPt "alpha"))
-                (TEq (YMul (YPow "h" (XPriv "r1")) (YPt "g")) (YPt "beta")))
-    | ORight =>
-        TOr
-          (TAnd (TEq (YPt "alpha") (YPow "g" (XPriv "r0")))
-                (TEq (YPt "beta")  (YPow "h" (XPriv "r0"))))
-          (TAnd (TEq (YPt "alpha") (YPow "g" (XPriv "r1")))
-                (TEq (YPt "beta")  (YMul (YPow "h" (XPriv "r1")) (YPt "g"))))
+  Fixpoint flip_eqs (s : @sstmt F string) : @sstmt F string :=
+    match s with
+    | TEq a b => TEq b a
+    | TNeq e => TNeq e
+    | TRange x u => TRange x u
+    | TLet x e body => TLet x e (flip_eqs body)
+    | TAnd a b => TAnd (flip_eqs a) (flip_eqs b)
+    | TOr a b => TOr (flip_eqs a) (flip_eqs b)
+    | TThresh t l =>
+        TThresh t
+          ((fix go (l : list (@sstmt F string)) : list (@sstmt F string) :=
+              match l with
+              | List.nil => List.nil
+              | List.cons s' l' => List.cons (flip_eqs s') (go l')
+              end) l)
     end.
+
+  (** Turning every equality around twice restores the statement, so
+      the two readings really are a pair and the dimension has exactly
+      the two values [orient] offers. *)
+  Lemma flip_eqs_involutive :
+    ∀ s : @sstmt F string, flip_eqs (flip_eqs s) = s.
+  Proof.
+    intro s.
+    induction s as [a b | e | x u | x e body ih | a b iha ihb
+                   | a b iha ihb | t l ihl] using sstmt_ind';
+      cbn; try reflexivity.
+    - rewrite ih; reflexivity.
+    - rewrite iha, ihb; reflexivity.
+    - rewrite iha, ihb; reflexivity.
+    - f_equal.
+      induction ihl as [| s' l' ih ihs iht]; cbn; [reflexivity |].
+      rewrite ih, iht; reflexivity.
+  Qed.
+
+  (** A statement under a chosen reading. *)
+  Definition stmt_or (base : @sstmt F string) (o : orient) : @sstmt F string :=
+    match o with OLeft => base | ORight => flip_eqs base end.
 
   (** ** Dimension two: what reaches the hash
 
@@ -163,11 +196,10 @@ Section Recover.
       repetition-free sequence of positions.  An *instance mode* says
       whether the public instance is hashed alongside, and where.
 
-      A ballot announcement flattens to four group elements, the two
-      commitments of each branch in tree order, so the selections are
-      [all_selections 4]. *)
-
-  Definition ann_width : nat := 4.
+      The announcement width is a property of the target, not of this
+      module: a Helios ballot flattens to four group elements, a
+      decryption proof to two.  Everything below takes it as a
+      parameter [w]. *)
 
   Inductive inst_mode : Type := IAnnOnly | IInstFirst | IInstLast.
 
@@ -184,45 +216,46 @@ Section Recover.
 
   Definition all_orients : list orient := (OLeft :: ORight :: nil)%list.
 
-  (** The whole space, generated rather than listed. *)
-  Definition all_candidates : list candidate :=
+  (** The whole space for an announcement of width [w], generated
+      rather than listed. *)
+  Definition all_candidates (w : nat) : list candidate :=
     List.flat_map
       (fun o =>
          List.flat_map
            (fun sel => List.map (fun im => mkcand o sel im) all_inst_modes)
-           (all_selections ann_width))
+           (all_selections w))
       all_orients.
 
-  Definition candidate_count : nat := List.length all_candidates.
+  Definition candidate_count (w : nat) : nat := List.length (all_candidates w).
 
   (** A candidate is well formed exactly when its selection is legal.
       Orientation and instance mode range over finite types, so they
       carry no side condition. *)
-  Definition valid_candidate (k : candidate) : Prop :=
-    valid_selection ann_width (cand_sel k).
+  Definition valid_candidate (w : nat) (k : candidate) : Prop :=
+    valid_selection w (cand_sel k).
 
   (** The enumeration is exactly the specification.  This is the
       theorem that replaces "here are eight readings we thought of":
       a reader checks [valid_candidate], which is three lines, rather
       than checking a list. *)
   Theorem all_candidates_spec :
-    forall k : candidate,
-    List.In k all_candidates <-> valid_candidate k.
+    forall (w : nat) (k : candidate),
+    List.In k (all_candidates w) <-> valid_candidate w k.
   Proof.
-    intro k; split.
+    intros w k; split.
     - intro hin.
       unfold all_candidates in hin.
       apply List.in_flat_map in hin as (o & _ & hin).
       apply List.in_flat_map in hin as (sel & hsel & hin).
       apply List.in_map_iff in hin as (im & heq & _).
       subst k. unfold valid_candidate; cbn.
-      exact (all_selections_sound ann_width sel hsel).
+      exact (all_selections_sound w sel hsel).
     - intro hv.
       unfold all_candidates.
       apply List.in_flat_map. exists (cand_or k).
       split; [destruct (cand_or k); cbn; auto |].
       apply List.in_flat_map. exists (cand_sel k).
-      split; [exact (all_selections_complete ann_width _ hv) |].
+      split; [exact (all_selections_complete w _ hv) |].
       apply List.in_map_iff. exists (cand_inst k).
       split; [destruct k; reflexivity |].
       destruct (cand_inst k); cbn; auto.
@@ -275,20 +308,20 @@ Section Recover.
   Qed.
 
   Theorem selection_omitting_loses_information :
-    forall (sel : list nat) (i : nat) (x y : G),
-    (i < ann_width)%nat -> ~ List.In i sel -> x <> y ->
+    forall (w : nat) (sel : list nat) (i : nat) (x y : G),
+    (i < w)%nat -> ~ List.In i sel -> x <> y ->
     exists l1 l2 : list G,
-      List.length l1 = ann_width /\ List.length l2 = ann_width /\
+      List.length l1 = w /\ List.length l2 = w /\
       l1 <> l2 /\
       apply_selection gone sel l1 = apply_selection gone sel l2.
   Proof.
-    intros sel i x y hi hni hxy.
-    exists (point_at ann_width i x), (point_at ann_width i y).
+    intros w sel i x y hi hni hxy.
+    exists (point_at w i x), (point_at w i y).
     split; [apply point_at_length; exact hi |].
     split; [apply point_at_length; exact hi |].
     split.
     - intro heq. apply hxy.
-      rewrite <- (point_at_here ann_width i x), <- (point_at_here ann_width i y).
+      rewrite <- (point_at_here w i x), <- (point_at_here w i y).
       rewrite heq; reflexivity.
     - unfold apply_selection. apply List.map_ext_in.
       intros j hj.
@@ -299,11 +332,11 @@ Section Recover.
   (** The complement: the rule that reads every position in order
       loses nothing, because it is the identity. *)
   Theorem full_selection_loses_nothing :
-    forall l : list G,
-    List.length l = ann_width ->
-    apply_selection gone (List.seq 0 ann_width) l = l.
+    forall (w : nat) (l : list G),
+    List.length l = w ->
+    apply_selection gone (List.seq 0 w) l = l.
   Proof.
-    intros l hlen. rewrite <- hlen. apply apply_selection_id.
+    intros w l hlen. rewrite <- hlen. apply apply_selection_id.
   Qed.
 
   (** ** Naming a candidate, for the driver's report *)
@@ -332,24 +365,56 @@ Section Recover.
       (String.append " [" (String.append (sel_name (cand_sel k))
         (String.append "] " (inst_name (cand_inst k))))).
 
+  (** ** A target: what it takes to point the search at a protocol
+
+      Everything above is about candidate readings and is independent
+      of which protocol is being read.  A target supplies the rest:
+      the statement as its documentation describes it, the names in
+      scope, the private variables, how an instance becomes a point
+      environment, and how wide an announcement is.
+
+      Adding a protocol is then filling in this record.  Nothing in
+      the search machinery needs to change, and nothing needs to be
+      re-proven, because the compiler's theorems quantify over
+      statements. *)
+  Record target : Type := mktarget {
+    tg_name  : string;
+    tg_base  : @sstmt F string;
+    tg_used  : list string;
+    tg_privs : list string;
+    tg_genv  : list G -> string -> G;
+    tg_width : nat
+  }.
+
   (** ** Compiling a candidate
 
       Every candidate goes through the same pipeline the rest of the
-      development uses.  Nothing is special-cased: the compiler's
-      theorems are quantified over all statements, so each candidate
+      development uses.  Nothing is special-cased: each candidate
       arrives with completeness, soundness and zero knowledge already
       proven of it. *)
 
-  Definition cand_core (k : candidate) : @stmt F string :=
-    match elabC Helios.used0 (ballot_stmt_or (cand_or k)) with
+  Definition cand_stmt (tg : target) (k : candidate) : @sstmt F string :=
+    stmt_or (tg_base tg) (cand_or k).
+
+  Definition cand_core (tg : target) (k : candidate) : @stmt F string :=
+    match elabC (tg_used tg) (cand_stmt tg k) with
     | Some (c, _) => c
     | None => SEqs List.nil
     end.
 
-  Definition cand_rel (k : candidate) (h alpha beta : G) : option comp_relC :=
+  Definition cand_rel (tg : target) (k : candidate) (inst : list G)
+    : option comp_relC :=
     @compile F fzero fadd fmul fopp fdec G gone ginv_g gmul gpow
-      string String.string_dec 2 Helios.ballot_privs
-      (Helios.ballot_genv h alpha beta) Helios.penvI Helios.node (cand_core k).
+      string String.string_dec (List.length (tg_privs tg))
+      (Vector.of_list (tg_privs tg))
+      (tg_genv tg inst) Helios.penvI Helios.node (cand_core tg k).
+
+  (** The candidates for a target, and their count. *)
+  Definition target_candidates (tg : target) : list candidate :=
+    all_candidates (tg_width tg).
+
+  Definition target_candidate_count (tg : target) : nat :=
+    candidate_count (tg_width tg).
 
   (** The hash input under this candidate's rule.  Helios renders each
       group element in decimal and joins with commas; the candidate
@@ -377,20 +442,20 @@ Section Recover.
   #[local] Notation comp_randC := (@comp_rand F fzero G).
 
   (** An honest prover under a given candidate's rule.  Having this is
-      what lets the driver ask the question published data cannot
-      answer on its own: are two readings actually distinguishable? *)
+      what lets the driver ask whether two readings are actually
+      distinguishable, which published data alone cannot answer. *)
   Definition cand_prove (k : candidate) (sha1 : string -> N) (pre : list G)
     (r : comp_relC) (w : comp_witnessC r) (rnd : comp_randC r)
     : comp_transcriptC r :=
     @nizk_prove F fzero fone fadd fmul fsub fopp finv G gone gmul gpow
       r (cand_hash k sha1 pre r) w rnd.
 
-  (** Every candidate is a complete protocol.  This is
-      [nizk_completeness] instantiated, and it holds for all of them
+  (** Every candidate is a complete protocol, for every target.  This
+      is [nizk_completeness] instantiated, and it holds for all of them
       because the compiler's theorems quantify over statements.  It is
-      also what makes a comparison between candidates meaningful: a
-      candidate that rejects the corpus does so despite being a
-      perfectly good protocol under its own rule. *)
+      what makes a comparison between candidates meaningful: a
+      candidate that rejects a corpus does so despite being a perfectly
+      good protocol under its own rule. *)
   Theorem cand_complete :
     ∀ (k : candidate) (sha1 : string -> N) (pre : list G) (r : comp_relC)
       (w : comp_witnessC r) (rnd : comp_randC r),
@@ -401,6 +466,56 @@ Section Recover.
     eapply (@nizk_completeness F fzero fone fadd fmul fsub fdiv fopp finv fdec
       G gone ginv_g gmul gpow gdec Hvec r (cand_hash k sha1 pre r) w rnd hw).
   Qed.
+
+  (** ** The targets
+
+      Two, so that the parameterisation is exercised rather than
+      merely written.  Both are Helios statements with published data
+      to check against, and both are documented in Helios.v, so they
+      serve as controls: we know the answer and can see whether the
+      search finds it. *)
+
+  (** A ballot: a disjunction of two conjunctions, four announcement
+      elements, two declared secrets.  The instance is the election
+      key and the ciphertext. *)
+  Definition helios_ballot_target : target :=
+    mktarget "helios-ballot"
+      (TOr
+        (TAnd (TEq (YPow "g" (XPriv "r0")) (YPt "alpha"))
+              (TEq (YPow "h" (XPriv "r0")) (YPt "beta")))
+        (TAnd (TEq (YPow "g" (XPriv "r1")) (YPt "alpha"))
+              (TEq (YMul (YPow "h" (XPriv "r1")) (YPt "g")) (YPt "beta"))))
+      Helios.used0
+      ("r0" :: "r1" :: nil)%list
+      (fun inst =>
+         match inst with
+         | List.cons h (List.cons alpha (List.cons beta _)) =>
+             Helios.ballot_genv h alpha beta
+         | _ => fun _ => gone
+         end)
+      4.
+
+  (** A trustee's decryption proof: a conjunction of two equations
+      sharing one secret, so it merges into a single leaf with two
+      announcement elements and one declared secret.  The instance is
+      the trustee's key, the aggregated ciphertext component and the
+      decryption factor. *)
+  Definition helios_decrypt_target : target :=
+    mktarget "helios-decrypt"
+      (TAnd (TEq (YPow "g"  (XPriv "x")) (YPt "pk"))
+            (TEq (YPow "AA" (XPriv "x")) (YPt "M")))
+      Helios.used0
+      ("x" :: nil)%list
+      (fun inst =>
+         match inst with
+         | List.cons pk (List.cons aggr (List.cons fac _)) =>
+             Helios.decrypt_genv pk aggr fac
+         | _ => fun _ => gone
+         end)
+      2.
+
+  Definition all_targets : list target :=
+    (helios_ballot_target :: helios_decrypt_target :: nil)%list.
 
   (** ** What an accepted transcript proves
 
@@ -432,25 +547,54 @@ Section Recover.
       to compile, its rejection would say nothing about the
       protocol. *)
 
-  Example candidate_count_value : candidate_count = 390%nat.
+  Example ballot_candidate_count :
+    target_candidate_count helios_ballot_target = 390%nat.
   Proof. vm_compute; reflexivity. Qed.
 
-  Example cand_elab_left :
-    match elabC Helios.used0 (ballot_stmt_or OLeft) with
+  Example decrypt_candidate_count :
+    target_candidate_count helios_decrypt_target = 30%nat.
+  Proof. vm_compute; reflexivity. Qed.
+
+  (** Both targets elaborate under both readings, so the search is
+      over compiled protocols rather than over strings. *)
+  Example ballot_elab_left :
+    match elabC (tg_used helios_ballot_target)
+            (cand_stmt helios_ballot_target (mkcand OLeft nil IAnnOnly)) with
     | Some _ => true | None => false end = true.
   Proof. vm_compute; reflexivity. Qed.
 
-  Example cand_elab_right :
-    match elabC Helios.used0 (ballot_stmt_or ORight) with
+  Example ballot_elab_right :
+    match elabC (tg_used helios_ballot_target)
+            (cand_stmt helios_ballot_target (mkcand ORight nil IAnnOnly)) with
     | Some _ => true | None => false end = true.
   Proof. vm_compute; reflexivity. Qed.
 
-  Example cand_disj_left :
-    disj_inv (vdec := String.string_dec) (cand_core (mkcand OLeft (List.seq 0 ann_width) IAnnOnly)) = true.
+  Example decrypt_elab_left :
+    match elabC (tg_used helios_decrypt_target)
+            (cand_stmt helios_decrypt_target (mkcand OLeft nil IAnnOnly)) with
+    | Some _ => true | None => false end = true.
   Proof. vm_compute; reflexivity. Qed.
 
-  Example cand_disj_right :
-    disj_inv (vdec := String.string_dec) (cand_core (mkcand ORight (List.seq 0 ann_width) IAnnOnly)) = true.
+  Example decrypt_elab_right :
+    match elabC (tg_used helios_decrypt_target)
+            (cand_stmt helios_decrypt_target (mkcand ORight nil IAnnOnly)) with
+    | Some _ => true | None => false end = true.
+  Proof. vm_compute; reflexivity. Qed.
+
+  (** And both pass the well-formedness checker under both readings. *)
+  Example ballot_disj_left :
+    disj_inv (vdec := String.string_dec)
+      (cand_core helios_ballot_target (mkcand OLeft nil IAnnOnly)) = true.
+  Proof. vm_compute; reflexivity. Qed.
+
+  Example ballot_disj_right :
+    disj_inv (vdec := String.string_dec)
+      (cand_core helios_ballot_target (mkcand ORight nil IAnnOnly)) = true.
+  Proof. vm_compute; reflexivity. Qed.
+
+  Example decrypt_disj_left :
+    disj_inv (vdec := String.string_dec)
+      (cand_core helios_decrypt_target (mkcand OLeft nil IAnnOnly)) = true.
   Proof. vm_compute; reflexivity. Qed.
 
 End Recover.
