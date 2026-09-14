@@ -57,7 +57,12 @@ Import VectorNotations.
     Deciding those needs a rank computation over the field, which is
     not verified here.  [leaf_determinedb_spec] makes the boundary
     legible: a [false] says exactly that no row of the leaf separates,
-    which is a statement about the leaf and not about the checker. *)
+    which is a statement about the leaf and not about the checker.
+
+    LeafStatus.v bundles the tests of this file with the vacuity
+    checks of Vacuity.v behind one call that returns a verdict
+    carrying its own evidence.  That, rather than these booleans, is
+    what a compiler should use. *)
 Section IncidenceDecide.
 
   Context
