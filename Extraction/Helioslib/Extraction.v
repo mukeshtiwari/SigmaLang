@@ -46,4 +46,5 @@ Extract Constant sha256_string =>
 Extract Constant g_to_string => "Big_int_Z.string_of_big_int".
 
 Set Extraction Output Directory ".".
-Separate Extraction Helios Cmz PrivacyPass Recover LeafValidity.
+Separate Extraction Helios Cmz PrivacyPass Recover LeafValidity
+  Nizk.compact_fill Nizk.compact_proj.

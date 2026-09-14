@@ -87,3 +87,38 @@ let verify (l : Cfrg.leaf) (t : Cfrg.transcript) (c : B.big_int) : bool =
     P256.identity P256.add (fun p k -> P256.mul k p)
     (fun p q -> P256.equal p q)
     (leaf_rel l) c (leaf_transcript t)
+
+(* ---------- compact proofs ----------
+ *
+ * A compact proof carries the challenge and the responses but not the
+ * announcement, which the verifier recomputes.  That recomputation is
+ * [compact_fill], and it is verified: comp_compact_recover proves that
+ * compacting an accepted transcript and refilling it at the same
+ * challenge returns the original.  So we use the extracted function
+ * rather than recomputing by hand.
+ *
+ * Verification is then the challenge check.  Rebuild the announcement
+ * from the claimed challenge, derive the challenge the rebuilt
+ * announcement implies, and require the two to agree.  That is where
+ * a compact proof gets its soundness, since the equation holds by
+ * construction. *)
+let fopp a = fsub fzero a
+
+let compact_fill (l : Cfrg.leaf) (c : B.big_int) (resp : B.big_int array)
+  : (B.big_int, P256.t) Composition.comp_transcript =
+  Obj.magic
+    (Nizk.compact_fill
+       fzero fone fadd fmul fsub fopp finv
+       P256.identity P256.add (fun p k -> P256.mul k p)
+       (leaf_rel l) c (Obj.magic (Vector.of_list (Array.to_list resp))))
+
+(* The announcement the recomputation produced, as a list of points in
+   the order the hash expects. *)
+let recovered_commitment (m : int)
+    (t : (B.big_int, P256.t) Composition.comp_transcript) : P256.t array =
+  let (comm, _) =
+    (Obj.magic t : P256.t Vector.t * B.big_int Vector.t) in
+  let rec take k = function
+    | Vector.Coq_nil -> []
+    | Vector.Coq_cons (x, _, tl) -> if k = 0 then [] else x :: take (k-1) tl in
+  Array.of_list (take m comm)

@@ -156,6 +156,44 @@ let () =
              (if ok then "accepted" else "REJECTED"))
         batch;
 
+      (* Compact proofs: the announcement is not transmitted, so the
+         verifier recomputes it and checks that it implies the claimed
+         challenge. The recomputation is the extracted compact_fill,
+         which comp_compact_recover proves faithful. *)
+      let compact_ok (e : Vectors.entry) : bool =
+        try
+          let ib = Vectors.unhex e.Vectors.instance
+          and pb = Vectors.unhex e.Vectors.proof in
+          let inst = Cfrg.parse_instance ib in
+          let leaf = Cfrg.to_leaf inst in
+          let m = Array.length inst.Cfrg.equations
+          and n = Cfrg.num_secrets inst in
+          if String.length pb <> 32 * (1 + n) then false
+          else if not (Verified.leaf_valid leaf) then false
+          else begin
+            let c = Cfrg.scalar_be pb 0 in
+            let resp = Array.init n (fun j -> Cfrg.scalar_be pb (32 * (j+1))) in
+            let t = Verified.compact_fill leaf c resp in
+            let comm = Verified.recovered_commitment m t in
+            let cb =
+              String.concat "" (Array.to_list (Array.map P256.to_bytes comm)) in
+            let c' = Cfrg.derive_challenge ~tag:e.Vectors.tag
+                       ~instance_bytes:ib ~commitment_bytes:cb in
+            Big_int_Z.eq_big_int c c'
+          end
+        with _ -> false in
+      let compact = List.filter (fun e -> e.Vectors.flavor = "compact") all in
+      if compact <> [] then begin
+        Printf.printf "\nCompact vectors: announcement recomputed, not sent\n";
+        List.iter
+          (fun e ->
+             let ok = compact_ok e in
+             if not ok then incr failures;
+             Printf.printf "  %-34s %s\n" e.Vectors.relation
+               (if ok then "accepted" else "REJECTED"))
+          compact
+      end;
+
       (* Negative controls. A verifier that accepts everything would have
          passed every check above; these are the ones that discriminate. *)
       let ipath = Filename.concat dir "sigma-proofs-invalid_Shake128_P256.json" in
@@ -192,9 +230,26 @@ let () =
                  e.Vectors.relation e.Vectors.expected verdict
              end)
           inv;
-        Printf.printf "  %d invalid-file vectors, %d disagreements\n"
+        Printf.printf "  %d batchable, %d disagreements\n"
           (List.length inv) !wrong;
-        if !wrong > 0 then incr failures
+        if !wrong > 0 then incr failures;
+        (* the same for compact proofs, where rejection has to come from
+           the challenge check rather than the equation *)
+        let cinv = List.filter (fun e -> e.Vectors.flavor = "compact")
+                     (Vectors.load ipath) in
+        let cwrong = ref 0 in
+        List.iter
+          (fun e ->
+             let verdict = if compact_ok e then "accept" else "reject" in
+             if verdict <> e.Vectors.expected then begin
+               incr cwrong;
+               Printf.printf "  %-22s wanted %-6s got %-6s  %s\n"
+                 e.Vectors.relation e.Vectors.expected verdict e.Vectors.comment
+             end)
+          cinv;
+        Printf.printf "  %d compact, %d disagreements\n"
+          (List.length cinv) !cwrong;
+        if !cwrong > 0 then incr failures
       end;
 
       Printf.printf "\nSolving for the relation from the transcript alone\n";
