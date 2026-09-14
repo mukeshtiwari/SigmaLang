@@ -1,0 +1,63 @@
+# Claim–evidence map
+
+Working document. Every sentence the paper may assert, with the theorem
+name or the measurement that backs it. Nothing enters prose without a
+row here.
+
+**Thesis.** Σ-protocol soundness is conditional on the statement. We
+characterise which statements make it worth having: decidably, with a
+completeness theorem, on the axis where a checker's limit is that it
+cannot see discrete logarithms; and provably not, on the axis where
+deciding would compute them.
+
+---
+
+## Framing
+
+| # | Claim | Evidence | Status |
+|---|---|---|---|
+| F1 | A verified compiler guarantees you prove the statement you wrote, not that the statement says anything | `Dsl.compile_protocol_soundness` concludes `∃ wenv, stmt_denote wenv s`; `CompVacuity.zero_threshold_is_free` exhibits an `s` anyone satisfies; `Dsl.compile` admits `SThresh 0` | supported |
+| F2 | The determination question is not new | Picus/QED² (PLDI 2023), read directly | supported |
+| F3 | No completeness characterisation exists, in any setting | Picus: *"this algorithm is incomplete, so it can also return ?"*, soundness proofs for inference rules only; ZKCrypt, CSF 2010, ESORICS 2010, sigma-rs source, Coda — all checklists or tools | supported |
+| F4 | In our setting the obstruction is invisibility, not nonlinearity, which is why a completeness-relative-to-visibility theorem is meaningful here and vacuous for circuits | `IncidenceComplete.field_as_vector_space` + `relabelling_refutes`; for R1CS the visible and actual kernels coincide | supported |
+
+## Theory
+
+| # | Claim | Evidence | Status |
+|---|---|---|---|
+| T1 | Determination reduces to triviality of the kernel — there is exactly one thing to look for | `Degeneracy.determination_is_trivial_kernel`, `witness_difference_in_kernel` | supported |
+| T2 | Determination is a property of a matrix *together with a claim*, not of a matrix | `Claim.determines`; `determines_full_iff_trivial_kernel`; `dead_column_breaks_full_claim` vs `branch_determines_what_it_claims` | supported — and forced by the corpus, not designed in advance |
+| T3 | Incidence solutions are kernel vectors in every group, with no assumption | `Degeneracy.incidence_zero_in_kernel` | supported |
+| T4 | The incidence system is exactly the structurally visible kernel | `IncidenceComplete.incidence_zero_iff_relabellings`, `relabelling_refutes` (constructive) | supported |
+| T5 | The satisfiability axis provably does not close | `Vacuity.leaf_satisfiability_is_discrete_log` | supported — phrase as a reduction under the DL assumption, NOT as undecidability |
+| T6 | A statement tree is provable-by-anyone in exactly two ways | `CompVacuity.tree_not_freeb_sound`, `zero_threshold_fails_the_test` | supported |
+| T7 | Both verdicts are certified; the search is untrusted | `IncidenceDecide.reject_certificate_sound`, `Claim.claimed_certificate_refutes`, `Determined.combo_checkb_sound`, `LeafStatus.classify_leaf_sound` | supported |
+| T8 | The sufficient acceptance test is incomplete, and here is the boundary | `IncidenceDecide.two_rows_pin_what_no_row_pins` | supported |
+
+## Findings about existing artefacts
+
+| # | Claim | Evidence | Status |
+|---|---|---|---|
+| A1 | Our own checker was wrong in both directions | `Vacuity.target_live_rejects_a_sound_leaf`, `empty_leaf_accepted`, `dead_row_unsatisfiable`, `Degeneracy.three_column_counterexample` | supported |
+| A2 | A statement sigma-rs accepts can fail to determine its witness | `Evidence/sigmalang_counterexample.rs`, run against sigma-rs 0.3.2: validation ACCEPTED, witnesses (3,5,11) and (4,4,12), images identical | **demonstrated** — executable test in their harness, not a reading |
+| A3 | ~~sigma-rs Check 9 is stronger than its justification~~ | — | **dropped**: Check 9 no longer exists at HEAD |
+| A4 | Claims about what sigma-rs checks must name a commit | the vectors' commit ran ten numbered checks; 0.3.2 keeps count agreement, assignment, skipping trivially-true equations, an image identity check, and rejection of non-trivial homogeneous equations | supported by reading both versions |
+| A5 | sigma-rs's `"Trivial kernel in this relation"` is a misnomer: it is vacuity, not the kernel of the linear map | `canonical.rs:471-473` fires when image equals constant term, i.e. the all-zero witness works — our `leaf_vacuous_iff_neutral_targets`; determination is unaddressed there | supported — do not repeat their wording |
+
+## Measurements
+
+| # | Claim | Evidence | Status |
+|---|---|---|---|
+| M1 | 13,072 leaves from a deployed Helios election: all determined, 0 degenerate, 0 undecided | IACR2024, 932 ballots, 6,524 ballot proofs, tally matches | supported |
+| M2 | CMZ 10/10, Privacy Pass 6/6, CFRG P-256 relations 7/7 determined | driver runs | supported |
+| M3 | The criterion fires exactly on the draft's instance-validation controls | E1/E1b `DEGENERATE` with checked witness, E2 `VACUOUS`; E3/E4 rejected below the theory, at the SEC1 decoder and an index bound | supported |
+| M4 | **No deployed statement was found degenerate** | all corpora | supported — this is a NEGATIVE result and the paper must say so |
+
+## Claims not to make
+
+- "first verified compiler for ZK statements" — ZKCrypt (CCS 2012) has priority
+- "nobody has asked whether statements determine their witness" — Picus has
+- "undecidable" — it is a reduction under the DL assumption; the group is finite
+- "we found a vulnerability" — we did not
+- "the CFRG draft's validation accepts X" — the validation is sigma-rs's; draft -02 has no validation section
+- "sigma-rs performs ten instance checks" without a commit — at 0.3.2 most are gone
