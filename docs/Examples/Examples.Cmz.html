@@ -1,0 +1,558 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<title>Examples.Cmz</title>
+</head>
+
+<body>
+
+<div id="page">
+
+<div id="header">
+</div>
+
+<div id="main">
+
+<h1 class="libtitle">Library Examples.Cmz</h1>
+
+<div class="code">
+<span class="id" title="keyword">From</span> <span class="id" title="var">Stdlib</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <span class="id" title="library">Utf8</span> <span class="id" title="library">ZArith</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">Vector</span> <span class="id" title="library">String</span> <span class="id" title="library">List</span> <span class="id" title="library">Ascii</span> <span class="id" title="library">Znumtheory</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">DecimalString</span> <span class="id" title="library">DecimalZ</span> <span class="id" title="library">Decimal</span> <span class="id" title="library">Lia</span>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Algebra</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <span class="id" title="library">Hierarchy</span>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Utility</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <span class="id" title="library">Zpstar</span> <span class="id" title="library">StringInj</span>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Crypto</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <span class="id" title="library">Sigma</span>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Compiler</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span><br/>
+&nbsp;&nbsp;<span class="id" title="library">LinearRelation</span> <span class="id" title="library">Composition</span> <span class="id" title="library">Dsl</span> <span class="id" title="library">Surface</span> <span class="id" title="library">VarType</span> <span class="id" title="library">Nizk</span> <span class="id" title="library">Serialization</span> <span class="id" title="library">Decide</span>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Examples</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Examples.Helios.html#"><span class="id" title="library">Helios</span></a>.<br/>
+<span class="id" title="keyword">Import</span> <span class="id" title="module">Vspace</span> <span class="id" title="module">Schnorr</span> <span class="id" title="module">Zpfield</span> <span class="id" title="module">VectorNotations</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab1"></a><h1 class="section">CMZ: keyed-verification anonymous credentials</h1>
+
+
+<div class="paragraph"> </div>
+
+    CMZ credentials let someone prove they hold a credential, and
+    prove facts about the attributes inside it, while revealing
+    neither the credential nor the attributes.  The scheme is due to
+    Chase, Meiklejohn and Zaverucha; the Rust implementation this
+    file follows is Goldberg's <span class="inlinecode"><span class="id" title="var">cmz</span></span> crate, which compiles its
+    protocols into the <span class="inlinecode"><span class="id" title="var">sigma</span>-<span class="id" title="var">compiler</span></span> crate.
+
+<div class="paragraph"> </div>
+
+<a id="lab2"></a><h2 class="section">The shape of the thing</h2>
+
+
+<div class="paragraph"> </div>
+
+    A credential holds some number of attributes, which are secret
+    scalars, and a message authentication code, which is a pair of
+    group elements.  Only the issuer can check a credential, because
+    checking needs the same secret key that made it.
+
+<div class="paragraph"> </div>
+
+    Showing a credential works like this.  The holder rerandomises
+    the MAC so the issuer cannot recognise it, publishes a Pedersen
+    commitment to each attribute it wishes to hide, and proves in
+    zero knowledge that those commitments open to the attributes of a
+    credential the issuer once signed.  The issuer, who knows the key,
+    can then check validity without learning the attributes.
+
+<div class="paragraph"> </div>
+
+<a id="lab3"></a><h2 class="section">Why this fits</h2>
+
+
+<div class="paragraph"> </div>
+
+    Everything CMZ proves is linear.  The <span class="inlinecode"><span class="id" title="var">sigma</span>-<span class="id" title="var">compiler</span></span> crate it
+    targets forbids multiplying two private subexpressions and
+    forbids multiplying two points, which is exactly the condition
+    our <span class="inlinecode"><span class="id" title="var">Leaf</span></span> implements.  Where the underlying arithmetic really is
+    bilinear the scheme publishes an intermediate point and states
+    the relation against that instead, so no equation ever contains a
+    product of two secrets.
+
+<div class="paragraph"> </div>
+
+<a id="lab4"></a><h2 class="section">What is parameterised, and where</h2>
+
+
+<div class="paragraph"> </div>
+
+    Unlike the Helios statements, which are one fixed shape, a CMZ
+    statement depends on how many attributes the credential has and
+    which of them are being hidden.  The Rust implementation handles
+    that with a procedural macro that generates code at compile time.
+
+<div class="paragraph"> </div>
+
+    Here a statement is ordinary data, so the same thing is a
+    function: <span class="inlinecode"><span class="id" title="var">show_stmt</span></span> and <span class="inlinecode"><span class="id" title="var">issue_stmt</span></span> below take the attribute
+    count and build the statement.  The count can therefore be a
+    runtime value, decided when the credential type is, rather than
+    baked into generated source.  Everything else follows the same
+    division as Helios.v: the statement, its compilation and the
+    Fiat-Shamir binding are here, and the actual group elements and
+    attribute values arrive from OCaml.
+
+<div class="paragraph"> </div>
+
+    The group below is the one Helios.v already sets up, reused so
+    this file needs no primality work of its own.  A deployment would
+    use a prime-order elliptic curve such as Ristretto instead; the
+    statements do not change. 
+</div>
+<div class="code">
+<span class="id" title="keyword">Section</span> <a id="Cmz" class="idref" href="#Cmz"><span class="id" title="section">Cmz</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab5"></a><h2 class="section">The ambient group</h2>
+
+
+<div class="paragraph"> </div>
+
+      Everything is inherited from Helios.v, purely to avoid
+      duplicating the parameters and their certificates.  Nothing
+      about CMZ depends on this choice. 
+</div>
+<div class="code">
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Notation</span> <a id="F" class="idref" href="#F"><span class="id" title="abbreviation">F</span></a> := <a class="idref" href="Examples.Helios.html#F"><span class="id" title="definition">Helios.F</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Notation</span> <a id="G" class="idref" href="#G"><span class="id" title="abbreviation">G</span></a> := <a class="idref" href="Examples.Helios.html#G"><span class="id" title="definition">Helios.G</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Notation</span> <a id="fzero" class="idref" href="#fzero"><span class="id" title="abbreviation">fzero</span></a> := <a class="idref" href="Examples.Helios.html#fzero"><span class="id" title="definition">Helios.fzero</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Notation</span> <a id="fone" class="idref" href="#fone"><span class="id" title="abbreviation">fone</span></a> := <a class="idref" href="Examples.Helios.html#fone"><span class="id" title="definition">Helios.fone</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Notation</span> <a id="fadd" class="idref" href="#fadd"><span class="id" title="abbreviation">fadd</span></a> := <a class="idref" href="Examples.Helios.html#fadd"><span class="id" title="definition">Helios.fadd</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Notation</span> <a id="fmul" class="idref" href="#fmul"><span class="id" title="abbreviation">fmul</span></a> := <a class="idref" href="Examples.Helios.html#fmul"><span class="id" title="definition">Helios.fmul</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Notation</span> <a id="fsub" class="idref" href="#fsub"><span class="id" title="abbreviation">fsub</span></a> := <a class="idref" href="Examples.Helios.html#fsub"><span class="id" title="definition">Helios.fsub</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Notation</span> <a id="fdiv" class="idref" href="#fdiv"><span class="id" title="abbreviation">fdiv</span></a> := <a class="idref" href="Examples.Helios.html#fdiv"><span class="id" title="definition">Helios.fdiv</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Notation</span> <a id="fopp" class="idref" href="#fopp"><span class="id" title="abbreviation">fopp</span></a> := <a class="idref" href="Examples.Helios.html#fopp"><span class="id" title="definition">Helios.fopp</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Notation</span> <a id="finv" class="idref" href="#finv"><span class="id" title="abbreviation">finv</span></a> := <a class="idref" href="Examples.Helios.html#finv"><span class="id" title="definition">Helios.finv</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Notation</span> <a id="fdec" class="idref" href="#fdec"><span class="id" title="abbreviation">fdec</span></a> := <a class="idref" href="Examples.Helios.html#fdec"><span class="id" title="definition">Helios.fdec</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Notation</span> <a id="gone" class="idref" href="#gone"><span class="id" title="abbreviation">gone</span></a> := <a class="idref" href="Examples.Helios.html#gone"><span class="id" title="definition">Helios.gone</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Notation</span> <a id="gmul" class="idref" href="#gmul"><span class="id" title="abbreviation">gmul</span></a> := <a class="idref" href="Examples.Helios.html#gmul"><span class="id" title="definition">Helios.gmul</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Notation</span> <a id="gpow" class="idref" href="#gpow"><span class="id" title="abbreviation">gpow</span></a> := <a class="idref" href="Examples.Helios.html#gpow"><span class="id" title="definition">Helios.gpow</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Notation</span> <a id="gdec" class="idref" href="#gdec"><span class="id" title="abbreviation">gdec</span></a> := <a class="idref" href="Examples.Helios.html#gdec"><span class="id" title="definition">Helios.gdec</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Notation</span> <a id="ginv_g" class="idref" href="#ginv_g"><span class="id" title="abbreviation">ginv_g</span></a> := <a class="idref" href="Examples.Helios.html#ginv_g"><span class="id" title="definition">Helios.ginv_g</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Notation</span> <a id="Hvec" class="idref" href="#Hvec"><span class="id" title="abbreviation">Hvec</span></a> := <a class="idref" href="Examples.Helios.html#Hvec"><span class="id" title="definition">Helios.Hvec</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Open</span> <span class="id" title="keyword">Scope</span> <span class="id" title="var">string_scope</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab6"></a><h2 class="section">Generated names</h2>
+
+
+<div class="paragraph"> </div>
+
+      A statement over <span class="inlinecode"><span class="id" title="var">k</span></span> attributes needs <span class="inlinecode"><span class="id" title="var">k</span></span> attribute names, <span class="inlinecode"><span class="id" title="var">k</span></span>
+      randomiser names and so on, so the names are generated rather
+      than written out.  <span class="inlinecode"><span class="id" title="var">ix</span></span> <span class="inlinecode"><span class="id" title="var">base</span></span> <span class="inlinecode"><span class="id" title="var">i</span></span> is <span class="inlinecode"><span class="id" title="var">base</span></span> followed by <span class="inlinecode"><span class="id" title="var">i</span></span> in
+      decimal. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="ix" class="idref" href="#ix"><span class="id" title="definition">ix</span></a> (<a id="base:1" class="idref" href="#base:1"><span class="id" title="binder">base</span></a> : <span class="id" title="inductive">string</span>) (<a id="i:2" class="idref" href="#i:2"><span class="id" title="binder">i</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <span class="id" title="inductive">string</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="definition">String.append</span> <a class="idref" href="Examples.Cmz.html#base:1"><span class="id" title="variable">base</span></a> (<span class="id" title="definition">NilEmpty.string_of_uint</span> (<span class="id" title="definition">Nat.to_uint</span> <a class="idref" href="Examples.Cmz.html#i:2"><span class="id" title="variable">i</span></a>)).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The private scalars of a showing proof: one attribute and one
+      commitment randomiser per attribute, plus the randomiser of the
+      validity equation. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="a_" class="idref" href="#a_"><span class="id" title="definition">a_</span></a> (<a id="i:3" class="idref" href="#i:3"><span class="id" title="binder">i</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <span class="id" title="inductive">string</span> := <a class="idref" href="Examples.Cmz.html#ix"><span class="id" title="definition">ix</span></a> "a" <a class="idref" href="Examples.Cmz.html#i:3"><span class="id" title="variable">i</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="z_" class="idref" href="#z_"><span class="id" title="definition">z_</span></a> (<a id="i:4" class="idref" href="#i:4"><span class="id" title="binder">i</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <span class="id" title="inductive">string</span> := <a class="idref" href="Examples.Cmz.html#ix"><span class="id" title="definition">ix</span></a> "z" <a class="idref" href="Examples.Cmz.html#i:4"><span class="id" title="variable">i</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="zQ" class="idref" href="#zQ"><span class="id" title="definition">zQ</span></a> : <span class="id" title="inductive">string</span> := "zQ".<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The public points: the Pedersen bases <span class="inlinecode"><span class="id" title="var">A</span></span> and <span class="inlinecode"><span class="id" title="var">B</span></span>, the
+      rerandomised MAC point <span class="inlinecode"><span class="id" title="var">P</span></span>, the issuer's per-attribute public
+      keys <span class="inlinecode"><span class="id" title="var">X_i</span></span>, the commitments <span class="inlinecode"><span class="id" title="var">C_i</span></span> the holder publishes, and the
+      validity target <span class="inlinecode"><span class="id" title="var">V</span></span>. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="X_" class="idref" href="#X_"><span class="id" title="definition">X_</span></a> (<a id="i:5" class="idref" href="#i:5"><span class="id" title="binder">i</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <span class="id" title="inductive">string</span> := <a class="idref" href="Examples.Cmz.html#ix"><span class="id" title="definition">ix</span></a> "X" <a class="idref" href="Examples.Cmz.html#i:5"><span class="id" title="variable">i</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="C_" class="idref" href="#C_"><span class="id" title="definition">C_</span></a> (<a id="i:6" class="idref" href="#i:6"><span class="id" title="binder">i</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <span class="id" title="inductive">string</span> := <a class="idref" href="Examples.Cmz.html#ix"><span class="id" title="definition">ix</span></a> "C" <a class="idref" href="Examples.Cmz.html#i:6"><span class="id" title="variable">i</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<span class="inlinecode"><span class="id" title="var">seq_list</span></span> <span class="inlinecode"><span class="id" title="var">k</span></span> is <span class="inlinecode">0,</span> <span class="inlinecode">1,</span> <span class="inlinecode">...,</span> <span class="inlinecode"><span class="id" title="var">k</span>-1</span>, the attribute indices. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="seq_list" class="idref" href="#seq_list"><span class="id" title="definition">seq_list</span></a> (<a id="k:7" class="idref" href="#k:7"><span class="id" title="binder">k</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a> := <span class="id" title="abbreviation">List.seq</span> 0 <a class="idref" href="Examples.Cmz.html#k:7"><span class="id" title="variable">k</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab7"></a><h2 class="section">The statements</h2>
+
+<div class="paragraph"> </div>
+
+ The product over the attributes of <span class="inlinecode"><span class="id" title="var">X_i</span></span> raised to <span class="inlinecode"><span class="id" title="var">z_i</span></span>,
+      folded into a point expression.  This is the sum that makes a
+      CMZ statement depend on the attribute count. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Fixpoint</span> <a id="zX_prod" class="idref" href="#zX_prod"><span class="id" title="definition">zX_prod</span></a> (<a id="idxs:8" class="idref" href="#idxs:8"><span class="id" title="binder">idxs</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : @<span class="id" title="inductive">gexpr</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <span class="id" title="inductive">string</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Examples.Cmz.html#idxs:8"><span class="id" title="variable">idxs</span></a> <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <span class="id" title="abbreviation">List.nil</span> ⇒ <span class="id" title="constructor">YOne</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <span class="id" title="abbreviation">List.cons</span> <span class="id" title="var">i</span> <span class="id" title="var">r</span> ⇒ <span class="id" title="constructor">YMul</span> (<span class="id" title="constructor">YPow</span> (<a class="idref" href="Examples.Cmz.html#X_"><span class="id" title="definition">X_</span></a> <span class="id" title="var">i</span>) (<span class="id" title="constructor">XPriv</span> (<a class="idref" href="Examples.Cmz.html#z_"><span class="id" title="definition">z_</span></a> <span class="id" title="var">i</span>))) (<a class="idref" href="Examples.Cmz.html#zX_prod:9"><span class="id" title="definition">zX_prod</span></a> <span class="id" title="var">r</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">end</span>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Fixpoint</span> <a id="aX_prod" class="idref" href="#aX_prod"><span class="id" title="definition">aX_prod</span></a> (<a id="idxs:11" class="idref" href="#idxs:11"><span class="id" title="binder">idxs</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : @<span class="id" title="inductive">gexpr</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <span class="id" title="inductive">string</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Examples.Cmz.html#idxs:11"><span class="id" title="variable">idxs</span></a> <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <span class="id" title="abbreviation">List.nil</span> ⇒ <span class="id" title="constructor">YOne</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <span class="id" title="abbreviation">List.cons</span> <span class="id" title="var">i</span> <span class="id" title="var">r</span> ⇒ <span class="id" title="constructor">YMul</span> (<span class="id" title="constructor">YPow</span> (<a class="idref" href="Examples.Cmz.html#X_"><span class="id" title="definition">X_</span></a> <span class="id" title="var">i</span>) (<span class="id" title="constructor">XPriv</span> (<a class="idref" href="Examples.Cmz.html#a_"><span class="id" title="definition">a_</span></a> <span class="id" title="var">i</span>))) (<a class="idref" href="Examples.Cmz.html#aX_prod:12"><span class="id" title="definition">aX_prod</span></a> <span class="id" title="var">r</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">end</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+One commitment equation: the holder's commitment to attribute
+      <span class="inlinecode"><span class="id" title="var">i</span></span> opens to <span class="inlinecode"><span class="id" title="var">a_i</span></span> under the rerandomised MAC point <span class="inlinecode"><span class="id" title="var">P</span></span>, blinded
+      by <span class="inlinecode"><span class="id" title="var">z_i</span></span> under the base <span class="inlinecode"><span class="id" title="var">A</span></span>.
+
+<div class="paragraph"> </div>
+
+      The secret side is written on the left.  That is not cosmetic:
+      <span class="inlinecode"><span class="id" title="var">TEq</span></span> <span class="inlinecode"><span class="id" title="var">a</span></span> <span class="inlinecode"><span class="id" title="var">b</span></span> elaborates to <span class="inlinecode"><span class="id" title="var">a</span></span> times the inverse of <span class="inlinecode"><span class="id" title="var">b</span></span>, so the
+      side carrying the secrets keeps positive exponents in the
+      compiled matrix while the other becomes the public target. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="commit_eq_i" class="idref" href="#commit_eq_i"><span class="id" title="definition">commit_eq_i</span></a> (<a id="i:14" class="idref" href="#i:14"><span class="id" title="binder">i</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : @<span class="id" title="inductive">sstmt</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <span class="id" title="inductive">string</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="constructor">TEq</span> (<span class="id" title="constructor">YMul</span> (<span class="id" title="constructor">YPow</span> "P" (<span class="id" title="constructor">XPriv</span> (<a class="idref" href="Examples.Cmz.html#a_"><span class="id" title="definition">a_</span></a> <a class="idref" href="Examples.Cmz.html#i:14"><span class="id" title="variable">i</span></a>))) (<span class="id" title="constructor">YPow</span> "A" (<span class="id" title="constructor">XPriv</span> (<a class="idref" href="Examples.Cmz.html#z_"><span class="id" title="definition">z_</span></a> <a class="idref" href="Examples.Cmz.html#i:14"><span class="id" title="variable">i</span></a>))))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="constructor">YPt</span> (<a class="idref" href="Examples.Cmz.html#C_"><span class="id" title="definition">C_</span></a> <a class="idref" href="Examples.Cmz.html#i:14"><span class="id" title="variable">i</span></a>)).<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Fixpoint</span> <a id="commit_eqs" class="idref" href="#commit_eqs"><span class="id" title="definition">commit_eqs</span></a> (<a id="idxs:15" class="idref" href="#idxs:15"><span class="id" title="binder">idxs</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : @<span class="id" title="inductive">sstmt</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <span class="id" title="inductive">string</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Examples.Cmz.html#idxs:15"><span class="id" title="variable">idxs</span></a> <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <span class="id" title="abbreviation">List.nil</span> ⇒ <span class="id" title="constructor">TEq</span> <span class="id" title="constructor">YOne</span> <span class="id" title="constructor">YOne</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <span class="id" title="abbreviation">List.cons</span> <span class="id" title="var">i</span> <span class="id" title="abbreviation">List.nil</span> ⇒ <a class="idref" href="Examples.Cmz.html#commit_eq_i"><span class="id" title="definition">commit_eq_i</span></a> <span class="id" title="var">i</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <span class="id" title="abbreviation">List.cons</span> <span class="id" title="var">i</span> <span class="id" title="var">r</span> ⇒ <span class="id" title="constructor">TAnd</span> (<a class="idref" href="Examples.Cmz.html#commit_eq_i"><span class="id" title="definition">commit_eq_i</span></a> <span class="id" title="var">i</span>) (<a class="idref" href="Examples.Cmz.html#commit_eqs:16"><span class="id" title="definition">commit_eqs</span></a> <span class="id" title="var">r</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">end</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The validity equation.  The issuer recomputes <span class="inlinecode"><span class="id" title="var">V</span></span> from its own
+      secret key; the holder recomputes it from the blinding factors
+      it chose.  The two agree exactly when the committed attributes
+      are those of a credential the issuer signed, which is what makes
+      the MAC check linear. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="validity_eq" class="idref" href="#validity_eq"><span class="id" title="definition">validity_eq</span></a> (<a id="k:18" class="idref" href="#k:18"><span class="id" title="binder">k</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : @<span class="id" title="inductive">sstmt</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <span class="id" title="inductive">string</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="constructor">TEq</span> (<span class="id" title="constructor">YMul</span> (<span class="id" title="constructor">YPow</span> "B" (<span class="id" title="constructor">XPriv</span> <a class="idref" href="Examples.Cmz.html#zQ"><span class="id" title="definition">zQ</span></a>)) (<a class="idref" href="Examples.Cmz.html#zX_prod"><span class="id" title="definition">zX_prod</span></a> (<a class="idref" href="Examples.Cmz.html#seq_list"><span class="id" title="definition">seq_list</span></a> <a class="idref" href="Examples.Cmz.html#k:18"><span class="id" title="variable">k</span></a>))) (<span class="id" title="constructor">YPt</span> "V").<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Showing a credential with <span class="inlinecode"><span class="id" title="var">k</span></span> attributes, all hidden. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="show_stmt" class="idref" href="#show_stmt"><span class="id" title="definition">show_stmt</span></a> (<a id="k:19" class="idref" href="#k:19"><span class="id" title="binder">k</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : @<span class="id" title="inductive">sstmt</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <span class="id" title="inductive">string</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="constructor">TAnd</span> (<a class="idref" href="Examples.Cmz.html#commit_eqs"><span class="id" title="definition">commit_eqs</span></a> (<a class="idref" href="Examples.Cmz.html#seq_list"><span class="id" title="definition">seq_list</span></a> <a class="idref" href="Examples.Cmz.html#k:19"><span class="id" title="variable">k</span></a>)) (<a class="idref" href="Examples.Cmz.html#validity_eq"><span class="id" title="definition">validity_eq</span></a> <a class="idref" href="Examples.Cmz.html#k:19"><span class="id" title="variable">k</span></a>).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Requesting issuance of a credential with <span class="inlinecode"><span class="id" title="var">k</span></span> attributes, all
+      hidden from the issuer: one blinded commitment carrying every
+      attribute at once, blinded by <span class="inlinecode"><span class="id" title="var">s</span></span>. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="issue_stmt" class="idref" href="#issue_stmt"><span class="id" title="definition">issue_stmt</span></a> (<a id="k:20" class="idref" href="#k:20"><span class="id" title="binder">k</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : @<span class="id" title="inductive">sstmt</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <span class="id" title="inductive">string</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="constructor">TEq</span> (<span class="id" title="constructor">YMul</span> (<span class="id" title="constructor">YPow</span> "A" (<span class="id" title="constructor">XPriv</span> "s")) (<a class="idref" href="Examples.Cmz.html#aX_prod"><span class="id" title="definition">aX_prod</span></a> (<a class="idref" href="Examples.Cmz.html#seq_list"><span class="id" title="definition">seq_list</span></a> <a class="idref" href="Examples.Cmz.html#k:20"><span class="id" title="variable">k</span></a>))) (<span class="id" title="constructor">YPt</span> "C").<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The issuer's own proof, that it issued with the key it
+      published.  <span class="inlinecode"><span class="id" title="var">P</span></span> <span class="inlinecode">=</span> <span class="inlinecode"><span class="id" title="var">b</span></span> <span class="inlinecode">×</span> <span class="inlinecode"><span class="id" title="var">A</span></span> fixes the MAC point it chose, <span class="inlinecode"><span class="id" title="var">X0</span></span> <span class="inlinecode">=</span> <span class="inlinecode"><span class="id" title="var">x0</span></span> <span class="inlinecode">×</span>
+      <span class="inlinecode"><span class="id" title="var">B</span></span> its public key (named <span class="inlinecode"><span class="id" title="var">PK0</span></span> to keep it clear of the
+      attribute keys <span class="inlinecode"><span class="id" title="var">X0</span></span>, <span class="inlinecode"><span class="id" title="var">X1</span></span> and so on), and <span class="inlinecode"><span class="id" title="var">R</span></span> ties the two
+      together.  The bilinear
+      fact behind <span class="inlinecode"><span class="id" title="var">R</span></span> is linearised by publishing <span class="inlinecode"><span class="id" title="var">P</span></span> first and
+      writing <span class="inlinecode"><span class="id" title="var">R</span></span> against it, so no equation multiplies two secrets. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="issuer_stmt" class="idref" href="#issuer_stmt"><span class="id" title="definition">issuer_stmt</span></a> : @<span class="id" title="inductive">sstmt</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <span class="id" title="inductive">string</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="constructor">TAnd</span> (<span class="id" title="constructor">TAnd</span> (<span class="id" title="constructor">TEq</span> (<span class="id" title="constructor">YPow</span> "A" (<span class="id" title="constructor">XPriv</span> "b"))  (<span class="id" title="constructor">YPt</span> "P"))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="constructor">TEq</span> (<span class="id" title="constructor">YPow</span> "B" (<span class="id" title="constructor">XPriv</span> "x0")) (<span class="id" title="constructor">YPt</span> "PK0")))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="constructor">TEq</span> (<span class="id" title="constructor">YMul</span> (<span class="id" title="constructor">YPow</span> "P" (<span class="id" title="constructor">XPriv</span> "x0")) (<span class="id" title="constructor">YPow</span> "K" (<span class="id" title="constructor">XPriv</span> "b"))) (<span class="id" title="constructor">YPt</span> "R")).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab8"></a><h2 class="section">Names in play</h2>
+
+
+<div class="paragraph"> </div>
+
+      Elaboration needs the set of names already in use, so that the
+      gadgets can draw fresh ones.  Neither statement uses a gadget,
+      but the interface still asks. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="show_names" class="idref" href="#show_names"><span class="id" title="definition">show_names</span></a> (<a id="k:21" class="idref" href="#k:21"><span class="id" title="binder">k</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <span class="id" title="inductive">string</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="abbreviation">List.app</span> ("A"<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a>"B"<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a>"P"<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a>"V"<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a><a class="idref" href="Examples.Cmz.html#zQ"><span class="id" title="definition">zQ</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a>"s"<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a>"C"<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a>"K"<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a>"PK0"<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a>"R"<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a><span class="id" title="abbreviation">nil</span>)%<span class="id" title="var">list</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="definition">List.flat_map</span> (<span class="id" title="keyword">fun</span> <a id="i:22" class="idref" href="#i:22"><span class="id" title="binder">i</span></a> ⇒ (<a class="idref" href="Examples.Cmz.html#a_"><span class="id" title="definition">a_</span></a> <a class="idref" href="Examples.Cmz.html#i:22"><span class="id" title="variable">i</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a> <a class="idref" href="Examples.Cmz.html#z_"><span class="id" title="definition">z_</span></a> <a class="idref" href="Examples.Cmz.html#i:22"><span class="id" title="variable">i</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a> <a class="idref" href="Examples.Cmz.html#X_"><span class="id" title="definition">X_</span></a> <a class="idref" href="Examples.Cmz.html#i:22"><span class="id" title="variable">i</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a> <a class="idref" href="Examples.Cmz.html#C_"><span class="id" title="definition">C_</span></a> <a class="idref" href="Examples.Cmz.html#i:22"><span class="id" title="variable">i</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a> <span class="id" title="abbreviation">nil</span>)%<span class="id" title="var">list</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<a class="idref" href="Examples.Cmz.html#seq_list"><span class="id" title="definition">seq_list</span></a> <a class="idref" href="Examples.Cmz.html#k:21"><span class="id" title="variable">k</span></a>)).<br/>
+
+<br/>
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="elabC" class="idref" href="#elabC"><span class="id" title="abbreviation">elabC</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;(@<span class="id" title="definition">elab</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <a class="idref" href="Examples.Cmz.html#fzero"><span class="id" title="abbreviation">fzero</span></a> <a class="idref" href="Examples.Cmz.html#fone"><span class="id" title="abbreviation">fone</span></a> <a class="idref" href="Examples.Cmz.html#fadd"><span class="id" title="abbreviation">fadd</span></a> <a class="idref" href="Examples.Cmz.html#fopp"><span class="id" title="abbreviation">fopp</span></a> <span class="id" title="inductive">string</span> <span class="id" title="instance">VarTypeString</span> "A" "B").<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="core_of" class="idref" href="#core_of"><span class="id" title="definition">core_of</span></a> (<a id="k:23" class="idref" href="#k:23"><span class="id" title="binder">k</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) (<a id="s:24" class="idref" href="#s:24"><span class="id" title="binder">s</span></a> : @<span class="id" title="inductive">sstmt</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <span class="id" title="inductive">string</span>) : @<span class="id" title="inductive">stmt</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <span class="id" title="inductive">string</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Examples.Cmz.html#elabC"><span class="id" title="abbreviation">elabC</span></a> (<a class="idref" href="Examples.Cmz.html#show_names"><span class="id" title="definition">show_names</span></a> <a class="idref" href="Examples.Cmz.html#k:23"><span class="id" title="variable">k</span></a>) <a class="idref" href="Examples.Cmz.html#s:24"><span class="id" title="variable">s</span></a> <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#Some"><span class="id" title="constructor">Some</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">(</span></a><span class="id" title="var">c</span><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">,</span></a> <span class="id" title="var">_</span><a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">)</span></a> ⇒ <span class="id" title="var">c</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#None"><span class="id" title="constructor">None</span></a> ⇒ <span class="id" title="constructor">SEqs</span> <span class="id" title="abbreviation">List.nil</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">end</span>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="show_core" class="idref" href="#show_core"><span class="id" title="definition">show_core</span></a> (<a id="k:25" class="idref" href="#k:25"><span class="id" title="binder">k</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : @<span class="id" title="inductive">stmt</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <span class="id" title="inductive">string</span> := <a class="idref" href="Examples.Cmz.html#core_of"><span class="id" title="definition">core_of</span></a> <a class="idref" href="Examples.Cmz.html#k:25"><span class="id" title="variable">k</span></a> (<a class="idref" href="Examples.Cmz.html#show_stmt"><span class="id" title="definition">show_stmt</span></a> <a class="idref" href="Examples.Cmz.html#k:25"><span class="id" title="variable">k</span></a>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="issue_core" class="idref" href="#issue_core"><span class="id" title="definition">issue_core</span></a> (<a id="k:26" class="idref" href="#k:26"><span class="id" title="binder">k</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : @<span class="id" title="inductive">stmt</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <span class="id" title="inductive">string</span> := <a class="idref" href="Examples.Cmz.html#core_of"><span class="id" title="definition">core_of</span></a> <a class="idref" href="Examples.Cmz.html#k:26"><span class="id" title="variable">k</span></a> (<a class="idref" href="Examples.Cmz.html#issue_stmt"><span class="id" title="definition">issue_stmt</span></a> <a class="idref" href="Examples.Cmz.html#k:26"><span class="id" title="variable">k</span></a>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="issuer_core" class="idref" href="#issuer_core"><span class="id" title="definition">issuer_core</span></a> : @<span class="id" title="inductive">stmt</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <span class="id" title="inductive">string</span> := <a class="idref" href="Examples.Cmz.html#core_of"><span class="id" title="definition">core_of</span></a> 0 <a class="idref" href="Examples.Cmz.html#issuer_stmt"><span class="id" title="definition">issuer_stmt</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab9"></a><h2 class="section">The private scalars</h2>
+
+
+<div class="paragraph"> </div>
+
+      A showing proof knows every attribute, every commitment
+      randomiser, and the randomiser of the validity equation, so
+      <span class="inlinecode">2<span class="id" title="var">k</span></span> <span class="inlinecode">+</span> <span class="inlinecode">1</span> scalars in all. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="show_privs_list" class="idref" href="#show_privs_list"><span class="id" title="definition">show_privs_list</span></a> (<a id="k:27" class="idref" href="#k:27"><span class="id" title="binder">k</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <span class="id" title="inductive">string</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="abbreviation">List.app</span> (<span class="id" title="definition">List.flat_map</span> (<span class="id" title="keyword">fun</span> <a id="i:28" class="idref" href="#i:28"><span class="id" title="binder">i</span></a> ⇒ (<a class="idref" href="Examples.Cmz.html#a_"><span class="id" title="definition">a_</span></a> <a class="idref" href="Examples.Cmz.html#i:28"><span class="id" title="variable">i</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a> <a class="idref" href="Examples.Cmz.html#z_"><span class="id" title="definition">z_</span></a> <a class="idref" href="Examples.Cmz.html#i:28"><span class="id" title="variable">i</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a> <span class="id" title="abbreviation">nil</span>)%<span class="id" title="var">list</span>) (<a class="idref" href="Examples.Cmz.html#seq_list"><span class="id" title="definition">seq_list</span></a> <a class="idref" href="Examples.Cmz.html#k:27"><span class="id" title="variable">k</span></a>))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<a class="idref" href="Examples.Cmz.html#zQ"><span class="id" title="definition">zQ</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a> <span class="id" title="abbreviation">nil</span>)%<span class="id" title="var">list</span>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="issue_privs_list" class="idref" href="#issue_privs_list"><span class="id" title="definition">issue_privs_list</span></a> (<a id="k:29" class="idref" href="#k:29"><span class="id" title="binder">k</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <span class="id" title="inductive">string</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="abbreviation">List.cons</span> "s" (<span class="id" title="abbreviation">List.map</span> <a class="idref" href="Examples.Cmz.html#a_"><span class="id" title="definition">a_</span></a> (<a class="idref" href="Examples.Cmz.html#seq_list"><span class="id" title="definition">seq_list</span></a> <a class="idref" href="Examples.Cmz.html#k:29"><span class="id" title="variable">k</span></a>)).<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="issuer_privs_list" class="idref" href="#issuer_privs_list"><span class="id" title="definition">issuer_privs_list</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <span class="id" title="inductive">string</span> := ("b" <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a> "x0" <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#::list_scope:x_'::'_x"><span class="id" title="notation">::</span></a> <span class="id" title="abbreviation">nil</span>)%<span class="id" title="var">list</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab10"></a><h2 class="section">Checking the statements</h2>
+
+
+<div class="paragraph"> </div>
+
+      These run by computation for a given attribute count.  Four
+      attributes is the size of a typical credential; the checks below
+      fix that, and the driver exercises other sizes at runtime. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="k4" class="idref" href="#k4"><span class="id" title="definition">k4</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a> := 4.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Example</span> <a id="show_elab_ok" class="idref" href="#show_elab_ok"><span class="id" title="definition">show_elab_ok</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Examples.Cmz.html#elabC"><span class="id" title="abbreviation">elabC</span></a> (<a class="idref" href="Examples.Cmz.html#show_names"><span class="id" title="definition">show_names</span></a> <a class="idref" href="Examples.Cmz.html#k4"><span class="id" title="definition">k4</span></a>) (<a class="idref" href="Examples.Cmz.html#show_stmt"><span class="id" title="definition">show_stmt</span></a> <a class="idref" href="Examples.Cmz.html#k4"><span class="id" title="definition">k4</span></a>) <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#Some"><span class="id" title="constructor">Some</span></a> <span class="id" title="var">_</span> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a> | <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#None"><span class="id" title="constructor">None</span></a> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#false"><span class="id" title="constructor">false</span></a> <span class="id" title="keyword">end</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>. <span class="id" title="keyword">vm_compute</span>; <span class="id" title="tactic">reflexivity</span>. <span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Example</span> <a id="issue_elab_ok" class="idref" href="#issue_elab_ok"><span class="id" title="definition">issue_elab_ok</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Examples.Cmz.html#elabC"><span class="id" title="abbreviation">elabC</span></a> (<a class="idref" href="Examples.Cmz.html#show_names"><span class="id" title="definition">show_names</span></a> <a class="idref" href="Examples.Cmz.html#k4"><span class="id" title="definition">k4</span></a>) (<a class="idref" href="Examples.Cmz.html#issue_stmt"><span class="id" title="definition">issue_stmt</span></a> <a class="idref" href="Examples.Cmz.html#k4"><span class="id" title="definition">k4</span></a>) <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#Some"><span class="id" title="constructor">Some</span></a> <span class="id" title="var">_</span> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a> | <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#None"><span class="id" title="constructor">None</span></a> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#false"><span class="id" title="constructor">false</span></a> <span class="id" title="keyword">end</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>. <span class="id" title="keyword">vm_compute</span>; <span class="id" title="tactic">reflexivity</span>. <span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Example</span> <a id="issuer_elab_ok" class="idref" href="#issuer_elab_ok"><span class="id" title="definition">issuer_elab_ok</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">match</span> <a class="idref" href="Examples.Cmz.html#elabC"><span class="id" title="abbreviation">elabC</span></a> (<a class="idref" href="Examples.Cmz.html#show_names"><span class="id" title="definition">show_names</span></a> 0) <a class="idref" href="Examples.Cmz.html#issuer_stmt"><span class="id" title="definition">issuer_stmt</span></a> <span class="id" title="keyword">with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;| <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#Some"><span class="id" title="constructor">Some</span></a> <span class="id" title="var">_</span> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a> | <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#None"><span class="id" title="constructor">None</span></a> ⇒ <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#false"><span class="id" title="constructor">false</span></a> <span class="id" title="keyword">end</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>. <span class="id" title="keyword">vm_compute</span>; <span class="id" title="tactic">reflexivity</span>. <span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Example</span> <a id="show_disj" class="idref" href="#show_disj"><span class="id" title="definition">show_disj</span></a> : <span class="id" title="definition">disj_inv</span> (<span class="id" title="var">vdec</span> := <span class="id" title="definition">String.string_dec</span>) (<a class="idref" href="Examples.Cmz.html#show_core"><span class="id" title="definition">show_core</span></a> <a class="idref" href="Examples.Cmz.html#k4"><span class="id" title="definition">k4</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>. <span class="id" title="keyword">vm_compute</span>; <span class="id" title="tactic">reflexivity</span>. <span class="id" title="keyword">Qed</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Example</span> <a id="issue_disj" class="idref" href="#issue_disj"><span class="id" title="definition">issue_disj</span></a> : <span class="id" title="definition">disj_inv</span> (<span class="id" title="var">vdec</span> := <span class="id" title="definition">String.string_dec</span>) (<a class="idref" href="Examples.Cmz.html#issue_core"><span class="id" title="definition">issue_core</span></a> <a class="idref" href="Examples.Cmz.html#k4"><span class="id" title="definition">k4</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>. <span class="id" title="keyword">vm_compute</span>; <span class="id" title="tactic">reflexivity</span>. <span class="id" title="keyword">Qed</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Example</span> <a id="issuer_disj" class="idref" href="#issuer_disj"><span class="id" title="definition">issuer_disj</span></a> : <span class="id" title="definition">disj_inv</span> (<span class="id" title="var">vdec</span> := <span class="id" title="definition">String.string_dec</span>) <a class="idref" href="Examples.Cmz.html#issuer_core"><span class="id" title="definition">issuer_core</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>. <span class="id" title="keyword">vm_compute</span>; <span class="id" title="tactic">reflexivity</span>. <span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Example</span> <a id="show_nodup" class="idref" href="#show_nodup"><span class="id" title="definition">show_nodup</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="definition">nodupb</span> (<span class="id" title="var">vdec</span> := <span class="id" title="definition">String.string_dec</span>) (<a class="idref" href="Examples.Cmz.html#show_privs_list"><span class="id" title="definition">show_privs_list</span></a> <a class="idref" href="Examples.Cmz.html#k4"><span class="id" title="definition">k4</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>. <span class="id" title="keyword">vm_compute</span>; <span class="id" title="tactic">reflexivity</span>. <span class="id" title="keyword">Qed</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Example</span> <a id="issue_nodup" class="idref" href="#issue_nodup"><span class="id" title="definition">issue_nodup</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="definition">nodupb</span> (<span class="id" title="var">vdec</span> := <span class="id" title="definition">String.string_dec</span>) (<a class="idref" href="Examples.Cmz.html#issue_privs_list"><span class="id" title="definition">issue_privs_list</span></a> <a class="idref" href="Examples.Cmz.html#k4"><span class="id" title="definition">k4</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>. <span class="id" title="keyword">vm_compute</span>; <span class="id" title="tactic">reflexivity</span>. <span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab11"></a><h2 class="section">Compiling</h2>
+
+
+<div class="paragraph"> </div>
+
+      As in Helios.v, the instance is a runtime value: the
+      commitments, the rerandomised MAC point and the issuer's public
+      keys all change with every showing, so compilation happens per
+      proof rather than once here. 
+</div>
+<div class="code">
+
+<br/>
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="comp_relC" class="idref" href="#comp_relC"><span class="id" title="abbreviation">comp_relC</span></a> := (@<span class="id" title="inductive">comp_rel</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <a class="idref" href="Examples.Cmz.html#fzero"><span class="id" title="abbreviation">fzero</span></a> <a class="idref" href="Examples.Cmz.html#G"><span class="id" title="abbreviation">G</span></a>).<br/>
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="comp_witnessC" class="idref" href="#comp_witnessC"><span class="id" title="abbreviation">comp_witnessC</span></a> := (@<span class="id" title="definition">comp_witness</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <a class="idref" href="Examples.Cmz.html#fzero"><span class="id" title="abbreviation">fzero</span></a> <a class="idref" href="Examples.Cmz.html#G"><span class="id" title="abbreviation">G</span></a>).<br/>
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="comp_randC" class="idref" href="#comp_randC"><span class="id" title="abbreviation">comp_randC</span></a> := (@<span class="id" title="definition">comp_rand</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <a class="idref" href="Examples.Cmz.html#fzero"><span class="id" title="abbreviation">fzero</span></a> <a class="idref" href="Examples.Cmz.html#G"><span class="id" title="abbreviation">G</span></a>).<br/>
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="comp_transcriptC" class="idref" href="#comp_transcriptC"><span class="id" title="abbreviation">comp_transcriptC</span></a> := (@<span class="id" title="definition">comp_transcript</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <a class="idref" href="Examples.Cmz.html#fzero"><span class="id" title="abbreviation">fzero</span></a> <a class="idref" href="Examples.Cmz.html#G"><span class="id" title="abbreviation">G</span></a>).<br/>
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="comp_rel_holdsC" class="idref" href="#comp_rel_holdsC"><span class="id" title="abbreviation">comp_rel_holdsC</span></a> := (@<span class="id" title="definition">comp_rel_holds</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <a class="idref" href="Examples.Cmz.html#fzero"><span class="id" title="abbreviation">fzero</span></a> <a class="idref" href="Examples.Cmz.html#G"><span class="id" title="abbreviation">G</span></a> <a class="idref" href="Examples.Cmz.html#gone"><span class="id" title="abbreviation">gone</span></a> <a class="idref" href="Examples.Cmz.html#gmul"><span class="id" title="abbreviation">gmul</span></a> <a class="idref" href="Examples.Cmz.html#gpow"><span class="id" title="abbreviation">gpow</span></a>).<br/>
+&nbsp;&nbsp;#[<span class="id" title="var">local</span>] <span class="id" title="keyword">Notation</span> <a id="comp_ann_tC" class="idref" href="#comp_ann_tC"><span class="id" title="abbreviation">comp_ann_tC</span></a> := (@<span class="id" title="definition">comp_ann_t</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <a class="idref" href="Examples.Cmz.html#fzero"><span class="id" title="abbreviation">fzero</span></a> <a class="idref" href="Examples.Cmz.html#G"><span class="id" title="abbreviation">G</span></a>).<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="penvI" class="idref" href="#penvI"><span class="id" title="definition">penvI</span></a> : <span class="id" title="inductive">string</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> := <span class="id" title="keyword">fun</span> <span class="id" title="var">_</span> ⇒ <a class="idref" href="Examples.Cmz.html#fone"><span class="id" title="abbreviation">fone</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="node" class="idref" href="#node"><span class="id" title="definition">node</span></a> (<a id="i:30" class="idref" href="#i:30"><span class="id" title="binder">i</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> := <a class="idref" href="Examples.Helios.html#mk_field"><span class="id" title="definition">Helios.mk_field</span></a> (<span class="id" title="definition">Z.of_nat</span> (<a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#S"><span class="id" title="constructor">S</span></a> <a class="idref" href="Examples.Cmz.html#i:30"><span class="id" title="variable">i</span></a>)).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Compile a statement against a point environment supplied at
+      runtime.  <span class="inlinecode"><span class="id" title="var">privs</span></span> is given as a list and converted, so the
+      caller does not have to produce a dependently typed vector. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="compile_with" class="idref" href="#compile_with"><span class="id" title="definition">compile_with</span></a> (<a id="privs:31" class="idref" href="#privs:31"><span class="id" title="binder">privs</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <span class="id" title="inductive">string</span>) (<a id="genv:32" class="idref" href="#genv:32"><span class="id" title="binder">genv</span></a> : <span class="id" title="inductive">string</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.Cmz.html#G"><span class="id" title="abbreviation">G</span></a>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;(<a id="s:33" class="idref" href="#s:33"><span class="id" title="binder">s</span></a> : @<span class="id" title="inductive">stmt</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <span class="id" title="inductive">string</span>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#option"><span class="id" title="inductive">option</span></a> <a class="idref" href="Examples.Cmz.html#comp_relC"><span class="id" title="abbreviation">comp_relC</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;@<span class="id" title="definition">compile</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <a class="idref" href="Examples.Cmz.html#fzero"><span class="id" title="abbreviation">fzero</span></a> <a class="idref" href="Examples.Cmz.html#fadd"><span class="id" title="abbreviation">fadd</span></a> <a class="idref" href="Examples.Cmz.html#fmul"><span class="id" title="abbreviation">fmul</span></a> <a class="idref" href="Examples.Cmz.html#fopp"><span class="id" title="abbreviation">fopp</span></a> <a class="idref" href="Examples.Cmz.html#fdec"><span class="id" title="abbreviation">fdec</span></a> <a class="idref" href="Examples.Cmz.html#G"><span class="id" title="abbreviation">G</span></a> <a class="idref" href="Examples.Cmz.html#gone"><span class="id" title="abbreviation">gone</span></a> <a class="idref" href="Examples.Cmz.html#ginv_g"><span class="id" title="abbreviation">ginv_g</span></a> <a class="idref" href="Examples.Cmz.html#gmul"><span class="id" title="abbreviation">gmul</span></a> <a class="idref" href="Examples.Cmz.html#gpow"><span class="id" title="abbreviation">gpow</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="inductive">string</span> <span class="id" title="definition">String.string_dec</span> (<span class="id" title="abbreviation">List.length</span> <a class="idref" href="Examples.Cmz.html#privs:31"><span class="id" title="variable">privs</span></a>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="definition">Vector.of_list</span> <a class="idref" href="Examples.Cmz.html#privs:31"><span class="id" title="variable">privs</span></a>) <a class="idref" href="Examples.Cmz.html#genv:32"><span class="id" title="variable">genv</span></a> <a class="idref" href="Examples.Cmz.html#penvI"><span class="id" title="definition">penvI</span></a> <a class="idref" href="Examples.Cmz.html#node"><span class="id" title="definition">node</span></a> <a class="idref" href="Examples.Cmz.html#s:33"><span class="id" title="variable">s</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="show_rel" class="idref" href="#show_rel"><span class="id" title="definition">show_rel</span></a> (<a id="k:34" class="idref" href="#k:34"><span class="id" title="binder">k</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) (<a id="genv:35" class="idref" href="#genv:35"><span class="id" title="binder">genv</span></a> : <span class="id" title="inductive">string</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.Cmz.html#G"><span class="id" title="abbreviation">G</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#option"><span class="id" title="inductive">option</span></a> <a class="idref" href="Examples.Cmz.html#comp_relC"><span class="id" title="abbreviation">comp_relC</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.Cmz.html#compile_with"><span class="id" title="definition">compile_with</span></a> (<a class="idref" href="Examples.Cmz.html#show_privs_list"><span class="id" title="definition">show_privs_list</span></a> <a class="idref" href="Examples.Cmz.html#k:34"><span class="id" title="variable">k</span></a>) <a class="idref" href="Examples.Cmz.html#genv:35"><span class="id" title="variable">genv</span></a> (<a class="idref" href="Examples.Cmz.html#show_core"><span class="id" title="definition">show_core</span></a> <a class="idref" href="Examples.Cmz.html#k:34"><span class="id" title="variable">k</span></a>).<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="issue_rel" class="idref" href="#issue_rel"><span class="id" title="definition">issue_rel</span></a> (<a id="k:36" class="idref" href="#k:36"><span class="id" title="binder">k</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) (<a id="genv:37" class="idref" href="#genv:37"><span class="id" title="binder">genv</span></a> : <span class="id" title="inductive">string</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.Cmz.html#G"><span class="id" title="abbreviation">G</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#option"><span class="id" title="inductive">option</span></a> <a class="idref" href="Examples.Cmz.html#comp_relC"><span class="id" title="abbreviation">comp_relC</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.Cmz.html#compile_with"><span class="id" title="definition">compile_with</span></a> (<a class="idref" href="Examples.Cmz.html#issue_privs_list"><span class="id" title="definition">issue_privs_list</span></a> <a class="idref" href="Examples.Cmz.html#k:36"><span class="id" title="variable">k</span></a>) <a class="idref" href="Examples.Cmz.html#genv:37"><span class="id" title="variable">genv</span></a> (<a class="idref" href="Examples.Cmz.html#issue_core"><span class="id" title="definition">issue_core</span></a> <a class="idref" href="Examples.Cmz.html#k:36"><span class="id" title="variable">k</span></a>).<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="issuer_rel" class="idref" href="#issuer_rel"><span class="id" title="definition">issuer_rel</span></a> (<a id="genv:38" class="idref" href="#genv:38"><span class="id" title="binder">genv</span></a> : <span class="id" title="inductive">string</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.Cmz.html#G"><span class="id" title="abbreviation">G</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#option"><span class="id" title="inductive">option</span></a> <a class="idref" href="Examples.Cmz.html#comp_relC"><span class="id" title="abbreviation">comp_relC</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.Cmz.html#compile_with"><span class="id" title="definition">compile_with</span></a> <a class="idref" href="Examples.Cmz.html#issuer_privs_list"><span class="id" title="definition">issuer_privs_list</span></a> <a class="idref" href="Examples.Cmz.html#genv:38"><span class="id" title="variable">genv</span></a> <a class="idref" href="Examples.Cmz.html#issuer_core"><span class="id" title="definition">issuer_core</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+The witness scalars, read out of an environment supplied at
+      runtime in the same order as the private list. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="scalars" class="idref" href="#scalars"><span class="id" title="definition">scalars</span></a> (<a id="privs:39" class="idref" href="#privs:39"><span class="id" title="binder">privs</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <span class="id" title="inductive">string</span>) (<a id="wenv:40" class="idref" href="#wenv:40"><span class="id" title="binder">wenv</span></a> : <span class="id" title="inductive">string</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a>) :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="inductive">Vector.t</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> (<span class="id" title="abbreviation">List.length</span> <a class="idref" href="Examples.Cmz.html#privs:39"><span class="id" title="variable">privs</span></a>) :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;@<span class="id" title="definition">compile_witness</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <span class="id" title="inductive">string</span> (<span class="id" title="abbreviation">List.length</span> <a class="idref" href="Examples.Cmz.html#privs:39"><span class="id" title="variable">privs</span></a>) (<span class="id" title="definition">Vector.of_list</span> <a class="idref" href="Examples.Cmz.html#privs:39"><span class="id" title="variable">privs</span></a>) <a class="idref" href="Examples.Cmz.html#wenv:40"><span class="id" title="variable">wenv</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab12"></a><h2 class="section">Binding the proof</h2>
+
+
+<div class="paragraph"> </div>
+
+      Same arrangement as Helios.v: the challenge is derived from the
+      announcement, the hash is a parameter, and the instance is
+      hashed alongside so the challenge is bound to the claim rather
+      than only to the first message. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="cmz_hash" class="idref" href="#cmz_hash"><span class="id" title="definition">cmz_hash</span></a> (<a id="hash:41" class="idref" href="#hash:41"><span class="id" title="binder">hash</span></a> : <span class="id" title="inductive">string</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Numbers.BinNums.html#N"><span class="id" title="inductive">N</span></a>) (<a id="pre:42" class="idref" href="#pre:42"><span class="id" title="binder">pre</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Examples.Cmz.html#G"><span class="id" title="abbreviation">G</span></a>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;(<a id="r:43" class="idref" href="#r:43"><span class="id" title="binder">r</span></a> : <a class="idref" href="Examples.Cmz.html#comp_relC"><span class="id" title="abbreviation">comp_relC</span></a>) (<a id="a:44" class="idref" href="#a:44"><span class="id" title="binder">a</span></a> : <a class="idref" href="Examples.Cmz.html#comp_ann_tC"><span class="id" title="abbreviation">comp_ann_tC</span></a> <a class="idref" href="Examples.Cmz.html#r:43"><span class="id" title="variable">r</span></a>) : <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.Helios.html#mk_field"><span class="id" title="definition">Helios.mk_field</span></a> (<span class="id" title="definition">Z.of_N</span> (<a class="idref" href="Examples.Cmz.html#hash:41"><span class="id" title="variable">hash</span></a> (<span class="id" title="definition">String.concat</span> ","<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="abbreviation">List.map</span> <a class="idref" href="Examples.Helios.html#g_to_string"><span class="id" title="definition">Helios.g_to_string</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="abbreviation">List.app</span> <a class="idref" href="Examples.Cmz.html#pre:42"><span class="id" title="variable">pre</span></a> (@<span class="id" title="definition">ann_to_list</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <a class="idref" href="Examples.Cmz.html#fzero"><span class="id" title="abbreviation">fzero</span></a> <a class="idref" href="Examples.Cmz.html#G"><span class="id" title="abbreviation">G</span></a> <a class="idref" href="Examples.Cmz.html#r:43"><span class="id" title="variable">r</span></a> <a class="idref" href="Examples.Cmz.html#a:44"><span class="id" title="variable">a</span></a>)))))).<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="cmz_prove" class="idref" href="#cmz_prove"><span class="id" title="definition">cmz_prove</span></a> (<a id="hash:45" class="idref" href="#hash:45"><span class="id" title="binder">hash</span></a> : <span class="id" title="inductive">string</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Numbers.BinNums.html#N"><span class="id" title="inductive">N</span></a>) (<a id="pre:46" class="idref" href="#pre:46"><span class="id" title="binder">pre</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Examples.Cmz.html#G"><span class="id" title="abbreviation">G</span></a>) (<a id="r:47" class="idref" href="#r:47"><span class="id" title="binder">r</span></a> : <a class="idref" href="Examples.Cmz.html#comp_relC"><span class="id" title="abbreviation">comp_relC</span></a>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;(<a id="w:48" class="idref" href="#w:48"><span class="id" title="binder">w</span></a> : <a class="idref" href="Examples.Cmz.html#comp_witnessC"><span class="id" title="abbreviation">comp_witnessC</span></a> <a class="idref" href="Examples.Cmz.html#r:47"><span class="id" title="variable">r</span></a>) (<a id="rnd:49" class="idref" href="#rnd:49"><span class="id" title="binder">rnd</span></a> : <a class="idref" href="Examples.Cmz.html#comp_randC"><span class="id" title="abbreviation">comp_randC</span></a> <a class="idref" href="Examples.Cmz.html#r:47"><span class="id" title="variable">r</span></a>) : <a class="idref" href="Examples.Cmz.html#comp_transcriptC"><span class="id" title="abbreviation">comp_transcriptC</span></a> <a class="idref" href="Examples.Cmz.html#r:47"><span class="id" title="variable">r</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;@<span class="id" title="definition">nizk_prove</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <a class="idref" href="Examples.Cmz.html#fzero"><span class="id" title="abbreviation">fzero</span></a> <a class="idref" href="Examples.Cmz.html#fone"><span class="id" title="abbreviation">fone</span></a> <a class="idref" href="Examples.Cmz.html#fadd"><span class="id" title="abbreviation">fadd</span></a> <a class="idref" href="Examples.Cmz.html#fmul"><span class="id" title="abbreviation">fmul</span></a> <a class="idref" href="Examples.Cmz.html#fsub"><span class="id" title="abbreviation">fsub</span></a> <a class="idref" href="Examples.Cmz.html#fopp"><span class="id" title="abbreviation">fopp</span></a> <a class="idref" href="Examples.Cmz.html#finv"><span class="id" title="abbreviation">finv</span></a> <a class="idref" href="Examples.Cmz.html#G"><span class="id" title="abbreviation">G</span></a> <a class="idref" href="Examples.Cmz.html#gone"><span class="id" title="abbreviation">gone</span></a> <a class="idref" href="Examples.Cmz.html#gmul"><span class="id" title="abbreviation">gmul</span></a> <a class="idref" href="Examples.Cmz.html#gpow"><span class="id" title="abbreviation">gpow</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.Cmz.html#r:47"><span class="id" title="variable">r</span></a> (<a class="idref" href="Examples.Cmz.html#cmz_hash"><span class="id" title="definition">cmz_hash</span></a> <a class="idref" href="Examples.Cmz.html#hash:45"><span class="id" title="variable">hash</span></a> <a class="idref" href="Examples.Cmz.html#pre:46"><span class="id" title="variable">pre</span></a> <a class="idref" href="Examples.Cmz.html#r:47"><span class="id" title="variable">r</span></a>) <a class="idref" href="Examples.Cmz.html#w:48"><span class="id" title="variable">w</span></a> <a class="idref" href="Examples.Cmz.html#rnd:49"><span class="id" title="variable">rnd</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="cmz_verify" class="idref" href="#cmz_verify"><span class="id" title="definition">cmz_verify</span></a> (<a id="hash:50" class="idref" href="#hash:50"><span class="id" title="binder">hash</span></a> : <span class="id" title="inductive">string</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Numbers.BinNums.html#N"><span class="id" title="inductive">N</span></a>) (<a id="pre:51" class="idref" href="#pre:51"><span class="id" title="binder">pre</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Examples.Cmz.html#G"><span class="id" title="abbreviation">G</span></a>) (<a id="r:52" class="idref" href="#r:52"><span class="id" title="binder">r</span></a> : <a class="idref" href="Examples.Cmz.html#comp_relC"><span class="id" title="abbreviation">comp_relC</span></a>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;(<a id="t:53" class="idref" href="#t:53"><span class="id" title="binder">t</span></a> : <a class="idref" href="Examples.Cmz.html#comp_transcriptC"><span class="id" title="abbreviation">comp_transcriptC</span></a> <a class="idref" href="Examples.Cmz.html#r:52"><span class="id" title="variable">r</span></a>) : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#bool"><span class="id" title="inductive">bool</span></a> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;@<span class="id" title="definition">nizk_verify</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <a class="idref" href="Examples.Cmz.html#fzero"><span class="id" title="abbreviation">fzero</span></a> <a class="idref" href="Examples.Cmz.html#fone"><span class="id" title="abbreviation">fone</span></a> <a class="idref" href="Examples.Cmz.html#fadd"><span class="id" title="abbreviation">fadd</span></a> <a class="idref" href="Examples.Cmz.html#fmul"><span class="id" title="abbreviation">fmul</span></a> <a class="idref" href="Examples.Cmz.html#fsub"><span class="id" title="abbreviation">fsub</span></a> <a class="idref" href="Examples.Cmz.html#finv"><span class="id" title="abbreviation">finv</span></a> <a class="idref" href="Examples.Cmz.html#G"><span class="id" title="abbreviation">G</span></a> <a class="idref" href="Examples.Cmz.html#gone"><span class="id" title="abbreviation">gone</span></a> <a class="idref" href="Examples.Cmz.html#gmul"><span class="id" title="abbreviation">gmul</span></a> <a class="idref" href="Examples.Cmz.html#gpow"><span class="id" title="abbreviation">gpow</span></a> <a class="idref" href="Examples.Cmz.html#gdec"><span class="id" title="abbreviation">gdec</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.Cmz.html#r:52"><span class="id" title="variable">r</span></a> (<a class="idref" href="Examples.Cmz.html#cmz_hash"><span class="id" title="definition">cmz_hash</span></a> <a class="idref" href="Examples.Cmz.html#hash:50"><span class="id" title="variable">hash</span></a> <a class="idref" href="Examples.Cmz.html#pre:51"><span class="id" title="variable">pre</span></a> <a class="idref" href="Examples.Cmz.html#r:52"><span class="id" title="variable">r</span></a>) <a class="idref" href="Examples.Cmz.html#t:53"><span class="id" title="variable">t</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+An honest proof verifies, for any attribute count, any instance
+      and any hash. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="cmz_complete" class="idref" href="#cmz_complete"><span class="id" title="lemma">cmz_complete</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="notation">∀</span> <span class="id" title="notation">(</span><a id="hash:54" class="idref" href="#hash:54"><span class="id" title="binder">hash</span></a> : <span class="id" title="inductive">string</span> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Numbers.BinNums.html#N"><span class="id" title="inductive">N</span></a>) (<a id="pre:55" class="idref" href="#pre:55"><span class="id" title="binder">pre</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#list"><span class="id" title="inductive">list</span></a> <a class="idref" href="Examples.Cmz.html#G"><span class="id" title="abbreviation">G</span></a>) (<a id="r:56" class="idref" href="#r:56"><span class="id" title="binder">r</span></a> : <a class="idref" href="Examples.Cmz.html#comp_relC"><span class="id" title="abbreviation">comp_relC</span></a>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<a id="w:57" class="idref" href="#w:57"><span class="id" title="binder">w</span></a> : <a class="idref" href="Examples.Cmz.html#comp_witnessC"><span class="id" title="abbreviation">comp_witnessC</span></a> <a class="idref" href="Examples.Cmz.html#r:56"><span class="id" title="variable">r</span></a>) (<a id="rnd:58" class="idref" href="#rnd:58"><span class="id" title="binder">rnd</span></a> : <a class="idref" href="Examples.Cmz.html#comp_randC"><span class="id" title="abbreviation">comp_randC</span></a> <a class="idref" href="Examples.Cmz.html#r:56"><span class="id" title="variable">r</span></a><span class="id" title="notation">),</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.Cmz.html#comp_rel_holdsC"><span class="id" title="abbreviation">comp_rel_holdsC</span></a> <a class="idref" href="Examples.Cmz.html#r:56"><span class="id" title="variable">r</span></a> <a class="idref" href="Examples.Cmz.html#w:57"><span class="id" title="variable">w</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">→</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.Cmz.html#cmz_verify"><span class="id" title="definition">cmz_verify</span></a> <a class="idref" href="Examples.Cmz.html#hash:54"><span class="id" title="variable">hash</span></a> <a class="idref" href="Examples.Cmz.html#pre:55"><span class="id" title="variable">pre</span></a> <a class="idref" href="Examples.Cmz.html#r:56"><span class="id" title="variable">r</span></a> (<a class="idref" href="Examples.Cmz.html#cmz_prove"><span class="id" title="definition">cmz_prove</span></a> <a class="idref" href="Examples.Cmz.html#hash:54"><span class="id" title="variable">hash</span></a> <a class="idref" href="Examples.Cmz.html#pre:55"><span class="id" title="variable">pre</span></a> <a class="idref" href="Examples.Cmz.html#r:56"><span class="id" title="variable">r</span></a> <a class="idref" href="Examples.Cmz.html#w:57"><span class="id" title="variable">w</span></a> <a class="idref" href="Examples.Cmz.html#rnd:58"><span class="id" title="variable">rnd</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.0.1/stdlib//Corelib.Init.Datatypes.html#true"><span class="id" title="constructor">true</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">hash</span> <span class="id" title="var">pre</span> <span class="id" title="var">r</span> <span class="id" title="var">w</span> <span class="id" title="var">rnd</span> <span class="id" title="var">hw</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">eapply</span> (@<span class="id" title="lemma">nizk_completeness</span> <a class="idref" href="Examples.Cmz.html#F"><span class="id" title="abbreviation">F</span></a> <a class="idref" href="Examples.Cmz.html#fzero"><span class="id" title="abbreviation">fzero</span></a> <a class="idref" href="Examples.Cmz.html#fone"><span class="id" title="abbreviation">fone</span></a> <a class="idref" href="Examples.Cmz.html#fadd"><span class="id" title="abbreviation">fadd</span></a> <a class="idref" href="Examples.Cmz.html#fmul"><span class="id" title="abbreviation">fmul</span></a> <a class="idref" href="Examples.Cmz.html#fsub"><span class="id" title="abbreviation">fsub</span></a> <a class="idref" href="Examples.Cmz.html#fdiv"><span class="id" title="abbreviation">fdiv</span></a> <a class="idref" href="Examples.Cmz.html#fopp"><span class="id" title="abbreviation">fopp</span></a> <a class="idref" href="Examples.Cmz.html#finv"><span class="id" title="abbreviation">finv</span></a> <a class="idref" href="Examples.Cmz.html#fdec"><span class="id" title="abbreviation">fdec</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Examples.Cmz.html#G"><span class="id" title="abbreviation">G</span></a> <a class="idref" href="Examples.Cmz.html#gone"><span class="id" title="abbreviation">gone</span></a> <a class="idref" href="Examples.Cmz.html#ginv_g"><span class="id" title="abbreviation">ginv_g</span></a> <a class="idref" href="Examples.Cmz.html#gmul"><span class="id" title="abbreviation">gmul</span></a> <a class="idref" href="Examples.Cmz.html#gpow"><span class="id" title="abbreviation">gpow</span></a> <a class="idref" href="Examples.Cmz.html#gdec"><span class="id" title="abbreviation">gdec</span></a> <a class="idref" href="Examples.Cmz.html#Hvec"><span class="id" title="abbreviation">Hvec</span></a> <span class="id" title="var">r</span> (<a class="idref" href="Examples.Cmz.html#cmz_hash"><span class="id" title="definition">cmz_hash</span></a> <span class="id" title="var">hash</span> <span class="id" title="var">pre</span> <span class="id" title="var">r</span>) <span class="id" title="var">w</span> <span class="id" title="var">rnd</span> <span class="id" title="var">hw</span>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+<span class="id" title="keyword">End</span> <a class="idref" href="Examples.Cmz.html#Cmz"><span class="id" title="section">Cmz</span></a>.<br/>
+</div>
+</div>
+
+<div id="footer">
+<hr/><a href="index.html">Index</a><hr/>This page has been generated by <a href="http://rocq-prover.org/">coqdoc</a>
+</div>
+
+</div>
+
+</body>
+</html>
