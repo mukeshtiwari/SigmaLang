@@ -28,7 +28,34 @@ for t in $THEORIES; do
     chmod -R u+w "docs/$t"
     # rocqdoc's own stylesheet is kept as it comes: white background,
     # blue section headers.  An earlier version of this script replaced
-    # it with a dark-mode one, which is not what is wanted here.
+    # it wholesale with a dark-mode one, which is not what is wanted.
+    # Instead a short block is appended for layout only.  It changes no
+    # colour, so the pages still look like stock rocqdoc.
+    cat >> "docs/$t/coqdoc.css" <<'CSS'
+
+/* ---------------------------------------------------------------
+   Appended by make-docs.sh.  Layout only: no colours are changed.
+
+   rocqdoc bounds the prose column (.doc is capped at 40em) but not
+   the page, so on a wide monitor the content hugs the left edge with
+   a large empty band to its right.  These rules centre the page and
+   open the leading a little.  The prose column is widened slightly
+   too, since 40em is narrow for sources that are mostly prose.
+   --------------------------------------------------------------- */
+
+#page { max-width: 62em; margin: 0 auto; }
+
+#main { padding: 1.25rem 1.5rem 4rem; }
+
+#main .doc { max-width: 46em; line-height: 1.55; padding: 10px 0; }
+
+/* Code keeps a tighter rhythm than prose, and a long line scrolls
+   within its own block rather than widening the page. */
+div.code { line-height: 1.45; overflow-x: auto; }
+
+/* Headings need a little room now that the body has leading. */
+#main h1, #main h2, #main h3 { line-height: 1.25; }
+CSS
     # rocqdoc emits no viewport meta, so its pages render zoomed out on
     # a phone.  Add one to every generated page.
     for h in "docs/$t"/*.html; do
