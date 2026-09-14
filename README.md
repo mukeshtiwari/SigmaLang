@@ -10,12 +10,15 @@ a sigma protocol with a prover, a verifier and a simulator, and the
 security properties come from theorems proven once about the
 translation rather than re-argued for each statement.
 
-Two case studies drive the development:
+Three case studies drive the development:
 
 - **Helios**, the end-to-end verifiable voting system. The verifier
   here checks the published IACR 2023 and 2024 elections.
 - **CMZ**, keyed-verification anonymous credentials, following the
   statements of Goldberg's `cmz` crate.
+- **Privacy Pass**, anonymous tokens for skipping internet
+  challenges, following the PoPETs 2018 paper. The server's discrete
+  log equivalence proof, batched over many tokens at once.
 
 ## Requirements
 
@@ -138,7 +141,30 @@ and verifies. It shows the compiler handles CMZ's statements at CMZ's
 sizes with a real challenge binding; it is not evidence about the
 credential scheme itself, which is argued in the CMZ paper.
 
-### 4. Threshold composition
+### 4. Privacy Pass token issuance
+
+Plays both sides of a Privacy Pass issuance: the client sends blinded
+tokens, the server signs them and proves in zero knowledge that it
+used the key it published. Runs in a few seconds.
+
+```sh
+./_build/default/Executable/Privacypasscode/main.exe
+```
+
+The proof is one discrete log equivalence over composite points,
+whatever the batch size, so its cost is flat while forming the
+composites grows linearly. The run also checks the attack the proof
+exists to stop: a server that signs one token in the batch with a
+different key is rejected.
+
+Like the CMZ run this is a self-test, since there is no published
+Privacy Pass transcript to check against. Note also that soundness of
+*batching* is Henry's probabilistic argument over the random
+coefficients and is not mechanised here; what is proven in Rocq is
+that batching preserves the relation, which is the direction an honest
+server needs.
+
+### 5. Threshold composition
 
 A three-way threshold statement over a small group, proved and verified
 both interactively and non-interactively, with a wire round trip and a
@@ -171,7 +197,7 @@ deliberately invisible to `rocqdoc`.
 | `Probability/` | finite distributions, used to state zero knowledge |
 | `Crypto/` | the single-equation Schnorr protocol |
 | `Compiler/` | the languages, the compiler, and the security proofs |
-| `Examples/` | concrete instances: Helios, CMZ, a threshold example |
+| `Examples/` | concrete instances: Helios, CMZ, Privacy Pass, a threshold example |
 | `Extraction/`, `Executable/` | extraction to OCaml and the drivers |
 | `Heliosdata/` | published transcripts of the IACR 2023 and 2024 elections |
 
