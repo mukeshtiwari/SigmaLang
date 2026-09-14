@@ -1,6 +1,9 @@
 (* Verify a published Helios election with the extracted compiler.
  *
- * Usage:  main.exe <election file>
+ * Usage:  main.exe [election file] [ballot limit]
+ *
+ * With no argument it reads Heliosdata/IACR2024.txt, so it runs out of
+ * the box from the repository root.
  *
  * The file is the format used by SigmaProtocol's HeliosDatacode: the
  * ballots as one JSON object per line, then a semicolon, then the
@@ -82,10 +85,16 @@ let single_transcript a b responses =
 (* ---------------- the election ---------------- *)
 
 let () =
+  (* With no argument, use the copy of the 2024 election kept in the
+     repository, so the verifier runs out of the box from the
+     repository root. *)
   let path =
     if Array.length Sys.argv > 1 then Sys.argv.(1)
-    else failwith "usage: main.exe <election file>"
+    else "Heliosdata/IACR2024.txt"
   in
+  if not (Sys.file_exists path) then
+    failwith (Printf.sprintf
+                "no such file: %s (usage: main.exe [election file])" path);
   (* an optional second argument caps how many ballots to check, for
      a fast turnaround while debugging the encoding *)
   let limit =

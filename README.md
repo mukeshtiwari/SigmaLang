@@ -68,12 +68,11 @@ This is the main result: the published IACR elections, checked by the
 extracted verifier, with the Fiat-Shamir challenge recomputed from the
 announcement rather than read out of the ballot.
 
-The election files are large (27 MB for 2024) and live in the sibling
-`SigmaProtocol` repository rather than here:
+Both election files are bundled in `Heliosdata/`, so this needs nothing
+else checked out. With no argument it reads the 2024 election:
 
 ```sh
-./_build/default/Executable/Heliosrealcode/main.exe \
-    ../SigmaProtocol/src/Executable/HeliosDatacode/IACR2024.txt
+./_build/default/Executable/Heliosrealcode/main.exe
 ```
 
 Expected output, in about two minutes:
@@ -94,15 +93,14 @@ Verifying IACR2024.txt
 The 2023 election works the same way and takes about ninety seconds:
 
 ```sh
-./_build/default/Executable/Heliosrealcode/main.exe \
-    ../SigmaProtocol/src/Executable/HeliosDatacode/IACR2023.txt
+./_build/default/Executable/Heliosrealcode/main.exe Heliosdata/IACR2023.txt
 ```
 
 A second argument caps how many ballots are read, which is useful when
 you only want to see it start:
 
 ```sh
-./_build/default/Executable/Heliosrealcode/main.exe <file> 20
+./_build/default/Executable/Heliosrealcode/main.exe Heliosdata/IACR2024.txt 20
 ```
 
 Note that the decryption proofs and the tally will then fail, correctly:
@@ -175,6 +173,7 @@ deliberately invisible to `rocqdoc`.
 | `Compiler/` | the languages, the compiler, and the security proofs |
 | `Examples/` | concrete instances: Helios, CMZ, a threshold example |
 | `Extraction/`, `Executable/` | extraction to OCaml and the drivers |
+| `Heliosdata/` | published transcripts of the IACR 2023 and 2024 elections |
 
 Inside `Compiler/`, the places to start are `LinearRelation.v` for the
 leaf protocol everything is built from, `Composition.v` for how leaves
