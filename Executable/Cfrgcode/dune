@@ -1,3 +1,4 @@
 (executable
  (name main)
- (modules shake128 sponge main))
+ (libraries zarith mirage-crypto-ec)
+ (modules shake128 sponge p256 main))

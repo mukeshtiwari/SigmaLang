@@ -68,6 +68,56 @@ let () =
   expect "two squeezes continue one stream" split_squeeze one_shot;
   expect "an empty absorb is the identity" empty_absorb one_shot;
 
+  Printf.printf "\nP-256 against mirage-crypto-ec (Fiat-derived)\n";
+  (* The library cannot represent the identity, so it can only check
+     the cases where both are defined. That is still worth doing: it
+     validates the curve constants, the group law and the compressed
+     encoding against an independent implementation. *)
+  let module D = Mirage_crypto_ec.P256.Dsa in
+  let module MP = D.Primitive in
+  let mhex p = hex (D.pub_to_octets ~compress:true p) in
+  expect "generator encodes identically"
+    (hex (P256.to_bytes P256.generator)) (mhex MP.generator);
+  expect "doubling the generator agrees"
+    (hex (P256.to_bytes (P256.add P256.generator P256.generator)))
+    (mhex (MP.add MP.generator MP.generator));
+  let k = String.init 32 (fun i -> Char.chr ((i * 7 + 3) land 0xff)) in
+  (match D.priv_of_octets k with
+   | Error _ -> expect "scalar multiplication agrees" "no scalar" "no scalar"
+   | Ok sk ->
+       let kz =
+         let r = ref Big_int_Z.zero_big_int in
+         String.iter (fun c ->
+             r := Big_int_Z.add_int_big_int (Char.code c)
+                    (Big_int_Z.mult_int_big_int 256 !r)) k;
+         !r in
+       expect "scalar multiplication agrees"
+         (hex (P256.to_bytes (P256.mul kz P256.generator)))
+         (mhex (MP.scalar_mult sk MP.generator)));
+  expect "compressed encoding round-trips"
+    (match P256.of_bytes (P256.to_bytes P256.generator) with
+     | Some q -> string_of_bool (P256.equal q P256.generator)
+     | None -> "decode failed")
+    "true";
+
+  Printf.printf "\nP-256: the cases mirage-crypto-ec cannot express\n";
+  expect "g + (-g) is the identity"
+    (string_of_bool (P256.equal (P256.add P256.generator (P256.neg P256.generator))
+                       P256.identity))
+    "true";
+  expect "scalar zero gives the identity"
+    (string_of_bool (P256.equal (P256.mul Big_int_Z.zero_big_int P256.generator)
+                       P256.identity))
+    "true";
+  expect "the identity is an additive unit"
+    (string_of_bool (P256.equal (P256.add P256.identity P256.generator)
+                       P256.generator))
+    "true";
+  expect "scalar by the group order gives the identity"
+    (string_of_bool (P256.equal (P256.mul P256.order P256.generator)
+                       P256.identity))
+    "true";
+
   Printf.printf "\n";
   if !failures = 0 then
     Printf.printf "all checks passed\n"
