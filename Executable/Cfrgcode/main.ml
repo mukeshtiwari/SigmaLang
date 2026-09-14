@@ -118,6 +118,51 @@ let () =
                        P256.identity))
     "true";
 
+  (* With a vectors directory, run the published CFRG vectors. *)
+  if Array.length Sys.argv > 1 then begin
+    let dir = Sys.argv.(1) in
+    let path = Filename.concat dir "sigma-proofs_Shake128_P256.json" in
+    if not (Sys.file_exists path) then begin
+      Printf.printf "\nno vectors at %s\n" path
+    end else begin
+      let all = Vectors.load path in
+      let batch = List.filter (fun e -> e.Vectors.flavor = "batchable") all in
+      Printf.printf "\nCFRG P-256 vectors: does the stated relation check out\n";
+      Printf.printf "  %-34s %3s %3s %4s  %s\n" "relation" "m" "n" "els" "our equation";
+      List.iter
+        (fun e ->
+           let (ok, m, n, els) = Vectors.check e in
+           if not ok then incr failures;
+           Printf.printf "  %-34s %3d %3d %4d  %s\n" e.Vectors.relation m n els
+             (if ok then "holds" else "FAILS"))
+        batch;
+
+      Printf.printf "\nSolving for the relation from the transcript alone\n";
+      Printf.printf "  Given: the published elements and the proof.\n";
+      Printf.printf "  Hidden: which element sits in which slot, and each target.\n\n";
+      List.iter
+        (fun e ->
+           match Vectors.solve e ~cap:5_000_000 with
+           | Error (np, n, work) ->
+               Printf.printf "  %-34s skipped: pool %d, %d secrets, %d\n"
+                 e.Vectors.relation np n work;
+               Printf.printf "  %-34s assignments per row; needs sparsity-first\n" ""
+           | Ok (rows, pool) ->
+               let uniq = List.for_all (fun r -> List.length r = 1) rows in
+               Printf.printf "  %-34s %s\n" e.Vectors.relation
+                 (if uniq then "unique per row" else
+                    "counts " ^ String.concat "," 
+                      (List.map (fun r -> string_of_int (List.length r)) rows));
+               if uniq then
+                 List.iteri
+                   (fun i r ->
+                      Printf.printf "        row %d:  %s\n" i
+                        (Vectors.render pool (List.hd r)))
+                   rows)
+        batch
+    end
+  end;
+
   Printf.printf "\n";
   if !failures = 0 then
     Printf.printf "all checks passed\n"
