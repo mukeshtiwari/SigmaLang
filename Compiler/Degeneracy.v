@@ -632,6 +632,11 @@ Section Degeneracy.
   (** Case analysis on the small index types the example uses.
       Written as lemmas rather than with [destruct], which cannot
       generalise the width of a matrix literal. *)
+  Lemma fin1_is_F1 : ∀ j : Fin.t 1, j = Fin.F1.
+  Proof.
+    intro j; apply (Fin.caseS' j); [reflexivity | intro j1; inversion j1].
+  Qed.
+
   Lemma fin2_cases :
     ∀ (P : Fin.t 2 -> Prop),
     P Fin.F1 -> P (Fin.FS Fin.F1) -> ∀ i : Fin.t 2, P i.
