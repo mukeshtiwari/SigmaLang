@@ -120,6 +120,74 @@ let issuer_instance () =
   let scalars = [("b", b); ("x0", x0)] in
   (env_of points, fenv_of scalars, [base_a; base_b; p; pk0; k; r])
 
+(* ---------- statement quality ----------
+ *
+ * The same classifier the Helios and CFRG drivers use.  A compiled
+ * leaf claims the secrets it mentions, so the claim is its live
+ * columns; the certificate search is the single-coefficient case and
+ * is not trusted, since Compiler/Determined.v checks what it emits. *)
+let rec leaves_of (r : (Helios.coq_F, Helios.coq_G) Composition.comp_rel) =
+  match r with
+  | Composition.Leaf (m, n, mat, pub) -> [ (m, n, mat, pub) ]
+  | Composition.CAnd (a, b) | Composition.COr (a, b) ->
+      leaves_of a @ leaves_of b
+  | Composition.CThresh (_, k, _, rs) ->
+      List.concat_map leaves_of (Vector.to_list k rs)
+
+let certificate_for m n mat =
+  let mi = Big_int_Z.int_of_big_int m and ni = Big_int_Z.int_of_big_int n in
+  let rows =
+    Array.of_list
+      (List.map (fun r -> Array.of_list (Vector.to_list n r))
+         (Vector.to_list m mat)) in
+  let unique_in_row i j =
+    let b = rows.(i).(j) in
+    (not (Helios.gdec b Helios.gone)) &&
+    (let c = ref 0 in
+     Array.iter (fun x -> if Helios.gdec x b then incr c) rows.(i);
+     !c = 1) in
+  let block j =
+    let rec find i =
+      if i >= mi then None
+      else if unique_in_row i j then Some i else find (i + 1) in
+    let pivot = find 0 in
+    Vector.of_list
+      (List.init mi (fun i ->
+         Vector.of_list (List.init ni (fun j2 ->
+           if pivot = Some i && j2 = j then Helios.fone else Helios.fzero)))) in
+  Vector.of_list (List.init ni block)
+
+let qdet = ref 0 and qdeg = ref 0 and qund = ref 0
+and qvac = ref 0 and quns = ref 0 and qtot = ref 0
+
+let record_quality r =
+  List.iter
+    (fun (m, n, mat, pub) ->
+       let c =
+         LeafStatus.classify_leaf
+           Helios.fzero Helios.fone Helios.fadd Helios.fmul Helios.fdec
+           Helios.gone Helios.gdec m n mat pub
+           (Claim.live_claim Helios.gone Helios.gdec m n mat)
+           { LeafStatus.ev_degenerate = None
+           ; LeafStatus.ev_determined = Some (certificate_for m n mat) } in
+       incr qtot;
+       (match c.LeafStatus.lc_determination with
+        | LeafStatus.Cert_determined -> incr qdet
+        | LeafStatus.Cert_degenerate _ -> incr qdeg
+        | LeafStatus.Cert_determination_undecided -> incr qund);
+       (match c.LeafStatus.lc_vacuity with
+        | LeafStatus.Cert_vacuous -> incr qvac
+        | LeafStatus.Cert_unsatisfiable _ -> incr quns
+        | LeafStatus.Cert_vacuity_undecided -> ()))
+    (leaves_of r)
+
+let report_quality () =
+  Printf.printf "\n  Statement quality over every leaf\n";
+  Printf.printf "    %d leaves: determined %d, DEGENERATE %d, undecided %d\n"
+    !qtot !qdet !qdeg !qund;
+  Printf.printf "    vacuity: VACUOUS %d, UNSATISFIABLE %d, neither %d\n"
+    !qvac !quns (!qtot - !qvac - !quns)
+
 (* ---------------- proving and verifying ---------------- *)
 
 (* A statement whose equations all conjoin compiles to a single leaf,
@@ -127,6 +195,7 @@ let issuer_instance () =
  * one entry per declared private variable. *)
 let run label privs core genv wenv pre =
   let rel = get (Cmz.compile_with privs genv core) in
+  record_quality rel;
   let w : (Helios.coq_F, Helios.coq_G) Composition.comp_witness =
     Obj.magic (Cmz.scalars privs wenv) in
   let rnd_vec : (Helios.coq_F, Helios.coq_G) Composition.comp_rand =
@@ -174,4 +243,5 @@ let () =
   Printf.printf "  %-34s verifies=%-5b  (must be false)\n"
     "same proof, different credential" (Cmz.cmz_verify sha256_bigint pre' rel' t);
   Printf.printf "  %-34s verifies=%-5b  (must be false)\n"
-    "same proof, instance not in hash" (Cmz.cmz_verify sha256_bigint pre rel' t)
+    "same proof, instance not in hash" (Cmz.cmz_verify sha256_bigint pre rel' t);
+  report_quality ()
