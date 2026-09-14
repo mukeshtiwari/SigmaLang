@@ -7,7 +7,7 @@ From Algebra Require Import
   Ring Vector_space.
 From Utility Require Import Util.
 From Compiler Require Import LinearRelation LeafValidity
-  Degeneracy IncidenceDecide Vacuity Claim.
+  Degeneracy IncidenceDecide Vacuity Claim Determined.
 
 Import VectorNotations.
 
@@ -244,43 +244,77 @@ Section LeafStatus.
       none, or it does not check out, the sufficient acceptance test
       of IncidenceDecide.v is tried, and failing that the answer is
       that this checker cannot tell. *)
+  (** ** What a search hands in
+
+      Either direction may come with evidence, and neither is trusted.
+      A proposed second witness is checked by [incidence_zerob] and
+      [claimed_nonzerob]; a proposed certificate is checked by
+      [combo_checkb].  Both are bundled so that a caller cannot get
+      the order wrong. *)
+  Record evidence (m n : nat) : Type := mk_evidence
+    { ev_degenerate : option (Vector.t F n)
+    ; ev_determined : option (@certificate F m n) }.
+
+  Arguments mk_evidence {m n}.
+  Arguments ev_degenerate {m n}.
+  Arguments ev_determined {m n}.
+
+  Definition no_evidence {m n : nat} : evidence m n := mk_evidence None None.
+
+  Definition accept_determination {m n : nat}
+    (mat : Vector.t (Vector.t G n) m) (cl : claim n)
+    (ev : evidence m n) : determination_cert n :=
+    (* the sufficient test first, then a certificate if one came *)
+    if leaf_determinedbC mat then Cert_determined
+    else match ev_determined ev with
+         | Some cs =>
+             if @combo_checkb F zero one add mul Fdec G gid Gdec m n mat cl cs
+             then Cert_determined
+             else Cert_determination_undecided
+         | None => Cert_determination_undecided
+         end.
+
   Definition classify_determination {m n : nat}
     (mat : Vector.t (Vector.t G n) m) (cl : claim n)
-    (proposal : option (Vector.t F n)) : determination_cert n :=
-    match proposal with
+    (ev : evidence m n) : determination_cert n :=
+    match ev_degenerate ev with
     | Some v =>
         if andb (incidence_zerobC mat v)
                 (@claimed_nonzerob F zero Fdec n cl v)
         then Cert_degenerate v
-        else if leaf_determinedbC mat
-             then Cert_determined
-             else Cert_determination_undecided
-    | None =>
-        if leaf_determinedbC mat
-        then Cert_determined
-        else Cert_determination_undecided
+        else accept_determination mat cl ev
+    | None => accept_determination mat cl ev
     end.
+
+  Lemma accept_determination_sound :
+    ∀ (m n : nat) (mat : Vector.t (Vector.t G n) m) (cl : claim n)
+      (ev : evidence m n),
+    determination_claim mat cl (accept_determination mat cl ev).
+  Proof.
+    intros m n mat cl ev; unfold accept_determination.
+    destruct (leaf_determinedbC mat) eqn:hdet.
+    - cbn.
+      apply (@trivial_kernel_determines_any F zero add G gid Gdec m n mat cl).
+      exact (@leaf_determinedb_sound F zero one add mul sub div opp inv
+               G gid ginv gop gpow Gdec Hvec m n mat hdet).
+    - destruct (ev_determined ev) as [cs |]; [| exact I].
+      destruct (@combo_checkb F zero one add mul Fdec G gid Gdec
+                  m n mat cl cs) eqn:hc; [| exact I].
+      cbn.
+      exact (@combo_checkb_sound F zero one add mul sub div opp inv Fdec
+               G gid ginv gop gpow Gdec Hvec m n mat cl cs hc).
+  Qed.
 
   Theorem classify_determination_sound :
     ∀ (m n : nat) (mat : Vector.t (Vector.t G n) m) (cl : claim n)
-      (proposal : option (Vector.t F n)),
-    determination_claim mat cl (classify_determination mat cl proposal).
+      (ev : evidence m n),
+    determination_claim mat cl (classify_determination mat cl ev).
   Proof.
-    intros m n mat cl proposal.
-    (* the fallback is shared by both branches *)
-    assert (hfall : determination_claim mat cl
-                      (if leaf_determinedbC mat
-                       then Cert_determined
-                       else Cert_determination_undecided)).
-    { destruct (leaf_determinedbC mat) eqn:hdet; cbn; [| exact I].
-      apply (@trivial_kernel_determines_any F zero add G gid Gdec m n mat cl).
-      exact (@leaf_determinedb_sound F zero one add mul sub div opp inv
-               G gid ginv gop gpow Gdec Hvec m n mat hdet). }
-    unfold classify_determination.
-    destruct proposal as [v |]; [| exact hfall].
+    intros m n mat cl ev; unfold classify_determination.
+    destruct (ev_degenerate ev) as [v |]; [| apply accept_determination_sound].
     destruct (andb (incidence_zerobC mat v)
                 (@claimed_nonzerob F zero Fdec n cl v)) eqn:hb;
-      [| exact hfall].
+      [| apply accept_determination_sound].
     apply Bool.andb_true_iff in hb as (hinc & hnz).
     cbn; split.
     - exact (proj1 (@incidence_zerob_spec F zero one add mul sub div opp inv
@@ -292,18 +326,18 @@ Section LeafStatus.
   (** ** The one call and the one theorem *)
   Definition classify_leaf {m n : nat}
     (mat : Vector.t (Vector.t G n) m) (pub : Vector.t G m)
-    (cl : claim n) (proposal : option (Vector.t F n)) : leaf_cert m n :=
-    mk_leaf_cert (classify_determination mat cl proposal)
+    (cl : claim n) (ev : evidence m n) : leaf_cert m n :=
+    mk_leaf_cert (classify_determination mat cl ev)
                  (classify_vacuity mat pub).
 
   Theorem classify_leaf_sound :
     ∀ (m n : nat) (mat : Vector.t (Vector.t G n) m) (pub : Vector.t G m)
-      (cl : claim n) (proposal : option (Vector.t F n)),
+      (cl : claim n) (ev : evidence m n),
     determination_claim mat cl
-      (lc_determination (classify_leaf mat pub cl proposal)) ∧
-    vacuity_claim mat pub (lc_vacuity (classify_leaf mat pub cl proposal)).
+      (lc_determination (classify_leaf mat pub cl ev)) ∧
+    vacuity_claim mat pub (lc_vacuity (classify_leaf mat pub cl ev)).
   Proof.
-    intros m n mat pub cl proposal; split; cbn.
+    intros m n mat pub cl ev; split; cbn.
     - apply classify_determination_sound.
     - apply classify_vacuity_sound.
   Qed.
@@ -321,14 +355,14 @@ Section LeafStatus.
 
   Theorem leaf_acceptable_sound :
     ∀ (m n : nat) (mat : Vector.t (Vector.t G n) m) (pub : Vector.t G m)
-      (cl : claim n) (proposal : option (Vector.t F n)),
-    leaf_acceptable (classify_leaf mat pub cl proposal) = true ->
+      (cl : claim n) (ev : evidence m n),
+    leaf_acceptable (classify_leaf mat pub cl ev) = true ->
     @determines F zero add G gid Gdec m n mat cl.
   Proof.
-    intros m n mat pub cl proposal hacc.
-    pose proof (classify_leaf_sound m n mat pub cl proposal) as (hdet & _).
+    intros m n mat pub cl ev hacc.
+    pose proof (classify_leaf_sound m n mat pub cl ev) as (hdet & _).
     unfold leaf_acceptable in hacc; cbn in hacc, hdet.
-    destruct (classify_determination mat cl proposal);
+    destruct (classify_determination mat cl ev);
       [exact hdet | discriminate hacc | discriminate hacc].
   Qed.
 
@@ -336,12 +370,12 @@ Section LeafStatus.
       determine what it claims, which is what the verdict is for. *)
   Theorem degenerate_cert_refutes_the_claim :
     ∀ (m n : nat) (mat : Vector.t (Vector.t G n) m) (pub : Vector.t G m)
-      (cl : claim n) (proposal : option (Vector.t F n)) (v : Vector.t F n),
-    lc_determination (classify_leaf mat pub cl proposal) = Cert_degenerate v ->
+      (cl : claim n) (ev : evidence m n) (v : Vector.t F n),
+    lc_determination (classify_leaf mat pub cl ev) = Cert_degenerate v ->
     ~ @determines F zero add G gid Gdec m n mat cl.
   Proof.
-    intros m n mat pub cl proposal v hcert.
-    pose proof (classify_leaf_sound m n mat pub cl proposal) as (hdet & _).
+    intros m n mat pub cl ev v hcert.
+    pose proof (classify_leaf_sound m n mat pub cl ev) as (hdet & _).
     cbn in hdet, hcert; rewrite hcert in hdet; cbn in hdet.
     exact (proj2 hdet).
   Qed.

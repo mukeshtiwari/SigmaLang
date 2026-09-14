@@ -126,7 +126,7 @@ let classify (l : Cfrg.leaf) : B.big_int LeafStatus.leaf_cert =
     |> List.map (fun r -> Vector.of_list (Array.to_list r)) in
   let (m, n) = arity l in
   LeafStatus.classify_leaf
-    fzero fadd (fun a b -> B.eq_big_int a b)
+    fzero fone fadd fmul (fun a b -> B.eq_big_int a b)
     P256.identity (fun p q -> P256.equal p q)
     m n
     (Vector.of_list rows)
@@ -135,9 +135,11 @@ let classify (l : Cfrg.leaf) : B.big_int LeafStatus.leaf_cert =
      * all of them: a declared scalar constrained by nothing is a
      * defect, which is the standard's E1 control. *)
     (Claim.full_claim n)
-    (match dead_column_proposal l with
-     | None -> None
-     | Some v -> Some (Vector.of_list (Array.to_list v)))
+    { LeafStatus.ev_degenerate =
+        (match dead_column_proposal l with
+         | None -> None
+         | Some v -> Some (Vector.of_list (Array.to_list v)))
+    ; LeafStatus.ev_determined = None }
 
 let leaf_sound (l : Cfrg.leaf) : bool =
   let (m, n) = arity l in

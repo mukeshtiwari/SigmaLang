@@ -6,7 +6,8 @@ From Algebra Require Import
   Field Integral_domain
   Ring Vector_space.
 From Utility Require Import Util.
-From Compiler Require Import LinearRelation LeafValidity Degeneracy Claim.
+From Compiler Require Import LinearRelation LeafValidity Degeneracy
+  IncidenceDecide Claim.
 
 Import VectorNotations.
 
@@ -265,6 +266,86 @@ Section Determined.
     intros m n mat cl C hcert v hv j hcl.
     rewrite <- (dot_wpoint n j v), <- (hcert j hcl).
     exact (dot_combo m n mat (C j) v hv).
+  Qed.
+
+  (** ** Checking a certificate
+
+      The certificate is one coefficient block per position.  Checking
+      it compares each claimed block's combination against the form
+      that reads off that position, which is one row of the identity;
+      [ident] builds those rows so that the comparison needs no index
+      arithmetic. *)
+  Fixpoint vec_eqb {n : nat} : Vector.t F n -> Vector.t F n -> bool :=
+    match n with
+    | O => fun _ _ => true
+    | S n' => fun u w =>
+        andb (if Fdec (Vector.hd u) (Vector.hd w) then true else false)
+             (vec_eqb (Vector.tl u) (Vector.tl w))
+    end.
+
+  Lemma vec_eqb_sound :
+    ∀ (n : nat) (u w : Vector.t F n), vec_eqb u w = true -> u = w.
+  Proof.
+    induction n as [| n ih]; intros u w hb.
+    - rewrite (vector_inv_0 u), (vector_inv_0 w); reflexivity.
+    - destruct (vector_inv_S u) as (a & u' & hu).
+      destruct (vector_inv_S w) as (b & w' & hw).
+      subst; cbn in hb.
+      apply Bool.andb_true_iff in hb as (hh & ht).
+      destruct (Fdec a b) as [heq | _]; [| discriminate hh].
+      rewrite heq, (ih u' w' ht); reflexivity.
+  Qed.
+
+  Fixpoint ident (n : nat) : Vector.t (Vector.t F n) n :=
+    match n with
+    | O => []
+    | S n' => (one :: wzeroC n') ::
+              Vector.map (fun r => zero :: r) (ident n')
+    end.
+
+  Lemma nth_ident :
+    ∀ (n : nat) (j : Fin.t n), Vector.nth (ident n) j = wpointC j one.
+  Proof.
+    intros n j; induction j as [p | p j ih];
+      cbn [ident wpoint Vector.nth Vector.caseS Nat.pred].
+    - reflexivity.
+    - rewrite (Vector.nth_map _ _ j j eq_refl), ih; reflexivity.
+  Qed.
+
+  Definition certificate (m n : nat) : Type :=
+    Vector.t (Vector.t (Vector.t F n) m) n.
+
+  Definition combo_checkb {m n : nat}
+    (mat : Vector.t (Vector.t G n) m) (cl : claim n)
+    (cs : certificate m n) : bool :=
+    List.forallb
+      (fun t : bool * (Vector.t (Vector.t F n) m * Vector.t F n) =>
+         if fst t then vec_eqb (combo mat (fst (snd t))) (snd (snd t))
+         else true)
+      (Vector.to_list
+         (zip_with (fun (b : bool) (p : Vector.t (Vector.t F n) m * Vector.t F n)
+                    => (b, p)) cl
+            (zip_with (fun (c : Vector.t (Vector.t F n) m) (e : Vector.t F n)
+                       => (c, e)) cs (ident n)))).
+
+  (** A checked certificate is a proof that the statement determines
+      what it claims.  Nothing about the search that produced the
+      coefficients is trusted or verified. *)
+  Theorem combo_checkb_sound :
+    ∀ (m n : nat) (mat : Vector.t (Vector.t G n) m) (cl : claim n)
+      (cs : certificate m n),
+    combo_checkb mat cl cs = true ->
+    @determines F zero add G gid Gdec m n mat cl.
+  Proof.
+    intros m n mat cl cs hb.
+    apply (determined_by_certificate m n mat cl (fun j => Vector.nth cs j)).
+    intros j hcl.
+    unfold combo_checkb in hb.
+    rewrite (forallb_to_list_nth _ _ n _) in hb.
+    specialize (hb j); rewrite !nth_zip_with in hb; cbn [fst snd] in hb.
+    rewrite hcl in hb.
+    rewrite <- (nth_ident n j).
+    exact (vec_eqb_sound n _ _ hb).
   Qed.
 
 End Determined.

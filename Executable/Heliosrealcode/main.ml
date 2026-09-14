@@ -130,12 +130,53 @@ let dead_column_proposal m n mat =
    so a branch of a disjunction carries columns for the other
    branch's secrets and never mentions them; those are abstention,
    not degeneracy, and live_claim is what says so. *)
+(* The search for an acceptance certificate, and it is a search, not a
+   decision procedure: nothing here is trusted.  If some equation
+   carries a claimed secret on a base that appears nowhere else in
+   that equation, then that one equation already reads "this secret is
+   zero" for any incidence solution, so the combination certifying
+   that column is the single coefficient one.  Compiler/Determined.v
+   checks whatever comes out; a wrong guess is simply not believed.
+
+   The general case needs Gaussian elimination over the field, which
+   would emit its certificate the same way and be checked by the same
+   code. *)
+let certificate_for m n mat cl =
+  let mi = Big_int_Z.int_of_big_int m and ni = Big_int_Z.int_of_big_int n in
+  let rows =
+    Array.of_list
+      (List.map (fun r -> Array.of_list (Vector.to_list n r))
+         (Vector.to_list m mat)) in
+  let unique_in_row i j =
+    let b = rows.(i).(j) in
+    (not (Helios.gdec b Helios.gone)) &&
+    (let c = ref 0 in
+     Array.iter (fun x -> if Helios.gdec x b then incr c) rows.(i);
+     !c = 1) in
+  let block j =
+    let rec find i =
+      if i >= mi then None else if unique_in_row i j then Some i else find (i+1) in
+    let pivot = find 0 in
+    Vector.of_list
+      (List.init mi
+         (fun i ->
+            Vector.of_list
+              (List.init ni
+                 (fun j' ->
+                    if pivot = Some i && j' = j then Helios.fone
+                    else Helios.fzero)))) in
+  Vector.of_list (List.init ni block)
+
 let classify_one (m, n, mat, pub) =
   LeafStatus.classify_leaf
-    Helios.fzero Helios.fadd Helios.fdec Helios.gone Helios.gdec
+    Helios.fzero Helios.fone Helios.fadd Helios.fmul Helios.fdec
+    Helios.gone Helios.gdec
     m n mat pub
     (Claim.live_claim Helios.gone Helios.gdec m n mat)
-    (dead_column_proposal m n mat)
+    { LeafStatus.ev_degenerate = dead_column_proposal m n mat
+    ; LeafStatus.ev_determined =
+        Some (certificate_for m n mat
+                (Claim.live_claim Helios.gone Helios.gdec m n mat)) }
 
 type qtally =
   { mutable det : int; mutable deg : int; mutable und : int
