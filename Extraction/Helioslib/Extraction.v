@@ -2,6 +2,7 @@ From Stdlib Require Import Extraction
   ExtrOcamlBasic ExtrOcamlNativeString
   ExtrOcamlZBigInt ExtrOcamlNatBigInt.
 From Utility Require Import Sha256.
+From Compiler Require Import LeafValidity.
 From Examples Require Import Helios Cmz PrivacyPass Recover.
 Extraction Blacklist String List Nat Ascii Byte Decimal.
 
@@ -45,4 +46,4 @@ Extract Constant sha256_string =>
 Extract Constant g_to_string => "Big_int_Z.string_of_big_int".
 
 Set Extraction Output Directory ".".
-Separate Extraction Helios Cmz PrivacyPass Recover.
+Separate Extraction Helios Cmz PrivacyPass Recover LeafValidity.

@@ -54,9 +54,34 @@ let leaf_transcript (t : Cfrg.transcript)
   Obj.magic (Vector.of_list (Array.to_list t.Cfrg.comm),
              Vector.of_list (Array.to_list t.Cfrg.resp))
 
+(* ---------- leaf validity, the verified checker ----------
+ *
+ * Two conditions the standard validates and we did not, until its
+ * negative controls said so: every declared secret must appear in some
+ * equation, and no target may be the neutral element. Compiler/
+ * LeafValidity.v proves each necessary, by exhibiting what goes wrong
+ * without it, and proves this decider equivalent to them. *)
+let leaf_valid (l : Cfrg.leaf) : bool =
+  let rows =
+    Array.to_list l.Cfrg.mat
+    |> List.map (fun r -> Vector.of_list (Array.to_list r)) in
+  LeafValidity.leaf_validb
+    P256.identity (fun p q -> P256.equal p q)
+    (Big_int_Z.big_int_of_int (Array.length l.Cfrg.mat))
+    (Big_int_Z.big_int_of_int
+       (if Array.length l.Cfrg.mat = 0 then 0 else Array.length l.Cfrg.mat.(0)))
+    (Vector.of_list rows)
+    (Vector.of_list (Array.to_list l.Cfrg.target))
+
 (* ---------- the verified verifier, instantiated ---------- *)
 
+(* A degenerate leaf is rejected before the equation is even checked:
+ * an equation whose target is neutral is satisfied by the zero
+ * witness, and a secret in a dead column is not proven at all, so
+ * accepting such a proof would mean accepting one that proves less
+ * than it appears to. *)
 let verify (l : Cfrg.leaf) (t : Cfrg.transcript) (c : B.big_int) : bool =
+  leaf_valid l &&
   Composition.comp_verify
     fzero fone fadd fmul fsub finv
     P256.identity P256.add (fun p k -> P256.mul k p)
