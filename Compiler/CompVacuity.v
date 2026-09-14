@@ -8,7 +8,7 @@ From Algebra Require Import
 From Utility Require Import Util.
 From Crypto Require Import Sigma.
 From Compiler Require Import LinearRelation LeafValidity
-  Composition Degeneracy Vacuity.
+  Composition Degeneracy Vacuity IncidenceDecide LeafStatus.
 
 Import VectorNotations.
 
@@ -215,5 +215,99 @@ Section CompVacuity.
     intros k xs rs Hxs Ht.
     apply free_proof_is_free.
   Qed.
+
+  (** ** Ruling out a free proof, and what it takes
+
+      A certificate says a statement can be proven by anyone.  The
+      compiler wants the opposite: an assurance that none exists.
+      This section supplies a decidable test for that, and the reason
+      it is not merely sufficient but exactly right.
+
+      Read the recursion of [free_proof] backwards.  A certificate at
+      a leaf needs every target neutral.  A certificate at [CAnd] or
+      [COr] needs one at a child.  A certificate at [CThresh] needs
+      [t] of them among the children - unless [t] is zero, in which
+      case it needs none at all, and [none_certificate] builds one out
+      of nothing.
+
+      So there are exactly two ways for a statement to be free: a leaf
+      whose targets are all neutral, or a threshold of zero.  Rule out
+      both and no certificate exists anywhere in the tree, which is
+      [tree_not_freeb_sound].  That is why the cheap syntactic check
+      on [t] is not a patch over one symptom: given leaves that are
+      checked, it is the whole of the remaining problem. *)
+
+  Fixpoint allb_gen (f : comp_relC -> bool) {n : nat}
+    (v : Vector.t comp_relC n) {struct v} : bool :=
+    match v with
+    | [] => true
+    | r :: v' => andb (f r) (allb_gen f v')
+    end.
+
+  Fixpoint tree_not_freeb (r : comp_relC) : bool :=
+    match r with
+    | Leaf _ _ _ pub => negb (@all_gidb G gid Gdec _ pub)
+    | CAnd rl rr => andb (tree_not_freeb rl) (tree_not_freeb rr)
+    | COr rl rr => andb (tree_not_freeb rl) (tree_not_freeb rr)
+    | CThresh t _ _ rs _ _ =>
+        andb (negb (Nat.eqb t 0)) (allb_gen tree_not_freeb rs)
+    end.
+
+  (** A threshold with a positive count cannot be met unless some
+      child carries a certificate of its own. *)
+  Lemma atleast_gen_forces_a_child :
+    ∀ (t n : nat) (v : Vector.t comp_relC n),
+    vallC (fun r => free_proof r -> False) v ->
+    (0 < t)%nat -> atleast_gen free_proof t v -> False.
+  Proof.
+    intros t n v; revert t.
+    induction v as [| r n v ih]; intros t hall hpos h; cbn in hall, h.
+    - subst t; exact (Nat.lt_irrefl 0 hpos).
+    - destruct hall as (hr & hrest).
+      destruct h as [hp | hskip].
+      + exact (hr (fst hp)).
+      + exact (ih t hrest hpos hskip).
+  Qed.
+
+  Theorem tree_not_freeb_sound :
+    ∀ r : comp_relC, tree_not_freeb r = true -> free_proof r -> False.
+  Proof.
+    apply (@comp_rel_ind' F zero G
+             (fun r => tree_not_freeb r = true -> free_proof r -> False)).
+    - (* a leaf: the certificate says every target is neutral, the
+         test says not every target is neutral *)
+      intros m n mat pub hb hfree; cbn in hb, hfree.
+      rewrite Bool.negb_true_iff in hb.
+      rewrite (proj2 (@all_gidb_spec G gid Gdec m pub) hfree) in hb.
+      discriminate hb.
+    - intros rl rr ihl ihr hb hfree; cbn in hb, hfree.
+      apply Bool.andb_true_iff in hb as (hbl & _).
+      exact (ihl hbl (fst hfree)).
+    - intros rl rr ihl ihr hb hfree; cbn in hb, hfree.
+      apply Bool.andb_true_iff in hb as (hbl & hbr).
+      destruct hfree as [hl | hr]; [exact (ihl hbl hl) | exact (ihr hbr hr)].
+    - intros t k xs rs Hxs Ht hall hb hfree; cbn in hb, hfree.
+      apply Bool.andb_true_iff in hb as (hpos & hchildren).
+      rewrite Bool.negb_true_iff, Nat.eqb_neq in hpos.
+      apply (atleast_gen_forces_a_child t k rs); [| lia | exact hfree].
+      (* every child fails the test's negation, by its own verdict *)
+      clear hfree hpos Ht Hxs xs.
+      revert hall hchildren; generalize k rs; clear k rs.
+      intros k rs; induction rs as [| r k rs ihrs]; cbn; intros hall hb.
+      + exact I.
+      + destruct hall as (hr & hrest).
+        apply Bool.andb_true_iff in hb as (hbr & hbrest).
+        split; [exact (hr hbr) | exact (ihrs hrest hbrest)].
+  Qed.
+
+  (** The two ways out, named.  A leaf whose targets are all neutral
+      fails the test; so does a threshold of zero, whatever its
+      children.  Nothing else does. *)
+  Theorem zero_threshold_fails_the_test :
+    ∀ (k : nat) (xs : Vector.t F k) (rs : Vector.t comp_relC k)
+      (Hxs : List.NoDup (List.cons zero (Vector.to_list xs)))
+      (Ht : (0 <= k)%nat),
+    tree_not_freeb (CThresh 0 k xs rs Hxs Ht) = false.
+  Proof. intros; reflexivity. Qed.
 
 End CompVacuity.
