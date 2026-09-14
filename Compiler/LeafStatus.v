@@ -347,6 +347,52 @@ Section LeafStatus.
       assumption.
   Qed.
 
+  (** ** The old conditions, subsumed
+
+      LeafValidity.v rejects a leaf with a dead column and a leaf with
+      any neutral target.  Replacing that checker with this one is
+      only justified if nothing is lost, so here is what happens to
+      each condition.
+
+      The first is subsumed outright.  A dead column is an incidence
+      solution supported at that column, so a leaf whose incidence
+      system has only the zero solution has no dead column; the old
+      test is implied by the new verdict and need not be run. *)
+  Theorem determined_implies_columns_liveb :
+    ∀ (m n : nat) (mat : Vector.t (Vector.t G n) m),
+    (∀ v : Vector.t F n, incidence_zeroC mat v -> v = wzeroC n) ->
+    @columns_liveb G gid Gdec m n mat = true.
+  Proof.
+    intros m n mat hdet.
+    destruct (@columns_liveb G gid Gdec m n mat) eqn:hb;
+      [reflexivity | exfalso].
+    (* a false verdict names a dead column *)
+    unfold columns_liveb in hb; rewrite Bool.negb_false_iff in hb.
+    apply fold_orb_true in hb as (j & hj).
+    pose proof (proj1 (@dead_columns_spec G gid Gdec m n mat j) hj) as hdead.
+    (* which supports a nonzero incidence solution *)
+    pose proof (@dead_column_incidence F zero one add mul sub div opp inv
+                  G gid ginv gop gpow Gdec Hvec m n mat j one hdead) as hinc.
+    apply (@wpoint_nonzero F zero n j one
+             (fun h => @zero_neq_one F (@eq F) zero one _ (eq_sym h))).
+    exact (hdet _ hinc).
+  Qed.
+
+  (** The second is not subsumed, because it was wrong.
+      [target_live] asks that no target be neutral, while the leaf is
+      vacuous only when they all are.  So the new test fires strictly
+      less often, and every leaf the old condition accepted is still
+      accepted here - except at [m = 0], where [target_live] holds for
+      want of a target and the leaf really is vacuous. *)
+  Theorem target_live_implies_not_vacuous :
+    ∀ (m : nat) (pub : Vector.t G (S m)),
+    @target_live G gid (S m) pub -> all_gidb pub = false.
+  Proof.
+    intros m pub htl.
+    destruct (all_gidb pub) eqn:hb; [exfalso | reflexivity].
+    exact (htl Fin.F1 (proj1 (all_gidb_spec (S m) pub) hb Fin.F1)).
+  Qed.
+
 End LeafStatus.
 
 (** The arities are recoverable from the payloads, so they are hidden
