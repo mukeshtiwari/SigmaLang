@@ -160,6 +160,274 @@ let cross_check (j : job) cands survivors mk_witness mk_rand =
                flush stdout)
         survivors
 
+
+(* ================= Stage two: solving for the relation =================
+ *
+ * Everything above selects among readings a human wrote down.  This
+ * section does not.  It solves for the relation.
+ *
+ * A leaf's verification equation, for row i, is
+ *
+ *     M[i][1]^r1 * ... * M[i][n]^rn  =  a[i] * P[i]^c
+ *
+ * with the announcement a, the challenge c and the responses r all
+ * read from the transcript.  The unknowns are the matrix entries and
+ * the target, each ranging over a pool of published elements.  So a
+ * row is a subset-product problem over a finite pool rather than a
+ * search for unknown group elements, and it is small.
+ *
+ * Three facts make it cheap.  Rows are independent given the observed
+ * response vector, so they are solved one at a time.  A wrong
+ * assignment satisfies a group equation only by accident, with
+ * probability about one over the group order, so one observation
+ * rejects nearly everything and a second confirms.  And the target
+ * slot need not be enumerated at all: precompute the right-hand side
+ * for every pool element into a table and look the left-hand side up,
+ * which turns a quadratic scan into a linear one.
+ *
+ * This stage uses the challenge *published in the transcript*, never
+ * a recomputed one, so it is independent of the hash rule.  That
+ * matters, or stage one and stage two would each need the other's
+ * answer.
+ *
+ * Scope.  The pool is the published elements and a closure of them,
+ * so this solves an assignment problem, not a discrete logarithm.  An
+ * element outside the closure cannot be found, and the run says so by
+ * reporting no solution rather than a wrong one. *)
+
+(* A pool element is a symbolic expression over the named instance
+ * elements, so a solution can be printed as something a human reads
+ * rather than as a 617-digit number. *)
+type pexp = PB of int | PInv of pexp | PMul of pexp * pexp
+
+let rec pname (bases : string array) = function
+  | PB i -> bases.(i)
+  | PInv e -> pname bases e ^ "^-1"
+  | PMul (a, b) -> pname bases a ^ "*" ^ pname bases b
+
+let rec peval (vals : Helios.coq_G array) = function
+  | PB i -> vals.(i)
+  | PInv e -> Helios.ginv_g (peval vals e)
+  | PMul (a, b) -> Helios.gmul (peval vals a) (peval vals b)
+
+(* Closed under inverses and pairwise products.  Closure is not
+ * optional: the right branch of a Helios ballot proves against
+ * beta * g^-1, which nobody publishes. *)
+let closure (nbase : int) : pexp list =
+  let b = List.init nbase (fun i -> PB i) in
+  let l1 = b @ List.map (fun e -> PInv e) b in
+  let prods = List.concat_map (fun a -> List.map (fun x -> PMul (a, x)) l1) l1 in
+  l1 @ prods
+
+(* One transcript, as this stage sees it: the values of the named
+ * instance elements, the announcement, the published challenge, and
+ * the responses. *)
+type obs = {
+  ovals : Helios.coq_G array;
+  oann  : Helios.coq_G array;
+  ochal : Helios.coq_F;
+  oresp : Helios.coq_F array;
+}
+
+let key (g : Helios.coq_G) : string = Helios.g_to_string g
+
+(* Solutions for row [i]: assignments to the n matrix slots and the
+ * target that fit every observation.  The first observation is the
+ * filter, the rest confirm. *)
+let solve_row (pool : pexp array) (obs : obs list) (n : int) (i : int) =
+  match obs with
+  | [] -> []
+  | first :: rest ->
+      (* Evaluate the pool once per observation, never per candidate.
+       * Inverses are modular inversions and the pool is full of them,
+       * so re-evaluating inside the inner loop dominated everything. *)
+      let eval_all o = Array.map (peval o.ovals) pool in
+      let vals0 = eval_all first in
+      (* Distinct pool expressions can denote the same element: the
+       * closure contains 1*g, g*1, 1^-1*g and so on. Keep one
+       * representative of each value, so the report names a relation
+       * once rather than five times. *)
+      let seen = Hashtbl.create (2 * Array.length pool) in
+      let keep =
+        Array.to_list (Array.mapi (fun j v -> (j, v)) vals0)
+        |> List.filter (fun (_, v) ->
+             let k = key v in
+             if Hashtbl.mem seen k then false
+             else (Hashtbl.add seen k (); true))
+        |> List.map fst
+        |> Array.of_list in
+      let np = Array.length keep in
+      let powr0 = Array.init n (fun k ->
+          Array.map (fun j -> Helios.gpow vals0.(j) first.oresp.(k)) keep) in
+      let tbl0 = Hashtbl.create (2 * np) in
+      Array.iteri
+        (fun idx j ->
+           Hashtbl.replace tbl0
+             (key (Helios.gmul first.oann.(i) (Helios.gpow vals0.(j) first.ochal)))
+             idx)
+        keep;
+      (* enumerate the matrix slots; the target is a table lookup *)
+      let out = ref [] in
+      let rec go k acc prod =
+        if k = n then
+          (match Hashtbl.find_opt tbl0 (key prod) with
+           | Some p -> out := (List.rev acc, keep.(p)) :: !out
+           | None -> ())
+        else
+          for idx = 0 to np - 1 do
+            go (k + 1) (keep.(idx) :: acc) (Helios.gmul prod powr0.(k).(idx))
+          done in
+      go 0 [] Helios.gone;
+      (* confirm the survivors on the remaining observations *)
+      let rest_vals = List.map (fun o -> (o, eval_all o)) rest in
+      let confirm (ms, p) =
+        List.for_all
+          (fun (o, vals) ->
+             let lhs =
+               List.fold_left2
+                 (fun acc j k -> Helios.gmul acc (Helios.gpow vals.(j) o.oresp.(k)))
+                 Helios.gone ms (List.init n (fun k -> k)) in
+             Helios.gdec lhs
+               (Helios.gmul o.oann.(i) (Helios.gpow vals.(p) o.ochal)))
+          rest_vals in
+      List.filter confirm !out
+
+
+(* ---- closing the loop on a solved relation ----
+ *
+ * What the solver printed is an untrusted guess. Turn it into a
+ * surface statement, push it through the verified compiler, and check
+ * that the resulting protocol accepts the published transcripts. Only
+ * then is there anything to believe, and by recovered_relation_holds
+ * what is believed is a fact about the corpus.
+ *
+ * One honest limitation. In the surface language the base of an
+ * exponentiation must be a name the environment resolves, so a solved
+ * matrix entry that is a derived element cannot be written directly;
+ * it would need the environment extended with a fresh name. Targets
+ * have no such restriction, being ordinary group expressions, which
+ * is why beta*g^-1 causes no trouble. We report the case rather than
+ * silently dropping it. *)
+
+let rec pexp_to_gexpr (bases : string array) = function
+  | PB i -> Surface.YPt bases.(i)
+  | PInv e -> Surface.YInv (pexp_to_gexpr bases e)
+  | PMul (a, b) -> Surface.YMul (pexp_to_gexpr bases a, pexp_to_gexpr bases b)
+
+let secret_name k = Printf.sprintf "x%d" k
+
+(* One row becomes one equality, with the secret-carrying side on the
+ * left, which is the orientation the elaborator needs. *)
+let row_to_eq (bases : string array) (pool : pexp array) (ms, p) =
+  let lhs =
+    List.fold_left
+      (fun acc (k, j) ->
+         match pool.(j) with
+         | PB i ->
+             let term = Surface.YPow (bases.(i), Surface.XPriv (secret_name k)) in
+             (match acc with None -> Some term | Some a -> Some (Surface.YMul (a, term)))
+         | _ -> raise Exit)
+      None
+      (List.mapi (fun k j -> (k, j)) ms) in
+  match lhs with
+  | None -> raise Exit
+  | Some l -> Surface.TEq (l, pexp_to_gexpr bases pool.(p))
+
+let conjoin = function
+  | [] -> raise Exit
+  | x :: rest -> List.fold_left (fun a b -> Surface.TAnd (a, b)) x rest
+
+(* Build the statement from the per-row solutions, compile it with the
+ * verified compiler, and verify every transcript under it. *)
+let close_loop (bases : string array) (pool : pexp array)
+    (sols : (int list * int) list) (obs : obs list) (n : int)
+    (mk_tr : obs -> transcript) =
+  Printf.printf "  closing the loop     : " ;
+  match (try Some (conjoin (List.map (row_to_eq bases pool) sols))
+         with Exit -> None) with
+  | None ->
+      Printf.printf
+        "not expressible directly (a solved base is a derived element)\n";
+      flush stdout
+  | Some stmt ->
+      let used = Array.to_list bases
+                 @ List.init n secret_name in
+      let privs = List.init n secret_name in
+      (match obs with
+       | [] -> Printf.printf "no transcripts\n"; flush stdout
+       | _ :: _ ->
+            (* recompile per transcript, since the instance changes *)
+            let ok = ref 0 and bad = ref 0 in
+            List.iter
+              (fun o ->
+                 let genv s =
+                   let rec look i =
+                     if i >= Array.length bases then Helios.gone
+                     else if bases.(i) = s then o.ovals.(i)
+                     else look (i + 1) in
+                   look 0 in
+                 match Recover.compile_sstmt used privs genv stmt with
+                 | None -> incr bad
+                 | Some rel ->
+                     (* hash every announcement element in order,
+                        instance not included, which is the rule the
+                        identification stage established *)
+                     let k = { Recover.cand_or = Recover.OLeft;
+                               Recover.cand_sel =
+                                 List.init (Array.length o.oann)
+                                   (fun i -> Big_int_Z.big_int_of_int i);
+                               Recover.cand_inst = Recover.IAnnOnly } in
+                     if Recover.cand_verify k sha1_bigint [] rel (mk_tr o)
+                     then incr ok else incr bad)
+              obs;
+            Printf.printf "compiled; %d of %d transcripts verify\n"
+              !ok (!ok + !bad);
+            flush stdout)
+
+let render (bases : string array) (pool : pexp array) (ms, p) =
+  let terms =
+    List.mapi (fun k j -> Printf.sprintf "%s^x%d" (pname bases pool.(j)) k) ms in
+  Printf.sprintf "%s = %s" (String.concat " * " terms) (pname bases pool.(p))
+
+let infer label (bases : string array) (obs : obs list) (nrows : int) (n : int)
+    (closer : (obs -> transcript) option) =
+  Printf.printf "\n== solving for the relation: %s ==\n" label;
+  (match obs with
+   | [] -> Printf.printf "  no transcripts\n"; flush stdout
+   | _ ->
+     let pool = Array.of_list (closure (Array.length bases)) in
+     Printf.printf "  published elements : %s\n" (String.concat " " (Array.to_list bases));
+     Printf.printf "  pool after closure : %d\n" (Array.length pool);
+     Printf.printf "  transcripts        : %d\n" (List.length obs);
+     let t0 = Unix.gettimeofday () in
+     let all_sols = List.init nrows (fun i -> solve_row pool obs n i) in
+     List.iteri
+       (fun i sols ->
+          Printf.printf "  row %d : %d solution%s\n" i (List.length sols)
+            (if List.length sols = 1 then "" else "s");
+          List.iter (fun s -> Printf.printf "      %s\n" (render bases pool s)) sols)
+       all_sols;
+     Printf.printf "  time               : %.1fs\n" (Unix.gettimeofday () -. t0);
+     (match closer with
+      | None ->
+          Printf.printf
+            "  closing the loop     : not applicable here. A ballot branch is\n";
+          Printf.printf
+            "                         half of a disjunction, so its challenge is\n";
+          Printf.printf
+            "                         not a hash and it is not a standalone\n";
+          Printf.printf
+            "                         proof. The disjunction as a whole is\n";
+          Printf.printf
+            "                         checked by the identification stage.\n"
+      | Some mk_tr ->
+          if List.for_all (fun l -> List.length l = 1) all_sols then
+            close_loop bases pool (List.map List.hd all_sols) obs n mk_tr
+          else
+            Printf.printf
+              "  closing the loop     : skipped, a row is not uniquely solved\n");
+     flush stdout)
+
 (* ---------------- reading the election ---------------- *)
 
 let () =
@@ -210,7 +478,9 @@ let () =
   (* decryption proofs: these are about the aggregate over every
      ballot, so they only make sense when the whole election was read.
      With a cap they are skipped rather than reported as failures. *)
-  let decrypt_obs =
+  (* the per-candidate aggregate, needed by both the decryption
+     identification and the decryption inference *)
+  let aggr_list =
     if truncated then []
     else begin
       let cts =
@@ -233,6 +503,12 @@ let () =
       let aggr =
         List.init ncand
           (fun i -> List.filteri (fun k _ -> k mod ncand = i) cts |> Helios.aggregate) in
+      aggr
+    end in
+
+  let decrypt_obs =
+    if aggr_list = [] then []
+    else
       List.concat_map
         (fun t ->
            let pk = gof (str (member "y" (member "public_key" t))) in
@@ -240,11 +516,10 @@ let () =
            let pfs = member "decryption_proofs" t |> to_list |> List.hd |> to_list in
            List.mapi
              (fun i (fac, pf) ->
-                let (a, _) = List.nth aggr i in
+                let (a, _) = List.nth aggr_list i in
                 { inst = [pk; a; gof (str fac)]; tr = decrypt_transcript pf })
              (List.combine facs pfs))
-        trustees
-    end in
+        trustees in
 
   Printf.printf "Identifying statements from published transcripts\n";
   Printf.printf "  file    : %s\n" (Filename.basename path);
@@ -289,6 +564,76 @@ let () =
       ,
        (fun () -> Obj.magic (vec [rnd_scalar ()])))
     ] in
+
+
+  (* ---- stage two: solve for the relations ----
+   *
+   * A handful of transcripts is plenty. A wrong assignment survives a
+   * group equation only by accident, so the first observation does
+   * nearly all the filtering and the rest only confirm. We take ninfer
+   * and say so rather than sweeping the corpus for no gain. *)
+  let take n l = List.filteri (fun i _ -> i < n) l in
+  (* Five is already generous. The first observation does the
+     filtering; the rest only guard against a coincidence whose
+     probability is about one over the group order. *)
+  let ninfer = 5 in
+
+  let decrypt_infer_obs =
+    take ninfer
+      (List.concat_map
+         (fun t ->
+            let pk = gof (str (member "y" (member "public_key" t))) in
+            let facs = member "decryption_factors" t |> to_list |> List.hd |> to_list in
+            let pfs = member "decryption_proofs" t |> to_list |> List.hd |> to_list in
+            if aggr_list = [] then []
+            else
+              List.mapi
+                (fun i (fac, pf) ->
+                   let (a, _) = List.nth aggr_list i in
+                   let com = member "commitment" pf in
+                   { ovals = [| Helios.gen; pk; a; gof (str fac); Helios.gone |];
+                     oann  = [| gof (str (member "A" com)); gof (str (member "B" com)) |];
+                     ochal = fof (str (member "challenge" pf));
+                     oresp = [| fof (str (member "response" pf)) |] })
+                (List.combine facs pfs))
+         trustees) in
+
+  let ballot_branch_obs br =
+    take ninfer
+      (List.concat_map
+         (fun b ->
+            List.concat_map
+              (fun ans ->
+                 let choices = member "choices" ans |> to_list in
+                 let pfs = member "individual_proofs" ans |> to_list in
+                 List.map2
+                   (fun ch pf ->
+                      let p = List.nth (to_list pf) br in
+                      let com = member "commitment" p in
+                      { ovals = [| Helios.gen; h;
+                                   gof (str (member "alpha" ch));
+                                   gof (str (member "beta" ch));
+                                   Helios.gone |];
+                        oann  = [| gof (str (member "A" com));
+                                   gof (str (member "B" com)) |];
+                        ochal = fof (str (member "challenge" p));
+                        oresp = [| fof (str (member "response" p)) |] })
+                   choices pfs)
+              (member "answers" (member "vote" b) |> to_list))
+         ballots) in
+
+  infer "Helios ballot, branch 0 (vote is zero)"
+    [| "g"; "h"; "alpha"; "beta"; "1" |] (ballot_branch_obs 0) 2 1 None;
+  infer "Helios ballot, branch 1 (vote is one)"
+    [| "g"; "h"; "alpha"; "beta"; "1" |] (ballot_branch_obs 1) 2 1 None;
+  (* A decryption proof is a single leaf and a standalone
+     non-interactive proof, so the loop can be closed on it: the solved
+     relation goes back through the verified compiler and its verifier
+     is run against the published transcripts. *)
+  infer "Helios correct decryption"
+    [| "g"; "pk"; "AA"; "M"; "1" |] decrypt_infer_obs 2 1
+    (Some (fun o ->
+       Obj.magic (leaf [o.oann.(0); o.oann.(1)] [o.oresp.(0)])));
 
   List.iter
     (fun (j, mkinstance, mkr) ->

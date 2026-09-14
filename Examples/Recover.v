@@ -467,6 +467,27 @@ Section Recover.
       G gone ginv_g gmul gpow gdec Hvec r (cand_hash k sha1 pre r) w rnd hw).
   Qed.
 
+  (** ** Closing the loop on a solved relation
+
+      A search that solves for a relation and prints it has not
+      finished the job: what it printed is an untrusted guess.  This
+      entry point takes a statement assembled from a solution and
+      pushes it through the same verified pipeline everything else
+      uses, so the guess is checked rather than believed.
+
+      This is the whole point of keeping the search outside the
+      verified boundary.  The solver may be as heuristic as it likes;
+      a wrong answer costs a failed check, never a false one. *)
+  Definition compile_sstmt (used privs : list string) (genv : string -> G)
+    (s : @sstmt F string) : option comp_relC :=
+    match elabC used s with
+    | Some (c, _) =>
+        @compile F fzero fadd fmul fopp fdec G gone ginv_g gmul gpow
+          string String.string_dec (List.length privs) (Vector.of_list privs)
+          genv Helios.penvI Helios.node c
+    | None => None
+    end.
+
   (** ** The targets
 
       Two, so that the parameterisation is exercised rather than

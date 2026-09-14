@@ -217,6 +217,34 @@ Fiat-Shamir.
 We established the right reading by hand the first time, which took a
 day and a detour through Python. This makes it a search.
 
+The run then does something stronger than selecting: it **solves** for
+the relation. A leaf's verification equation is a product of unknown
+matrix entries raised to known responses, equal to a known value, so
+each row is a subset-product problem over a pool of published elements
+rather than a search for unknown group elements. The pool is closed
+under inverses and products, which is not optional: the right branch
+of a Helios ballot proves against `beta * g^-1`, which nobody
+publishes. From five transcripts it recovers
+
+```
+branch 0 :  g^x = alpha        h^x = beta
+branch 1 :  g^x = alpha        h^x = beta*g^-1
+decrypt  :  g^x = pk           AA^x = M
+```
+
+each uniquely, in about three seconds per target, using the challenge
+published in the transcript rather than a recomputed one, so this
+stage is independent of the hash rule.
+
+The solved relation is then a guess until it is checked. For the
+decryption proof, which is a standalone non-interactive proof, the run
+closes the loop: it renders the solution as a surface statement,
+compiles it with the verified compiler, and confirms the resulting
+verifier accepts the published transcripts. A ballot branch is half of
+a disjunction, so its challenge is not a hash and it is not a
+standalone proof; the disjunction as a whole is checked by the
+identification stage instead.
+
 A candidate is dropped the moment it fails one proof, since a
 refutation is final. That is the only pruning used, so the
 exhaustiveness theorem still means something, and it is what keeps the
