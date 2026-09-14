@@ -169,7 +169,12 @@ let describe (c : B.big_int LeafStatus.leaf_cert) : string =
  * accepting such a proof would mean accepting one that proves less
  * than it appears to. *)
 let verify (l : Cfrg.leaf) (t : Cfrg.transcript) (c : B.big_int) : bool =
-  leaf_valid l &&
+  (* leaf_sound, not leaf_valid: LeafStatus.v proves the old checker
+   * wrong in both directions, rejecting leaves with one neutral
+   * target among several and accepting the empty leaf, a dead row
+   * under a live target, and any leaf whose incidence system has a
+   * solution the instance claims to have pinned down. *)
+  leaf_sound l &&
   Composition.comp_verify
     fzero fone fadd fmul fsub finv
     P256.identity P256.add (fun p k -> P256.mul k p)

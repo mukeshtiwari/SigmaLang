@@ -24,25 +24,55 @@ type entry = {
   comment : string;
 }
 
+(* Two schemas are in the wild.  The one this driver was written
+   against names Instance / NargString / Tag / Flavor and gives one
+   entry per relation per flavour; current upstream renamed those to
+   Statement / SessionId, carries both proof flavours in a single
+   entry under "Batchable Proof" and "Proof", and dropped the invalid
+   file.  Both are read here: the recovered invalid vectors are the
+   only negative controls published so far, and abandoning them to
+   follow a rename would throw away the part of the suite that
+   discriminates. *)
 let load (path : string) : entry list =
-  Yojson.Safe.from_file path |> to_list
-  |> List.map (fun j ->
-      { relation = (match j |> member "Relation" with
-                    | `String v -> v
-                    | _ -> (* the invalid file names the case, not the relation *)
-                      (match j |> member "Id" with
-                       | `String v ->
-                           (match List.rev (String.split_on_char '/' v) with
-                            | last :: _ -> last | [] -> v)
-                       | _ -> "?"));
+  let str k j = match j |> member k with `String v -> Some v | _ -> None in
+  let relation_of j =
+    match str "Relation" j with
+    | Some v -> v
+    | None ->
+        (* the invalid file names the case, not the relation *)
+        (match str "Id" j with
+         | Some v ->
+             (match List.rev (String.split_on_char '/' v) with
+              | last :: _ -> last | [] -> v)
+         | None -> "?") in
+  let old_schema j =
+    [ { relation = relation_of j;
         flavor   = j |> member "Flavor"   |> to_string;
         tag      = j |> member "Tag"      |> to_string;
         instance = j |> member "Instance" |> to_string;
         proof    = j |> member "NargString" |> to_string;
-        expected = (match j |> member "Expected" with
-                    | `String v -> v | _ -> "accept");
-        comment  = (match j |> member "Comment" with
-                    | `String v -> v | _ -> "") })
+        expected = (match str "Expected" j with Some v -> v | None -> "accept");
+        comment  = (match str "Comment" j with Some v -> v | None -> "") } ] in
+  let new_schema j =
+    let base flavor proof =
+      { relation = relation_of j;
+        flavor; tag = (match str "SessionId" j with Some v -> v | None -> "");
+        instance = (match str "Statement" j with Some v -> v | None -> "");
+        proof;
+        expected = "accept";
+        comment  = "" } in
+    List.filter_map
+      (fun (flavor, key) ->
+         match str key j with
+         | Some pr -> Some (base flavor pr)
+         | None -> None)
+      [ ("batchable", "Batchable Proof"); ("compact", "Proof") ] in
+  Yojson.Safe.from_file path |> to_list
+  |> List.concat_map
+       (fun j ->
+          match j |> member "NargString" with
+          | `String _ -> old_schema j
+          | _ -> new_schema j)
 
 (* ---------- question one: does the stated relation check out? ---------- *)
 

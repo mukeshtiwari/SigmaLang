@@ -196,7 +196,7 @@ let () =
           let m = Array.length inst.Cfrg.equations
           and n = Cfrg.num_secrets inst in
           if String.length pb <> 32 * (1 + n) then false
-          else if not (Verified.leaf_valid leaf) then false
+          else if not (Verified.leaf_sound leaf) then false
           else begin
             let c = Cfrg.scalar_be pb 0 in
             let resp = Array.init n (fun j -> Cfrg.scalar_be pb (32 * (j+1))) in
