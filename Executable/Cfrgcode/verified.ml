@@ -73,6 +73,88 @@ let leaf_valid (l : Cfrg.leaf) : bool =
     (Vector.of_list rows)
     (Vector.of_list (Array.to_list l.Cfrg.target))
 
+(* ---------- the incidence criterion, as a verified verdict ----------
+ *
+ * leaf_valid above is the old checker, and Compiler/LeafStatus.v proves
+ * it wrong in both directions: it rejects leaves with one neutral
+ * target among several, which are perfectly sound, and it accepts the
+ * empty leaf, a row of neutral bases under a live target, and any leaf
+ * whose incidence system has a nonzero solution.
+ *
+ * classify replaces it.  The verdict is not a boolean: a leaf is
+ * determined, or degenerate with the second witness attached, or
+ * beyond what this checker decides, and the three are different
+ * things.  classify_leaf_sound proves that whichever constructor comes
+ * back, its claim holds.
+ *
+ * The [None] is the place a search would hand in a proposed kernel
+ * vector.  Nothing searches yet, so the only way to reach
+ * Cert_degenerate is not taken, and a leaf with no separating row is
+ * reported undecided rather than rejected outright. *)
+let arity (l : Cfrg.leaf) =
+  (Big_int_Z.big_int_of_int (Array.length l.Cfrg.mat),
+   Big_int_Z.big_int_of_int
+     (if Array.length l.Cfrg.mat = 0 then 0 else Array.length l.Cfrg.mat.(0)))
+
+(* The smallest search worth writing, and the first end-to-end use of
+ * the certificate pipeline on data nobody here produced.
+ *
+ * A column carrying the identity in every row supports the kernel
+ * vector with one at that column and zero elsewhere; Degeneracy.v's
+ * dead_column_incidence is that fact.  Finding such a column needs no
+ * linear algebra, so this is not the rank computation - it is the one
+ * case where the certificate can be written down by inspection.
+ *
+ * Nothing here is trusted.  The vector is handed to classify_leaf as a
+ * proposal and checked by the extracted incidence_zerob before any
+ * verdict depends on it, exactly as a vector from a full elimination
+ * would be. *)
+let dead_column_proposal (l : Cfrg.leaf) : B.big_int array option =
+  let m = Array.length l.Cfrg.mat in
+  let n = if m = 0 then 0 else Array.length l.Cfrg.mat.(0) in
+  let dead j =
+    Array.for_all (fun row -> P256.equal row.(j) P256.identity) l.Cfrg.mat in
+  let rec find j =
+    if j >= n then None else if dead j then Some j else find (j + 1) in
+  match find 0 with
+  | None -> None
+  | Some j -> Some (Array.init n (fun k -> if k = j then fone else fzero))
+
+let classify (l : Cfrg.leaf) : B.big_int LeafStatus.leaf_cert =
+  let rows =
+    Array.to_list l.Cfrg.mat
+    |> List.map (fun r -> Vector.of_list (Array.to_list r)) in
+  let (m, n) = arity l in
+  LeafStatus.classify_leaf
+    fzero fadd (fun a b -> B.eq_big_int a b)
+    P256.identity (fun p q -> P256.equal p q)
+    m n
+    (Vector.of_list rows)
+    (Vector.of_list (Array.to_list l.Cfrg.target))
+    (match dead_column_proposal l with
+     | None -> None
+     | Some v -> Some (Vector.of_list (Array.to_list v)))
+
+let leaf_sound (l : Cfrg.leaf) : bool =
+  let (m, n) = arity l in
+  LeafStatus.leaf_acceptable m n (classify l)
+
+let determination_undecided (c : B.big_int LeafStatus.leaf_cert) : bool =
+  match c.LeafStatus.lc_determination with
+  | LeafStatus.Cert_determination_undecided -> true
+  | _ -> false
+
+let describe (c : B.big_int LeafStatus.leaf_cert) : string =
+  let d = match c.LeafStatus.lc_determination with
+    | LeafStatus.Cert_determined -> "determined"
+    | LeafStatus.Cert_degenerate _ -> "DEGENERATE"
+    | LeafStatus.Cert_determination_undecided -> "undecided" in
+  let v = match c.LeafStatus.lc_vacuity with
+    | LeafStatus.Cert_vacuous -> "VACUOUS"
+    | LeafStatus.Cert_unsatisfiable _ -> "UNSATISFIABLE"
+    | LeafStatus.Cert_vacuity_undecided -> "-" in
+  Printf.sprintf "%-10s %s" d v
+
 (* ---------- the verified verifier, instantiated ---------- *)
 
 (* A degenerate leaf is rejected before the equation is even checked:

@@ -137,6 +137,33 @@ let () =
              (if ok then "holds" else "FAILS"))
         batch;
 
+      (* The incidence criterion, run for the first time on statements
+         nobody here wrote.  This reports only; the accept/reject
+         decision below still uses the old checker, so a disagreement
+         shows up as a line rather than as a changed verdict. *)
+      Printf.printf "\nStatement quality, by the incidence criterion\n";
+      Printf.printf "  (Compiler/LeafStatus.v; the old checker is shown beside it)\n";
+      Printf.printf "  %-34s %-10s %-14s %s\n"
+        "relation" "witness" "vacuity" "old";
+      let undecided = ref 0 and disagree = ref 0 in
+      List.iter
+        (fun e ->
+           try
+             let inst = Cfrg.parse_instance (Vectors.unhex e.Vectors.instance) in
+             let leaf = Cfrg.to_leaf inst in
+             let c = Verified.classify leaf in
+             let nu = Verified.leaf_sound leaf
+             and old = Verified.leaf_valid leaf in
+             if Verified.determination_undecided c then incr undecided;
+             if nu <> old then incr disagree;
+             Printf.printf "  %-34s %s %s\n" e.Vectors.relation
+               (Verified.describe c)
+               (if old then "accepts" else "rejects")
+           with _ -> Printf.printf "  %-34s (unparsed)\n" e.Vectors.relation)
+        batch;
+      Printf.printf "  %d of %d need the rank computation; %d disagree with the old checker\n"
+        !undecided (List.length batch) !disagree;
+
       Printf.printf "\nThe same vectors, checked by the VERIFIED verifier\n";
       Printf.printf "  (extracted from Rocq, instantiated at our P-256; the code\n";
       Printf.printf "   is verified, the group it runs on is not)\n";
@@ -201,6 +228,30 @@ let () =
         Printf.printf "\nInvalid vectors, checked by the VERIFIED verifier\n";
         let inv = List.filter (fun e -> e.Vectors.flavor = "batchable")
                     (Vectors.load ipath) in
+        (* What the incidence criterion says about the draft's own
+           instance-validation cases.  These are the E-series: a
+           secret appearing in no equation, image terms summing to the
+           identity, a statement element that is the identity. *)
+        Printf.printf "  statement quality on the instance-validation cases:\n";
+        List.iter
+          (fun e0 ->
+             try
+               let inst = Cfrg.parse_instance (Vectors.unhex e0.Vectors.instance) in
+               let leaf = Cfrg.to_leaf inst in
+               Printf.printf "    %-58s %s  old %s\n"
+                 e0.Vectors.relation
+                 (Verified.describe (Verified.classify leaf))
+                 (if Verified.leaf_valid leaf then "accepts" else "rejects")
+             with e ->
+               (* say so rather than drop the case: a silently skipped
+                  negative control looks exactly like a passing one *)
+               Printf.printf "    %-58s unparsed: %s\n"
+                 e0.Vectors.relation (Printexc.to_string e))
+          (List.filter
+             (fun e ->
+                let c = e.Vectors.comment in
+                String.length c >= 19 && String.sub c 0 19 = "Instance validation")
+             inv);
         let wrong = ref 0 and shown = ref 0 in
         List.iter
           (fun e ->
