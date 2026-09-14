@@ -117,124 +117,123 @@ let () =
            (member "answers" (member "vote" b) |> to_list))
       ballots in
 
-  Printf.printf "Recovering the statement from published ballots\n";
+  Printf.printf "Identifying the statement from published ballots\n";
   Printf.printf "  file    : %s\n" (Filename.basename path);
   Printf.printf "  ballots : %d   proofs : %d\n" (List.length ballots)
     (List.length proofs);
-  Printf.printf "  the search is over %d candidate readings of the protocol\n\n"
+  Printf.printf "  candidate readings enumerated in Rocq : %d\n"
     (List.length Recover.all_candidates);
+  Printf.printf "  the space is specified by valid_candidate, and\n";
+  Printf.printf "  all_candidates_spec proves the enumeration is exactly it\n\n";
 
-  Printf.printf "  %-34s %8s %8s\n" "candidate" "accepts" "of";
-  Printf.printf "  %s\n" (String.make 52 '-');
+  (* Early exit. A candidate that fails one proof cannot be the answer,
+   * so stop it there. This is the only kind of pruning allowed if the
+   * exhaustiveness theorem is to mean anything: we discard a candidate
+   * because we refuted it, never because we guessed. It is also what
+   * makes the larger space affordable, since all but the survivor die
+   * on their first proof. *)
+  let check k =
+    let rec go n = function
+      | [] -> (n, true)
+      | (alpha, beta, pf) :: rest ->
+          let rel = get (Recover.cand_rel k h alpha beta) in
+          let pre = [alpha; beta] in
+          if Recover.cand_verify k sha1_bigint pre rel (ballot_transcript pf)
+          then go (n + 1) rest
+          else (n, false)
+    in
+    go 0 proofs in
 
-  let results =
-    List.map
-      (fun k ->
-         let ok = ref 0 and total = ref 0 in
-         List.iter
-           (fun (alpha, beta, pf) ->
-              let rel = get (Recover.cand_rel k h alpha beta) in
-              let t = ballot_transcript pf in
-              incr total;
-              if Recover.cand_verify k sha1_bigint rel t then incr ok)
-           proofs;
-         Printf.printf "  %-34s %8d %8d\n" (Recover.cand_name k) !ok !total;
-         flush stdout;
-         (k, !ok, !total))
-      Recover.all_candidates in
+  let t0 = Unix.gettimeofday () in
+  let results = List.map (fun k -> (k, check k)) Recover.all_candidates in
+  let dt = Unix.gettimeofday () -. t0 in
 
-  let survivors = List.filter (fun (_, ok, tot) -> ok = tot && tot > 0) results in
-  Printf.printf "\n";
+  let survivors = List.filter (fun (_, (_, ok)) -> ok) results in
+  let best_failure =
+    List.fold_left (fun acc (_, (n, ok)) -> if ok then acc else max acc n)
+      0 results in
+  let total = List.length proofs in
+
+  Printf.printf "  searched %d candidates against %d proofs in %.1fs\n"
+    (List.length results) total dt;
+  Printf.printf "  deepest rejected candidate got through %d proofs\n\n"
+    best_failure;
+
   (match survivors with
-   | [ (k, _, n) ] ->
-       Printf.printf "  Identified: of the %d candidate readings, exactly one\n"
-         (List.length Recover.all_candidates);
-       Printf.printf "  is consistent with all %d published proofs:\n" n;
-       Printf.printf "    %s\n" (Recover.cand_name k);
+   | [ (k, _) ] ->
+       Printf.printf "  Identified: exactly one of the %d enumerated readings is\n"
+         (List.length results);
+       Printf.printf "  consistent with all %d published proofs:\n" total;
+       Printf.printf "    %s\n\n" (Recover.cand_name k);
        Printf.printf "  recovered_relation_holds says acceptance under a reading\n";
        Printf.printf "  means that reading's relation is satisfied, so this is a\n";
        Printf.printf "  fact about the corpus and not about our verifier.\n";
-       Printf.printf "  Note the scope: the group elements were read from the\n";
-       Printf.printf "  ballots and each candidate's matrix was computed from them\n";
-       Printf.printf "  before any data was touched. What is determined here is\n";
-       Printf.printf "  which candidate fits, not the value of any matrix entry.\n"
+       Printf.printf "  Scope: the group elements were read from the ballots and\n";
+       Printf.printf "  each candidate's matrix was computed from them before any\n";
+       Printf.printf "  data was touched. What is determined is which candidate\n";
+       Printf.printf "  fits, not the value of any matrix entry.\n"
    | [] ->
        Printf.printf "  No candidate accepts every proof, so the true reading lies\n";
-       Printf.printf "  outside the space searched and the space needs widening.\n";
-       Printf.printf "  That is evidence that our understanding of the protocol is\n";
-       Printf.printf "  wrong, which is useful, but it is not an identification.\n"
+       Printf.printf "  outside the space specified by valid_candidate. That is\n";
+       Printf.printf "  evidence our understanding of the protocol is wrong, which\n";
+       Printf.printf "  is useful, but it is not an identification.\n"
    | many ->
-       Printf.printf "  %d candidates accept every proof, so honest data does not\n"
+       Printf.printf "  %d readings accept every proof, so the published data does\n"
          (List.length many);
-       List.iter (fun (k, _, _) -> Printf.printf "    %s\n" (Recover.cand_name k)) many;
-       Printf.printf "  separate them. This is the weak Fiat-Shamir situation:\n";
-       Printf.printf "  a selector that discards announcement elements accepts\n";
-       Printf.printf "  every honest proof, so no amount of honest data rules it\n";
-       Printf.printf "  out. Recover.first_per_leaf_not_injective is the proof\n";
-       Printf.printf "  that it cannot be ruled out by testing at all.\n");
+       Printf.printf "  not separate them:\n";
+       List.iter (fun (k, _) -> Printf.printf "    %s\n" (Recover.cand_name k)) many;
+       Printf.printf "\n  This is a finding about what the corpus can distinguish,\n";
+       Printf.printf "  not a failure. Reported rather than tuned away.\n");
+  flush stdout;
 
-  (* Is the recovery well posed?
+  (* Are the survivors actually distinguishable from the rest?
    *
-   * Above, exactly one candidate accepted the published corpus. That
-   * is only meaningful if the candidates are pairwise
-   * distinguishable: if two of them accepted the same transcripts, a
-   * search could never tell them apart, and "recovered" would be the
-   * wrong word.
-   *
-   * So we check it directly. For each candidate, generate an honest
-   * proof under that candidate's own rule with the verified prover.
-   * Every one verifies under its own rule, which is cand_complete.
-   * Then check it under every other rule. A diagonal matrix says the
-   * candidates are pairwise distinguishable and the recovery above is
-   * well posed. An off-diagonal hit would say two readings are
-   * observationally equal, which is worth knowing too.
-   *
-   * Note what this does NOT show. Dropping announcement elements from
-   * the hash is a real hazard, and first_per_leaf_not_injective
-   * states it, but it is not exhibited by tampering with a
-   * transcript: the verification equations bind the commitments
-   * algebraically whether or not the hash does. The hazard is about
-   * what a challenge commits to, not about what an equation checks. *)
-  Printf.printf "\n  Cross-verification: proof made under the row rule,\n";
-  Printf.printf "  checked under the column rule (1 = accepted)\n\n";
-
-  let rnd_scalar () =
-    let a = Big_int_Z.big_int_of_int (Random.bits ()) in
-    let b = Big_int_Z.big_int_of_int (Random.bits ()) in
-    Helios.mk_field
-      Big_int_Z.(add_big_int (mult_big_int a (Big_int_Z.big_int_of_int 1073741824)) b) in
-  let vec2 a b = Vector.of_list [a; b] in
-  Random.self_init ();
-
-  let cands = Array.of_list Recover.all_candidates in
-  let n = Array.length cands in
-  Printf.printf "  %-34s" "";
-  for j = 0 to n - 1 do Printf.printf " %2d" j done;
-  Printf.printf "\n";
-
-  for i = 0 to n - 1 do
-    let k = cands.(i) in
-    (* one honest encryption of zero, proved under rule i *)
-    let r = rnd_scalar () in
-    let alpha = Helios.gpow Helios.gen r in
-    let beta = Helios.gpow h r in
-    let rel_of kk = get (Recover.cand_rel kk h alpha beta) in
-    let w : (Helios.coq_F, Helios.coq_G) Composition.comp_witness =
-      Obj.magic (Datatypes.Coq_inl (vec2 r fzero)) in
-    let rnd : (Helios.coq_F, Helios.coq_G) Composition.comp_rand =
-      Obj.magic ((vec2 (rnd_scalar ()) (rnd_scalar ()),
-                  vec2 (rnd_scalar ()) (rnd_scalar ())),
-                 rnd_scalar ()) in
-    let t = Recover.cand_prove k sha1_bigint (rel_of k) w rnd in
-    Printf.printf "  %2d %-31s" i (Recover.cand_name k);
-    for j = 0 to n - 1 do
-      let kk = cands.(j) in
-      let ok = Recover.cand_verify kk sha1_bigint (rel_of kk) (Obj.magic t) in
-      Printf.printf " %2d" (if ok then 1 else 0)
-    done;
-    Printf.printf "\n"; flush stdout
-  done;
-
-  Printf.printf "\n  A diagonal matrix means every reading is observationally\n";
-  Printf.printf "  distinct, so exactly one accepting candidate above is a\n";
-  Printf.printf "  recovery and not a coincidence.\n"
+   * A single survivor is only meaningful if the readings differ
+   * observationally. We check that by generating an honest proof under
+   * each survivor's own rule with the verified prover, which is
+   * accepted by construction (cand_complete), and then checking it
+   * under every other reading. A reading that also accepts it is
+   * observationally equal to the survivor on this instance. *)
+  (match survivors with
+   | [] -> ()
+   | _ ->
+       Printf.printf "\n  Cross-checking the survivor against every other reading\n";
+       let rnd_scalar () =
+         let a = Big_int_Z.big_int_of_int (Random.bits ()) in
+         let b = Big_int_Z.big_int_of_int (Random.bits ()) in
+         Helios.mk_field
+           Big_int_Z.(add_big_int
+                        (mult_big_int a (Big_int_Z.big_int_of_int 1073741824)) b) in
+       let vec2 a b = Vector.of_list [a; b] in
+       Random.self_init ();
+       List.iter
+         (fun (k, _) ->
+            let r = rnd_scalar () in
+            let alpha = Helios.gpow Helios.gen r in
+            let beta = Helios.gpow h r in
+            let pre = [alpha; beta] in
+            let rel_of kk = get (Recover.cand_rel kk h alpha beta) in
+            let w : (Helios.coq_F, Helios.coq_G) Composition.comp_witness =
+              Obj.magic (Datatypes.Coq_inl (vec2 r fzero)) in
+            let rnd : (Helios.coq_F, Helios.coq_G) Composition.comp_rand =
+              Obj.magic ((vec2 (rnd_scalar ()) (rnd_scalar ()),
+                          vec2 (rnd_scalar ()) (rnd_scalar ())),
+                         rnd_scalar ()) in
+            let t = Recover.cand_prove k sha1_bigint pre (rel_of k) w rnd in
+            let agreeing =
+              List.filter
+                (fun kk ->
+                   Recover.cand_verify kk sha1_bigint pre (rel_of kk) (Obj.magic t))
+                Recover.all_candidates in
+            Printf.printf
+              "    %s\n      accepted by %d of %d readings%s\n"
+              (Recover.cand_name k)
+              (List.length agreeing) (List.length Recover.all_candidates)
+              (if List.length agreeing = 1 then " (uniquely identified)"
+               else " -- see below");
+            if List.length agreeing > 1 then
+              List.iter
+                (fun kk -> Printf.printf "        also: %s\n" (Recover.cand_name kk))
+                agreeing;
+            flush stdout)
+         survivors)

@@ -175,27 +175,46 @@ whichever verifier happened to be run.
 ./_build/default/Executable/Recovercode/main.exe Heliosdata/IACR2024.txt 40
 ```
 
-`Examples/Recover.v` lays out eight candidate readings of the Helios
-ballot proof, varying which side of each equality carries the secret
-and which announcement elements reach the Fiat-Shamir hash. Each
-candidate is a statement, so each compiles and each arrives with the
-compiler's theorems already proven of it. The driver runs all eight
-against real published ballots and reports which accept. Exactly one
-does.
+`Examples/Recover.v` defines a space of candidate readings of the
+Helios ballot proof, varying which side of each equality carries the
+secret, which announcement positions reach the Fiat-Shamir hash and in
+what order, and whether the instance is hashed alongside. The space is
+not a list someone wrote down. It is specified by `valid_candidate`,
+and `all_candidates_spec` proves the enumeration is exactly that
+specification, so a reader audits a three-line predicate instead of
+trusting a list. For Helios it comes to 390 readings.
 
-That is a recovery rather than a coincidence because of two results.
+Each candidate is a statement, so each compiles and each arrives with
+the compiler's theorems already proven of it. The driver runs all 390
+against real published ballots. Exactly one is consistent with them.
+
+Three results make that an identification rather than a coincidence.
+`all_candidates_spec` says nothing was omitted from the search.
 `recovered_relation_holds` says two accepting runs sharing an
 announcement and differing in the challenge yield a witness for the
-candidate's relation, so acceptance is evidence about the protocol.
-The cross-verification matrix the driver prints is diagonal, so the
-eight readings are pairwise distinguishable.
+candidate's relation, so acceptance is evidence about the protocol
+rather than about our verifier. And the driver cross-checks the
+survivor by generating an honest proof under its own rule and
+confirming no other reading accepts it.
+
+`selection_omitting_loses_information` covers the whole space at once:
+every reading whose selection omits a position fails to determine the
+announcement from the challenge, which is the property behind weak
+Fiat-Shamir.
 
 We established the right reading by hand the first time, which took a
 day and a detour through Python. This makes it a search.
 
+A candidate is dropped the moment it fails one proof, since a
+refutation is final. That is the only pruning used, so the
+exhaustiveness theorem still means something, and it is what keeps the
+larger space affordable.
+
 The second argument caps how many ballots are read. Without it the run
-checks the whole election under all eight candidates, which is eight
-times the work of the verifier above and takes about fifteen minutes.
+checks all 390 readings against all 6524 proofs of the 2024 election
+in about two minutes, which is faster than a plain verification pass
+over the same corpus: 389 readings are refuted by the first proof they
+see and never look at a second.
 
 ### 6. Threshold composition
 

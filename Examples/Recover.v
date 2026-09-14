@@ -2,7 +2,7 @@ From Stdlib Require Import Utf8 ZArith
   Vector String List Ascii Znumtheory
   DecimalString DecimalZ Decimal Lia.
 From Algebra Require Import Hierarchy.
-From Utility Require Import Zpstar StringInj.
+From Utility Require Import Zpstar StringInj Enumerate.
 From Crypto Require Import Sigma.
 From Compiler Require Import
   LinearRelation Composition Dsl Surface VarType Nizk Serialization Decide.
@@ -151,70 +151,191 @@ Section Recover.
 
   (** ** Dimension two: what reaches the hash
 
+      This is the dimension where a hand-written list of candidates is
+      indefensible, because the author picks the list already knowing
+      which entry is right.  So we do not write a list.  We state what
+      a hash rule may be, and use the enumerator of
+      Utility/Enumerate.v, which is proven to produce exactly the
+      rules satisfying that statement.
+
+      A rule has two parts.  A *selection* says which announcement
+      positions are hashed and in what order, and is any
+      repetition-free sequence of positions.  An *instance mode* says
+      whether the public instance is hashed alongside, and where.
+
       A ballot announcement flattens to four group elements, the two
-      commitments of each branch in tree order. *)
+      commitments of each branch in tree order, so the selections are
+      [all_selections 4]. *)
 
-  Inductive hsel : Type := HAll | HFirstPerLeaf | HRev | HLeafSwap.
+  Definition ann_width : nat := 4.
 
-  (** Keep only the first commitment of each branch.  This is the
-      selector that loses information: see
-      [first_per_leaf_not_injective]. *)
-  Definition first_per_leaf (l : list G) : list G :=
-    match l with
-    | List.cons a0 (List.cons _ (List.cons a1 (List.cons _ List.nil))) =>
-        List.cons a0 (List.cons a1 List.nil)
-    | _ => l
-    end.
+  Inductive inst_mode : Type := IAnnOnly | IInstFirst | IInstLast.
 
-  (** Present the second branch first.  Injective, but a different
-      function, so it derives different challenges. *)
-  Definition leaf_swap (l : list G) : list G :=
-    match l with
-    | List.cons a0 (List.cons b0 (List.cons a1 (List.cons b1 List.nil))) =>
-        List.cons a1 (List.cons b1 (List.cons a0 (List.cons b0 List.nil)))
-    | _ => l
-    end.
-
-  Definition apply_hsel (s : hsel) (l : list G) : list G :=
-    match s with
-    | HAll => l
-    | HFirstPerLeaf => first_per_leaf l
-    | HRev => List.rev l
-    | HLeafSwap => leaf_swap l
-    end.
+  Definition all_inst_modes : list inst_mode :=
+    (IAnnOnly :: IInstFirst :: IInstLast :: nil)%list.
 
   (** ** A candidate reading of the protocol *)
 
-  Record candidate : Type := mkcand { cand_or : orient; cand_hsel : hsel }.
+  Record candidate : Type := mkcand {
+    cand_or   : orient;
+    cand_sel  : list nat;
+    cand_inst : inst_mode
+  }.
 
   Definition all_orients : list orient := (OLeft :: ORight :: nil)%list.
-  Definition all_hsels : list hsel :=
-    (HAll :: HFirstPerLeaf :: HRev :: HLeafSwap :: nil)%list.
 
-  (** The eight candidates, in a fixed order so the driver can name
-      them. *)
+  (** The whole space, generated rather than listed. *)
   Definition all_candidates : list candidate :=
-    List.flat_map (fun o => List.map (fun s => mkcand o s) all_hsels) all_orients.
+    List.flat_map
+      (fun o =>
+         List.flat_map
+           (fun sel => List.map (fun im => mkcand o sel im) all_inst_modes)
+           (all_selections ann_width))
+      all_orients.
+
+  Definition candidate_count : nat := List.length all_candidates.
+
+  (** A candidate is well formed exactly when its selection is legal.
+      Orientation and instance mode range over finite types, so they
+      carry no side condition. *)
+  Definition valid_candidate (k : candidate) : Prop :=
+    valid_selection ann_width (cand_sel k).
+
+  (** The enumeration is exactly the specification.  This is the
+      theorem that replaces "here are eight readings we thought of":
+      a reader checks [valid_candidate], which is three lines, rather
+      than checking a list. *)
+  Theorem all_candidates_spec :
+    forall k : candidate,
+    List.In k all_candidates <-> valid_candidate k.
+  Proof.
+    intro k; split.
+    - intro hin.
+      unfold all_candidates in hin.
+      apply List.in_flat_map in hin as (o & _ & hin).
+      apply List.in_flat_map in hin as (sel & hsel & hin).
+      apply List.in_map_iff in hin as (im & heq & _).
+      subst k. unfold valid_candidate; cbn.
+      exact (all_selections_sound ann_width sel hsel).
+    - intro hv.
+      unfold all_candidates.
+      apply List.in_flat_map. exists (cand_or k).
+      split; [destruct (cand_or k); cbn; auto |].
+      apply List.in_flat_map. exists (cand_sel k).
+      split; [exact (all_selections_complete ann_width _ hv) |].
+      apply List.in_map_iff. exists (cand_inst k).
+      split; [destruct k; reflexivity |].
+      destruct (cand_inst k); cbn; auto.
+  Qed.
+
+  (** ** Every rule that omits a position loses information
+
+      Previously we could say that one selector we had named lost
+      information.  Now we say it of every rule in the space at once,
+      and say precisely which ones: exactly those whose selection
+      omits a position.
+
+      This is the property behind weak Fiat-Shamir, that a challenge
+      fails to commit to everything it should.  It is a statement
+      about what the challenge determines.  It is not by itself an
+      attack, for the reason recorded at the top of this file. *)
+
+  (** A list of length [n] that is the identity everywhere except
+      position [i]. *)
+  Definition point_at (n i : nat) (z : G) : list G :=
+    List.app (List.repeat gone i) (List.cons z (List.repeat gone (n - S i))).
+
+  Lemma point_at_length :
+    forall (n i : nat) (z : G), (i < n)%nat -> List.length (point_at n i z) = n.
+  Proof.
+    intros n i z hi. unfold point_at.
+    rewrite List.length_app; cbn; rewrite !List.repeat_length. lia.
+  Qed.
+
+  Lemma point_at_here :
+    forall (n i : nat) (z : G), List.nth i (point_at n i z) gone = z.
+  Proof.
+    intros n i z. unfold point_at.
+    rewrite List.app_nth2; rewrite List.repeat_length; [| lia].
+    rewrite Nat.sub_diag; reflexivity.
+  Qed.
+
+  Lemma point_at_elsewhere :
+    forall (n i j : nat) (z : G),
+    j <> i -> List.nth j (point_at n i z) gone = gone.
+  Proof.
+    intros n i j z hne. unfold point_at.
+    destruct (Nat.lt_ge_cases j i) as [hlt | hge].
+    - rewrite List.app_nth1 by (rewrite List.repeat_length; exact hlt).
+      apply List.nth_repeat.
+    - rewrite List.app_nth2 by (rewrite List.repeat_length; exact hge).
+      rewrite List.repeat_length.
+      destruct (Nat.sub j i) as [| d] eqn:hd; [lia |].
+      cbn. apply List.nth_repeat.
+  Qed.
+
+  Theorem selection_omitting_loses_information :
+    forall (sel : list nat) (i : nat) (x y : G),
+    (i < ann_width)%nat -> ~ List.In i sel -> x <> y ->
+    exists l1 l2 : list G,
+      List.length l1 = ann_width /\ List.length l2 = ann_width /\
+      l1 <> l2 /\
+      apply_selection gone sel l1 = apply_selection gone sel l2.
+  Proof.
+    intros sel i x y hi hni hxy.
+    exists (point_at ann_width i x), (point_at ann_width i y).
+    split; [apply point_at_length; exact hi |].
+    split; [apply point_at_length; exact hi |].
+    split.
+    - intro heq. apply hxy.
+      rewrite <- (point_at_here ann_width i x), <- (point_at_here ann_width i y).
+      rewrite heq; reflexivity.
+    - unfold apply_selection. apply List.map_ext_in.
+      intros j hj.
+      assert (hne : j <> i) by (intro; subst j; contradiction).
+      rewrite !point_at_elsewhere by exact hne; reflexivity.
+  Qed.
+
+  (** The complement: the rule that reads every position in order
+      loses nothing, because it is the identity. *)
+  Theorem full_selection_loses_nothing :
+    forall l : list G,
+    List.length l = ann_width ->
+    apply_selection gone (List.seq 0 ann_width) l = l.
+  Proof.
+    intros l hlen. rewrite <- hlen. apply apply_selection_id.
+  Qed.
+
+  (** ** Naming a candidate, for the driver's report *)
+
+  Definition nat_str (i : nat) : string :=
+    NilEmpty.string_of_uint (Nat.to_uint i).
 
   Definition orient_name (o : orient) : string :=
     match o with OLeft => "secret-left" | ORight => "secret-right" end.
 
-  Definition hsel_name (s : hsel) : string :=
-    match s with
-    | HAll => "all four"
-    | HFirstPerLeaf => "first per branch"
-    | HRev => "reversed"
-    | HLeafSwap => "branches swapped"
+  Definition inst_name (m : inst_mode) : string :=
+    match m with
+    | IAnnOnly => "ann"
+    | IInstFirst => "inst++ann"
+    | IInstLast => "ann++inst"
+    end.
+
+  Definition sel_name (l : list nat) : string :=
+    match l with
+    | List.nil => "()"
+    | _ => String.concat "." (List.map nat_str l)
     end.
 
   Definition cand_name (k : candidate) : string :=
     String.append (orient_name (cand_or k))
-      (String.append " / " (hsel_name (cand_hsel k))).
+      (String.append " [" (String.append (sel_name (cand_sel k))
+        (String.append "] " (inst_name (cand_inst k))))).
 
   (** ** Compiling a candidate
 
       Every candidate goes through the same pipeline the rest of the
-      development uses.  Nothing here is special-cased: the compiler's
+      development uses.  Nothing is special-cased: the compiler's
       theorems are quantified over all statements, so each candidate
       arrives with completeness, soundness and zero knowledge already
       proven of it. *)
@@ -230,49 +351,55 @@ Section Recover.
       string String.string_dec 2 Helios.ballot_privs
       (Helios.ballot_genv h alpha beta) Helios.penvI Helios.node (cand_core k).
 
-  (** The challenge, derived under this candidate's hash rule.  Helios
-      renders each group element in decimal and joins with commas; the
-      candidate decides which elements, and in what order. *)
-  Definition cand_hash (k : candidate) (sha1 : string -> N)
+  (** The hash input under this candidate's rule.  Helios renders each
+      group element in decimal and joins with commas; the candidate
+      decides which elements, in what order, and whether the instance
+      travels with them. *)
+  Definition cand_input (k : candidate) (pre : list G)
+    (r : comp_relC) (a : comp_ann_tC r) : list G :=
+    let ann := apply_selection gone (cand_sel k) (@ann_to_list F fzero G r a) in
+    match cand_inst k with
+    | IAnnOnly => ann
+    | IInstFirst => List.app pre ann
+    | IInstLast => List.app ann pre
+    end.
+
+  Definition cand_hash (k : candidate) (sha1 : string -> N) (pre : list G)
     (r : comp_relC) (a : comp_ann_tC r) : F :=
     Helios.mk_field (Z.of_N (sha1 (String.concat ","
-      (List.map Helios.g_to_string
-        (apply_hsel (cand_hsel k) (@ann_to_list F fzero G r a)))))).
+      (List.map Helios.g_to_string (cand_input k pre r a))))).
 
-  Definition cand_verify (k : candidate) (sha1 : string -> N)
+  Definition cand_verify (k : candidate) (sha1 : string -> N) (pre : list G)
     (r : comp_relC) (t : comp_transcriptC r) : bool :=
     @nizk_verify F fzero fone fadd fmul fsub finv G gone gmul gpow gdec
-      r (cand_hash k sha1 r) t.
+      r (cand_hash k sha1 pre r) t.
 
   #[local] Notation comp_randC := (@comp_rand F fzero G).
 
-  (** An honest prover under a given candidate's hash rule.  Having
-      this is what lets the driver ask the question testing cannot
-      answer from published data alone: if a system had adopted one of
-      the other readings, would tampering be caught?  Generate a proof
-      under that reading and see. *)
-  Definition cand_prove (k : candidate) (sha1 : string -> N)
+  (** An honest prover under a given candidate's rule.  Having this is
+      what lets the driver ask the question published data cannot
+      answer on its own: are two readings actually distinguishable? *)
+  Definition cand_prove (k : candidate) (sha1 : string -> N) (pre : list G)
     (r : comp_relC) (w : comp_witnessC r) (rnd : comp_randC r)
     : comp_transcriptC r :=
     @nizk_prove F fzero fone fadd fmul fsub fopp finv G gone gmul gpow
-      r (cand_hash k sha1 r) w rnd.
+      r (cand_hash k sha1 pre r) w rnd.
 
-  (** Every candidate is complete: an honest prover under its rule is
-      accepted by the verifier under the same rule.  This is
-      [nizk_completeness] instantiated, and it holds for all eight
-      because the compiler's theorems are quantified over statements.
-      It is also what makes the tampering experiment meaningful: a
-      candidate that accepts a tampered transcript does so despite
-      being a perfectly complete protocol. *)
+  (** Every candidate is a complete protocol.  This is
+      [nizk_completeness] instantiated, and it holds for all of them
+      because the compiler's theorems quantify over statements.  It is
+      also what makes a comparison between candidates meaningful: a
+      candidate that rejects the corpus does so despite being a
+      perfectly good protocol under its own rule. *)
   Theorem cand_complete :
-    ∀ (k : candidate) (sha1 : string -> N) (r : comp_relC)
+    ∀ (k : candidate) (sha1 : string -> N) (pre : list G) (r : comp_relC)
       (w : comp_witnessC r) (rnd : comp_randC r),
     comp_rel_holdsC r w ->
-    cand_verify k sha1 r (cand_prove k sha1 r w rnd) = true.
+    cand_verify k sha1 pre r (cand_prove k sha1 pre r w rnd) = true.
   Proof.
-    intros k sha1 r w rnd hw.
+    intros k sha1 pre r w rnd hw.
     eapply (@nizk_completeness F fzero fone fadd fmul fsub fdiv fopp finv fdec
-      G gone ginv_g gmul gpow gdec Hvec r (cand_hash k sha1 r) w rnd hw).
+      G gone ginv_g gmul gpow gdec Hvec r (cand_hash k sha1 pre r) w rnd hw).
   Qed.
 
   (** ** What an accepted transcript proves
@@ -297,51 +424,6 @@ Section Recover.
       G gone ginv_g gmul gpow gdec Hvec r c c' t t' hne hsame ha hb).
   Qed.
 
-  (** ** The selectors are genuinely different
-
-      Keeping one element per branch throws information away.  Two
-      announcements differing only in the discarded positions derive
-      the same challenge, so the challenge does not determine the
-      announcement.  That is the property whose absence weak
-      Fiat-Shamir attacks exploit. *)
-  Theorem first_per_leaf_not_injective :
-    ∀ x y : G, x <> y ->
-    ∃ l1 l2 : list G, l1 <> l2 ∧ first_per_leaf l1 = first_per_leaf l2.
-  Proof.
-    intros x y hxy.
-    exists (List.cons gone (List.cons x (List.cons gone (List.cons gone List.nil)))).
-    exists (List.cons gone (List.cons y (List.cons gone (List.cons gone List.nil)))).
-    split.
-    - intro heq. inversion heq as [hxy']. exact (hxy hxy').
-    - cbn [first_per_leaf]. reflexivity.
-  Qed.
-
-  (** The selector we use keeps everything, so it loses nothing. *)
-  Theorem all_injective :
-    ∀ l1 l2 : list G,
-    apply_hsel HAll l1 = apply_hsel HAll l2 -> l1 = l2.
-  Proof. intros l1 l2 h; exact h. Qed.
-
-  (** Reversal and the branch swap also lose nothing; they derive
-      different challenges without being unsound in the way
-      [HFirstPerLeaf] is.  A search must therefore distinguish them by
-      running them, which is what the driver does. *)
-  Theorem rev_injective :
-    ∀ l1 l2 : list G,
-    apply_hsel HRev l1 = apply_hsel HRev l2 -> l1 = l2.
-  Proof.
-    intros l1 l2 h; cbn [apply_hsel] in h.
-    rewrite <- (List.rev_involutive l1), <- (List.rev_involutive l2), h.
-    reflexivity.
-  Qed.
-
-  Theorem leaf_swap_involutive :
-    ∀ l : list G, leaf_swap (leaf_swap l) = l.
-  Proof.
-    intro l.
-    destruct l as [| a0 [| b0 [| a1 [| b1 [| z l']]]]]; cbn [leaf_swap]; reflexivity.
-  Qed.
-
   (** ** Checking the candidate space
 
       Every candidate elaborates and passes the well-formedness
@@ -350,7 +432,7 @@ Section Recover.
       to compile, its rejection would say nothing about the
       protocol. *)
 
-  Example all_candidates_length : List.length all_candidates = 8%nat.
+  Example candidate_count_value : candidate_count = 390%nat.
   Proof. vm_compute; reflexivity. Qed.
 
   Example cand_elab_left :
@@ -364,11 +446,11 @@ Section Recover.
   Proof. vm_compute; reflexivity. Qed.
 
   Example cand_disj_left :
-    disj_inv (vdec := String.string_dec) (cand_core (mkcand OLeft HAll)) = true.
+    disj_inv (vdec := String.string_dec) (cand_core (mkcand OLeft (List.seq 0 ann_width) IAnnOnly)) = true.
   Proof. vm_compute; reflexivity. Qed.
 
   Example cand_disj_right :
-    disj_inv (vdec := String.string_dec) (cand_core (mkcand ORight HAll)) = true.
+    disj_inv (vdec := String.string_dec) (cand_core (mkcand ORight (List.seq 0 ann_width) IAnnOnly)) = true.
   Proof. vm_compute; reflexivity. Qed.
 
 End Recover.
