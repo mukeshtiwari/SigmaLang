@@ -4,12 +4,14 @@
 -Q Crypto Crypto
 -Q Compiler Compiler
 -Q Examples Examples
+-Q Boundary Boundary
 -Q _build/default/Algebra Algebra
 -Q _build/default/Utility Utility
 -Q _build/default/Probability Probability
 -Q _build/default/Crypto Crypto
 -Q _build/default/Compiler Compiler
 -Q _build/default/Examples Examples
+-Q _build/default/Boundary Boundary
 
 # Files in dependency order: Algebra -> Utility -> Probability -> Crypto.
 Algebra/Monoid.v
@@ -53,3 +55,6 @@ Compiler/Serialization.v
 Compiler/Decide.v
 Examples/Prime.v
 Examples/ThresholdIns.v
+
+Boundary/Schema.v
+Boundary/Character.v

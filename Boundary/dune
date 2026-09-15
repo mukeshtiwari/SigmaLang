@@ -1,0 +1,7 @@
+(include_subdirs qualified)
+(rocq.theory
+ (name Boundary)
+ (synopsis "Where exact determination checking stops")
+ (modules (:standard))
+ (rocqdoc_flags :standard --utf8)
+ (theories Stdlib Algebra Utility Probability Crypto Compiler))
