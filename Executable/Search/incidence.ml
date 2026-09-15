@@ -210,3 +210,33 @@ let certify (type f g) (fd : f field) (geq : g -> g -> bool) (gid : g)
       Determined blocks
     end
   end
+
+(* ---------- what the statement establishes ----------
+ *
+ * A verdict says whether the statement pins down what it claims.  It
+ * does not say what the statement pins down when the answer is no, and
+ * that is usually the more useful thing to know.
+ *
+ * Compiler/Exact.v settles what the question means.  A proof of a
+ * linear statement establishes knowledge of a coset of the kernel: no
+ * less, because extraction produces a member of it, and no more,
+ * because the members are indistinguishable in every run.  So what the
+ * statement establishes is exactly the linear forms that are constant
+ * on that coset, which are the forms vanishing on the kernel.
+ *
+ * The incidence system is the computable part of the kernel, so the
+ * forms vanishing on it are the row space of the incidence matrix ---
+ * and the elimination above already puts that in reduced form.  The
+ * nonzero rows of the reduced matrix are a basis, and each one reads
+ * as a linear combination of the secrets whose value the proof fixes. *)
+let established (type f g) (fd : f field) (geq : g -> g -> bool) (gid : g)
+    (mat : g array array) : f array array =
+  let m = Array.length mat in
+  let n = if m = 0 then 0 else Array.length mat.(0) in
+  if n = 0 then [||]
+  else begin
+    let a0, _ = incidence fd geq gid mat in
+    let a, _, _ = rref fd a0 in
+    let nonzero row = Array.exists (fun x -> not (fd.eq x fd.zero)) row in
+    Array.of_list (List.filter nonzero (Array.to_list a))
+  end

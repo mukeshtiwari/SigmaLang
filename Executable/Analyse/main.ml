@@ -221,6 +221,40 @@ let report inp =
        Printf.printf "    target that is not, so no witness exists.\n"
    | LeafStatus.Cert_vacuity_undecided ->
        Printf.printf "  vacuity        no finding\n");
+  (* What the statement establishes, whatever the verdict.  This is
+     the specification the protocol actually implements: the linear
+     combinations of the secrets whose value a proof fixes.  When it
+     lists every secret separately the statement is determined, and
+     that identity is what the acceptance certificate proves. *)
+  let forms =
+    Search.Incidence.established fd geq gid inp.rows in
+  Printf.printf "\n  what a proof of this establishes knowledge of\n";
+  if Array.length forms = 0 then
+    Printf.printf "    nothing\n"
+  else
+    Array.iter
+      (fun row ->
+         (* rendered as a sum, with negative coefficients folded into
+            the connective so the form reads the way it would be
+            written by hand *)
+         let buf = Buffer.create 32 in
+         Array.iteri
+           (fun j coeff ->
+              let d = render_scalar coeff in
+              if d <> "0" then begin
+                let neg = String.length d > 0 && d.[0] = '-' in
+                let mag = if neg then String.sub d 1 (String.length d - 1)
+                          else d in
+                if Buffer.length buf = 0 then
+                  (if neg then Buffer.add_string buf "-")
+                else
+                  Buffer.add_string buf (if neg then " - " else " + ");
+                if mag = "1" then Buffer.add_string buf inp.secrets.(j)
+                else Buffer.add_string buf (mag ^ "*" ^ inp.secrets.(j))
+              end)
+           row;
+         Printf.printf "    %s\n" (Buffer.contents buf))
+      forms;
   Printf.printf "\n  verdict        %s\n"
     (if LeafStatus.leaf_acceptable (big m) (big n) c
      then "acceptable"
