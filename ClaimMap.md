@@ -62,9 +62,11 @@ deciding would compute them.
 | M2 | CMZ 10/10, Privacy Pass 6/6, CFRG P-256 relations 7/7 determined | driver runs | supported |
 | M5 | Every relation of Belenios, ElectionGuard, Swiss Post, BBS, ECVRF, VOPRF and FROST, as its specification intends it, is determined | `Examples/Relations/`, transcribed by hand from the seven specifications | supported — again a NEGATIVE result |
 | M3 | The criterion fires exactly on the draft's instance-validation controls | E1/E1b `DEGENERATE` with checked witness, E2 `VACUOUS`; E3/E4 rejected below the theory, at the SEC1 decoder and an index bound | supported |
+| M8 | Across the whole negative file, 23 batchable and 11 compact controls, our verdicts match the published expectation except E0 | `Evidence/cfrg-vectors`, pinned at sigma-rs `92c63fc`: "23 batchable, 1 disagreements; 11 compact, 0 disagreements". E0 is the empty relation, expected accept, rejected by us as vacuous | supported — state the exception whenever the match is claimed |
+| M9 | The CFRG corpus reproduces from the artefact | `Evidence/cfrg-vectors` holds both the valid and invalid vector files from sigma-rs `92c63fc`, the last revision our parser reads; upstream carries neither. All 7 relations hold, all determined, both proof flavours accepted by the verified verifier | supported |
 | M6 | The design-time split is 38.8x faster than per-instance checking on the statement-quality work, with identical verdicts | `Executable/Heliosrealcode`, IACR2024: 13,072 leaves at 0.7160s by elimination per leaf, against 0.0002s for 4 statement leaves checked once plus 0.0183s for 13,072 faithfulness checks; best of 5; both routes determine every leaf | supported — but see the do-not-say list: the verifier's wall clock is unchanged |
 | M4 | **No deployed statement was found degenerate** | all corpora | supported — this is a NEGATIVE result and the paper must say so |
-| M7 | The largest leaf in each corpus: Helios 2x2, CMZ 9x17, Privacy Pass 2x1 | reported by the drivers themselves (`largest leaf:` line), not counted by hand | supported |
+| M7 | The largest leaf in each corpus (componentwise): Helios 2x2, CMZ 9x17, Privacy Pass 2x1, CFRG 2x4 | reported by the drivers themselves (`largest leaf:` line), not counted by hand | supported |
 
 ## Claims not to make
 
@@ -76,7 +78,7 @@ deciding would compute them.
 - "our tool found the Swiss Post gap automatically" — the transcription from the spec was by hand; the tool decided the transcribed relations
 - "the verifier now runs faster" — M6 is 38.8x on the statement-quality line item only; the verifier is dominated by modexp and SHA-256 and its wall clock is essentially unchanged
 - "we measured the split on four corpora" — only Helios has the scale to measure; CMZ, Privacy Pass and CFRG have ten, six and seven leaves
-- any dimension for the CFRG corpus — upstream changed the instance wire format and the vector file (now five relations, unreadable by our parser), so that row is not currently reproducible and its size is unknown to us
+- "our verdicts match the standard's controls" without the exception — E0 disagrees: the vectors expect the empty relation accepted, we reject it as vacuous, and that is a difference of position rather than a defect on either side
 - "statement quality is settled at design time" — A14/A15 cover the determination axis. Vacuity is NOT covered and deliberately so: a target is a product of instance-supplied public points (Belenios's A0 is prover-chosen), so it is instance-dependent by nature and already cheap
 - any third axis or extra check for trivially-true equations — A11 was withdrawn; the case is covered by A12 and needs no new verdict
 - "the CFRG draft's validation accepts X" — the validation is sigma-rs's; draft -02 has no validation section
