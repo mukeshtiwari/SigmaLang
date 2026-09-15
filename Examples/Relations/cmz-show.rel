@@ -1,0 +1,13 @@
+# CMZ, showing a credential with two attributes, both hidden: one
+# commitment equation per attribute, then the validity equation that
+# ties the commitments to a credential the issuer signed.
+# Examples/Cmz.v, show_stmt, at k = 2.
+#
+# Attribute a_i is committed under the rerandomised MAC point P and
+# blinded by z_i under A; the validity equation recomputes V from the
+# blinding factors under the issuer's per-attribute keys X_i.
+secrets a0 z0 a1 z1 zQ
+claims  a0 z0 a1 z1 zQ
+eq  C0   P   A   1   1   1
+eq  C1   1   1   P   A   1
+eq  V    1   X0  1   X1  B

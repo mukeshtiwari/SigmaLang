@@ -1,0 +1,7 @@
+# The CFRG draft's Pedersen commitment opening.  Two independent
+# bases, so the opening is pinned: this is the credential relation of
+# credential-broken.rel done correctly, and the two files side by side
+# are the whole point.
+secrets x r
+claims  x r
+eq  C   G  H

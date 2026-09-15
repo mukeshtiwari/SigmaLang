@@ -1,0 +1,10 @@
+# Helios, a trustee's decryption proof: the same secret key opens the
+# published key and produces the decryption factor.  Proving both with
+# one x is what stops a trustee decrypting with a key other than the
+# one it published, and the compiler merging the conjunction into a
+# single leaf is what ties them together -- two equations reading the
+# same column.  Examples/Helios.v, decrypt_stmt.
+secrets x
+claims  x
+eq  pk   g
+eq  M    AA

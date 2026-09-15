@@ -1,0 +1,6 @@
+# Helios, a trustee's proof of knowledge of its secret key.  Plain
+# Schnorr, and the third of the three statements a Helios verifier
+# checks.  Examples/Helios.v, pok_stmt.
+secrets x
+claims  x
+eq  pk   g

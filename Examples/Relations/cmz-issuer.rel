@@ -1,0 +1,11 @@
+# CMZ, the issuer's own proof that it issued with the key it
+# published.  P fixes the MAC point it chose, PK0 its public key, and
+# R ties the two together.  The bilinear fact behind R is linearised
+# by publishing P first and writing R against it, so no equation
+# multiplies two secrets -- which is what keeps the statement inside
+# the Maurer class at all.  Examples/Cmz.v, issuer_stmt.
+secrets b x0
+claims  b x0
+eq  P     A  1
+eq  PK0   1  B
+eq  R     K  P

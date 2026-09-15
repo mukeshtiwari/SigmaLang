@@ -1,0 +1,6 @@
+# CMZ, requesting issuance of a two-attribute credential with every
+# attribute hidden from the issuer: one blinded commitment carrying
+# them all, blinded by s.  Examples/Cmz.v, issue_stmt, at k = 2.
+secrets s a0 a1
+claims  s a0 a1
+eq  C   A  X0  X1

@@ -397,10 +397,14 @@ claim, on the other hand, changes the verdict: the matrix in
 `Examples/Relations/dead-column.rel` is degenerate when it claims `x3`
 and determined when it does not.
 
-`Examples/Relations/` holds six of these, including the counterexample
-that has no unused scalar and the relation the sufficient test of
-`Compiler/IncidenceDecide.v` declines on. The exit status is 0 for an
-acceptable relation and 1 otherwise, so it drops into a test suite.
+`Examples/Relations/` holds the four protocols this repository checks,
+written out one relation per file — the two branches of a Helios
+ballot proof, a trustee's decryption and key proofs, the CMZ showing,
+issuance and issuer statements, the Privacy Pass proof, and three
+relations from the CFRG draft — alongside six teaching cases covering
+both axes and both sides of each. Its `README.md` tabulates them. The
+exit status is 0 for an acceptable relation and 1 otherwise, so the
+whole directory drops into a test suite.
 
 To call the checker from your own program rather than through the
 file, `Executable/Analyse/main.ml` and

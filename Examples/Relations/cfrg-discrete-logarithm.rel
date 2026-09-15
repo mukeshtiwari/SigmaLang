@@ -1,0 +1,8 @@
+# The CFRG draft's first worked relation: knowledge of a discrete
+# logarithm.  Our driver reads this one, and the rest of the
+# published suite, straight out of the test vectors at runtime; this
+# file is the same relation written by hand so it can be checked
+# without them.
+secrets x
+claims  x
+eq  X   G

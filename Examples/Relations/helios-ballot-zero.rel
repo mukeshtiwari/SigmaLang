@@ -1,0 +1,14 @@
+# Helios, the left branch of a ballot proof: the voter claims the vote
+# was zero, so the ciphertext is (g^r0, h^r0).  Examples/Helios.v,
+# ballot_stmt.
+#
+# The witness vector spans the whole disjunction, so this branch
+# carries a column for r1 as well -- the randomness of the branch it
+# is simulating.  It does not claim r1, and must not: a prover knows
+# the randomness of only the branch that is true.  That is what
+# Claim.live_claim computes, and dropping it is what turned 700 of 724
+# leaves of a real election into false reports of degeneracy.
+secrets r0 r1
+claims  r0
+eq  alpha   g  1
+eq  beta    h  1

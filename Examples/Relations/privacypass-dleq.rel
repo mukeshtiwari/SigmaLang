@@ -1,0 +1,7 @@
+# Privacy Pass, the issuer's DLEQ proof: the same key k relates the
+# published key to the generator and the issued token to the client's
+# blinded point.  Examples/PrivacyPass.v, dleq_stmt.
+secrets k
+claims  k
+eq  Y   X
+eq  Z   M

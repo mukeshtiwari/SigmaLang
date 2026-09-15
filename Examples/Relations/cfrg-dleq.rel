@@ -1,0 +1,7 @@
+# The CFRG draft's equality of discrete logarithms: one secret behind
+# two published points.  The same shape as the Privacy Pass proof,
+# which is why a verdict here says something about both.
+secrets x
+claims  x
+eq  X   G
+eq  Y   H

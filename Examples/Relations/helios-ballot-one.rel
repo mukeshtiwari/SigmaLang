@@ -1,0 +1,7 @@
+# Helios, the right branch of the same ballot proof: the vote was one,
+# so the ciphertext is (g^r1, h^r1 * g) and the second target is beta
+# divided by g.  Examples/Helios.v, ballot_stmt.
+secrets r0 r1
+claims  r1
+eq  alpha   1  g
+eq  beta/g  1  h
