@@ -64,6 +64,7 @@ deciding would compute them.
 | M3 | The criterion fires exactly on the draft's instance-validation controls | E1/E1b `DEGENERATE` with checked witness, E2 `VACUOUS`; E3/E4 rejected below the theory, at the SEC1 decoder and an index bound | supported |
 | M6 | The design-time split is 38.8x faster than per-instance checking on the statement-quality work, with identical verdicts | `Executable/Heliosrealcode`, IACR2024: 13,072 leaves at 0.7160s by elimination per leaf, against 0.0002s for 4 statement leaves checked once plus 0.0183s for 13,072 faithfulness checks; best of 5; both routes determine every leaf | supported — but see the do-not-say list: the verifier's wall clock is unchanged |
 | M4 | **No deployed statement was found degenerate** | all corpora | supported — this is a NEGATIVE result and the paper must say so |
+| M7 | The largest leaf in each corpus: Helios 2x2, CMZ 9x17, Privacy Pass 2x1 | reported by the drivers themselves (`largest leaf:` line), not counted by hand | supported |
 
 ## Claims not to make
 
@@ -75,6 +76,7 @@ deciding would compute them.
 - "our tool found the Swiss Post gap automatically" — the transcription from the spec was by hand; the tool decided the transcribed relations
 - "the verifier now runs faster" — M6 is 38.8x on the statement-quality line item only; the verifier is dominated by modexp and SHA-256 and its wall clock is essentially unchanged
 - "we measured the split on four corpora" — only Helios has the scale to measure; CMZ, Privacy Pass and CFRG have ten, six and seven leaves
+- any dimension for the CFRG corpus — upstream changed the instance wire format and the vector file (now five relations, unreadable by our parser), so that row is not currently reproducible and its size is unknown to us
 - "statement quality is settled at design time" — A14/A15 cover the determination axis. Vacuity is NOT covered and deliberately so: a target is a product of instance-supplied public points (Belenios's A0 is prover-chosen), so it is instance-dependent by nature and already cheap
 - any third axis or extra check for trivially-true equations — A11 was withdrawn; the case is covered by A12 and needs no new verdict
 - "the CFRG draft's validation accepts X" — the validation is sigma-rs's; draft -02 has no validation section
