@@ -15,7 +15,23 @@
 # that H_j1 and H_j2 are related means computing a discrete logarithm.
 # The draft asks for it as a construction requirement rather than a
 # check, which is the only place it can live.
+#
+# One caveat on what this file models.  It puts the collision in the
+# statement, as a designer would who wrote one generator twice.  BBS
+# derives its generators, so the draft's requirement is really about
+# the derivation -- about the environment -- and
+# bbs-proof-collapsed-instance.rel is that reading: the same statement
+# written soundly, with an instance that collapses the two.
 secrets e r1 r3 m_j1 m_j2
 claims  e r1 r3 m_j1 m_j2
 eq  Bbar   Abar  D   1  1   1
 eq  Bv     1     1   D  H   H
+
+# An instance: one distinct generator per base name, so the
+# environment is faithful and the verdict above transfers to it.
+# The exponents are ours and carry no meaning; every element of a
+# prime-order group is a generator power, so this is simply a way
+# to write distinct elements down.
+point Abar  2
+point D     3
+point H     5

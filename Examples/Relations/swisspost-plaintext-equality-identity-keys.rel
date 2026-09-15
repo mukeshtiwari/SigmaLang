@@ -19,3 +19,10 @@ claims  r r_
 eq  c0       g  1
 eq  c0_      1  g
 eq  c1/c1_   1  1
+
+# An instance: one distinct generator per base name, so the
+# environment is faithful and the verdict above transfers to it.
+# The exponents are ours and carry no meaning; every element of a
+# prime-order group is a generator power, so this is simply a way
+# to write distinct elements down.
+point g  2

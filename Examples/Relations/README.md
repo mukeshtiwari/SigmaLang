@@ -118,6 +118,13 @@ anything about systems nobody here wrote.
 | `swisspost-plaintext-equality.rel` | §10.5 | determined |
 | `swisspost-plaintext-equality-identity-keys.rel` | §10.5 at an admitted input | **unsatisfiable** |
 
+Every relation carries an instance as well as a statement, so each
+file exercises both checks. Except where a file exists to show a
+failure, the instance gives every base name a generator of its own and
+is therefore faithful, and the exponents are ours and carry no
+meaning. In particular they are not taken from any specification: we
+transcribed statements from those documents, not deployments.
+
 Every relation as its specification intends it is determined. The
 three that are not are what happens at the edges, and two of those
 edges are reachable through the specification's own input types.
@@ -372,6 +379,7 @@ is not a question there.
 | `no-unused-scalar.rel` | `DEGENERATE` — every scalar used, no repeated column, no identity image, and still two witnesses |
 | `dead-column.rel` | `DEGENERATE` claimed, `DETERMINED` unclaimed — the same matrix, so the claim is a real input |
 | `two-rows.rel` | `DETERMINED` — sound, but no equation has pairwise distinct bases, so the sufficient test of `Compiler/IncidenceDecide.v` declines and the elimination is what decides it |
+| `bbs-proof-collapsed-instance.rel` | statement `DETERMINED`, **instance not faithful** — the sound BBS statement under an environment that collapses its two message generators, which is where the draft's requirement actually lives |
 | `credential-repaired-by-adding.rel` | `DETERMINED` — the same repeated base as `credential-broken.rel`, plus one equation. The shape a checklist objects to is still there and the statement is sound, which is why no such rule can work (`Compiler/NoChecklist.v`) |
 | `vacuous.rel` | determined and still rejected — every target the identity, so the all-zero witness works |
 

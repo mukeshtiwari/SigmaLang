@@ -11,3 +11,7 @@ claims  x
 eq  1   1
 eq  1   1
 eq  1   1
+
+# This statement names no base but the identity, so there is
+# nothing for an environment to get wrong: the instance check
+# has no input and the verdict is about the statement alone.

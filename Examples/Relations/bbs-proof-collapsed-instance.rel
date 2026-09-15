@@ -1,0 +1,27 @@
+# The BBS proof of bbs-proof.rel, with a sound statement and an
+# environment that breaks it.
+#
+# This is the more faithful reading of what the draft forbids.  Its
+# generators are derived by create_generators, so a designer writes
+# H_j1 and H_j2 as distinct names and the derivation supplies the
+# elements.  "The generators MUST be unique" is therefore a
+# requirement on the derivation -- on the environment -- and not on
+# the statement, which is written correctly either way.
+#
+# So the statement below is the sound one, and the instance collapses
+# the two message generators onto a single element.  The statement
+# check passes and the instance check does not, which is exactly the
+# division Compiler/DslInstantiate.v draws.
+#
+# bbs-proof-colliding-generators.rel models the other failure: a
+# designer who writes one generator twice.  Both are worth having,
+# because the draft's sentence covers only this one.
+secrets e r1 r3 m_j1 m_j2
+claims  e r1 r3 m_j1 m_j2
+eq  Bbar   Abar  D   1  1     1
+eq  Bv     1     1   D  H_j1  H_j2
+
+point Abar  2
+point D     3
+point H_j1  5
+point H_j2  5

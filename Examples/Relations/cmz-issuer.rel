@@ -9,3 +9,13 @@ claims  b x0
 eq  P     A  1
 eq  PK0   1  B
 eq  R     K  P
+
+# An instance: one distinct generator per base name, so the
+# environment is faithful and the verdict above transfers to it.
+# The exponents are ours and carry no meaning; every element of a
+# prime-order group is a generator power, so this is simply a way
+# to write distinct elements down.
+point A  2
+point B  3
+point K  5
+point P  7
