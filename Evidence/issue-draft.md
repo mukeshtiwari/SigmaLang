@@ -43,8 +43,11 @@ Q = x2*H + x3*H
 ```
 
 Three scalars, all used, both images non-identity, no repeated column.
-It passes every check in the current release, in #218, and in the
-ten-check version the published vectors came from. But it constrains
+We ran it against `3e12c83` and against the #218 branch; both accept.
+It also passes, by inspection of the checks rather than by running
+them, the ten-check version the published vectors came from — that
+revision no longer builds against the registry, since it was written
+against an unpublished `spongefish`. But it constrains
 only `x1 + x2` and `x2 + x3`, so `(3, 5, 11)` and `(4, 4, 12)` are
 both witnesses for the same statement. Reproduction, as
 `tests/underdetermined.rs` against `3e12c83`:
@@ -97,13 +100,18 @@ relations determine their witness:
 - the question reduces to the linear map having trivial kernel, so
   there is one property rather than a growing list of shapes;
 - the part of that kernel visible from the relation's pattern is a
-  small linear system, and we prove no checker can see more without
-  computing discrete logarithms — the assumption the protocol already
-  rests on, which makes the line permanent rather than a limitation of
-  our effort;
-- whether a relation has *any* witness is separately undecidable in
-  the same sense, since it is subgroup membership, so a checker's
-  honest verdicts are three rather than two.
+  small linear system. For anything outside it we exhibit a legitimate
+  reading of the same relation in which it is not a kernel vector, so
+  a checker rejecting on that basis would be rejecting a relation
+  that, read that way, is fine. Seeing more means computing discrete
+  logarithms, so the line is permanent rather than a limit of our
+  effort;
+- whether a relation has *any* witness is separately out of reach:
+  for `P = x*G` it is asking whether `P` lies in the subgroup `G`
+  generates, so a checker that decided it would compute discrete
+  logarithms. Not undecidable — the group is finite — but hard under
+  exactly the assumption the protocol rests on, which is why a
+  checker's honest verdicts are three rather than two.
 
 Practically, a checker can be cheap and still carry proof: a rejection
 carries the second witness, an acceptance carries a combination of
