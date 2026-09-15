@@ -203,4 +203,44 @@ Section Invisible.
     - intros us; apply degeneracy_is_invisible; exact hker.
   Qed.
 
+  (** ** The same, for the non-interactive protocol
+
+      Fiat--Shamir derives the challenge from the prover's own
+      announcement, and at first sight that should break the argument
+      above. The shift applied to the randomness depends on the
+      challenge; the challenge depends on the announcement; the
+      announcement depends on the randomness. The construction appears
+      to chase its own tail.
+
+      It does not, and the reason is the kernel once more. Shifting
+      the randomness by any multiple of a kernel vector leaves the
+      announcement exactly where it was, so the hash is handed the
+      same input and returns the same challenge whichever prover is
+      running. The circle closes instead of spinning.
+
+      Both parts of a correctly bound hash agree, for two different
+      reasons. The announcement agrees because the kernel preserves
+      it. The instance agrees because the two provers are proving the
+      same statement about the same public data, which is what it
+      means for a statement to fail to determine its witness. So the
+      argument does not depend on the hash omitting the instance: it
+      works for the strongly bound transform, which is the one a
+      deployment must use. *)
+  Theorem fiat_shamir_is_invisible :
+    ∀ (m n : nat) (mat : Vector.t (Vector.t G n) m)
+      (hash : Vector.t G m -> F) (xs us v : Vector.t F n),
+    in_kernelC mat v ->
+    let c := hash (mat_evalC mat us) in
+    (* the challenge the second prover derives is the first's ... *)
+    hash (mat_evalC mat (waddC us (wscaleC (opp c) v))) = c /\
+    (* ... and at it the two runs are the same run *)
+    transcriptC mat (waddC xs v) (waddC us (wscaleC (opp c) v)) c =
+    transcriptC mat xs us c.
+  Proof.
+    intros m n mat hash xs us v hker c; split.
+    - unfold c; rewrite (announcement_unchanged m n mat us v _ hker).
+      reflexivity.
+    - apply degeneracy_is_invisible; exact hker.
+  Qed.
+
 End Invisible.
