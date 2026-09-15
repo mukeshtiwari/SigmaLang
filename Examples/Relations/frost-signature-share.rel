@@ -1,0 +1,9 @@
+# FROST, RFC 9591 section 5.3 (verify_signature_share): what a
+# participant's two nonce commitments and key share commit to.  Three
+# equations on one base, each with its own target, so each column is
+# pinned by its own equation.
+secrets d_i e_i sk_i
+claims  d_i e_i sk_i
+eq  hiding_commitment    G  1  1
+eq  binding_commitment   1  G  1
+eq  PK_i                 1  1  G

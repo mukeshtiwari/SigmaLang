@@ -1,0 +1,19 @@
+# VOPRF, RFC 9497 section 2.2.2 (VerifyProof): the server proves that
+# every element of a batch was evaluated with the key behind pkS.
+#
+# M is a composite, sum over the batch of d_i * C[i] with the d_i
+# derived by hashing, and it is the base that carries the entire batch
+# claim.  If M were the identity the second equation would say
+# nothing, and the proof would collapse to a Schnorr proof of the
+# server key that the client already had.
+#
+# RFC 9497 does not check M against the identity, where Belenios
+# checks its A0 and Swiss Post excludes the identity from the Schnorr
+# base.  It does not need to: the d_i are hashes of the batch, so
+# steering the composite onto the identity is a preimage problem
+# rather than a choice.  The criterion is still what says where that
+# argument has to be made.
+secrets k
+claims  k
+eq  pkS   G
+eq  Z     M

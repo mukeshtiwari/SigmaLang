@@ -1,0 +1,21 @@
+# The same proof with one generator serving two withheld messages.
+#
+# The draft forbids this, in a sentence that states both halves of
+# what our criterion decides: "The generators MUST be unique and
+# pseudo-random i.e., with no known relationship to each other"
+# (section 3.3).  Uniqueness is the half a checker reading the
+# relation can decide, and this file is what its failure looks like --
+# the two withheld messages trade against each other, so the proof
+# pins only their sum.  It is the credential relation of
+# credential-broken.rel, reached in a different decade by a different
+# committee.
+#
+# "No known relationship" is the other half, and our completeness
+# theorem says no checker reading the relation can decide it: seeing
+# that H_j1 and H_j2 are related means computing a discrete logarithm.
+# The draft asks for it as a construction requirement rather than a
+# check, which is the only place it can live.
+secrets e r1 r3 m_j1 m_j2
+claims  e r1 r3 m_j1 m_j2
+eq  Bbar   Abar  D   1  1   1
+eq  Bv     1     1   D  H   H

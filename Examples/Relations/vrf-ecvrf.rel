@@ -1,0 +1,12 @@
+# ECVRF, RFC 9381 section 5.3: the DLEQ proof that Gamma was computed
+# with the same key that produced the public key Y.  The verifier's
+# U and V equations, written as the relation they check.
+#
+# H is not a fixed base: it is encode_to_curve(salt, alpha), so it
+# moves with the VRF input.  It cannot be the identity -- the curve
+# encodings the ciphersuites use have no representation for it -- and
+# the verifier separately runs ECVRF_validate_key on Y.
+secrets x
+claims  x
+eq  Y       B
+eq  Gamma   H

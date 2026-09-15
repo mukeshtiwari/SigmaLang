@@ -46,6 +46,9 @@ deciding would compute them.
 | A6 | The Swiss Post primitives spec excludes the identity from the Schnorr base but not from the exponentiation proof's base vector or the plaintext-equality public keys | v1.6.0: §10.2 types `g ∈ G_q \ {1}` on algs 10.1/10.2/10.3; §10.4 alg 10.7 types the bases `G_q^n`; §10.5 alg 10.10 types `h, h' ∈ G_q`, and `1 ∈ G_q`. `Examples/Relations/swisspost-*.rel`: all-identity bases → `VACUOUS`, identity keys → `UNSATISFIABLE` | supported **as a reading of the primitives spec only** — call sites are in the protocol spec, unaudited; NOT an attack |
 | A7 | Belenios's non-zero proof performs the vacuity check by hand | §4.15 verifier step 1 is "check that A0 ≠ 1"; A0 is prover-chosen and is the only non-identity target. `belenios-nonzero-unchecked.rel` → `VACUOUS` | supported |
 | A8 | ElectionGuard's range and decryption proofs are determined, and structurally cannot hit either axis | v2.1.0 Verification 6.A puts α, β in the prime-order subgroup; K is fixed by the key ceremony, not by the prover | supported |
+| A9 | Six independent specifications each hand-code a special case of one of the two axes; one does not apply its own rule uniformly | table in `Examples/Relations/README.md`, each row cited to its spec | supported |
+| A10 | BBS states both halves of our characterisation and draws the line where our completeness theorem puts it | draft-irtf-cfrg-bbs-signatures-08 §3.3: generators "MUST be unique and pseudo-random i.e., with no known relationship to each other" — uniqueness is the decidable half, "no known relationship" the half the theorem says no pattern checker can reach | supported — the strongest external confirmation we have |
+| A11 | **Our own criterion misses a third case**: an equation with all-identity bases and an identity target constrains nothing, and neither axis reports it | `voprf-batched-dleq` with the composite at the identity, and `swisspost-plaintext-equality-identity-keys` with agreeing ciphertexts, both report `acceptable` | supported — decidable from the pattern, NOT implemented |
 
 ## Measurements
 
@@ -53,7 +56,7 @@ deciding would compute them.
 |---|---|---|---|
 | M1 | 13,072 leaves from a deployed Helios election: all determined, 0 degenerate, 0 undecided | IACR2024, 932 ballots, 6,524 ballot proofs, tally matches | supported |
 | M2 | CMZ 10/10, Privacy Pass 6/6, CFRG P-256 relations 7/7 determined | driver runs | supported |
-| M5 | Every relation of Belenios, ElectionGuard and Swiss Post, as its specification intends it, is determined | `Examples/Relations/`, transcribed by hand from the three specifications | supported — again a NEGATIVE result |
+| M5 | Every relation of Belenios, ElectionGuard, Swiss Post, BBS, ECVRF, VOPRF and FROST, as its specification intends it, is determined | `Examples/Relations/`, transcribed by hand from the seven specifications | supported — again a NEGATIVE result |
 | M3 | The criterion fires exactly on the draft's instance-validation controls | E1/E1b `DEGENERATE` with checked witness, E2 `VACUOUS`; E3/E4 rejected below the theory, at the SEC1 decoder and an index bound | supported |
 | M4 | **No deployed statement was found degenerate** | all corpora | supported — this is a NEGATIVE result and the paper must say so |
 

@@ -137,6 +137,83 @@ relation is fine. It has simply stopped being a statement about
 plaintext equality. Whether a relation says what its author meant is
 not a question either axis decides.
 
+## Other domains
+
+Voting is one family. These are transcribed from the specifications
+cited in each file, across credentials, verifiable randomness,
+oblivious pseudorandom functions and threshold signing.
+
+| file | source | verdict |
+|---|---|---|
+| `bbs-proof.rel` | BBS signatures, draft-irtf-cfrg-bbs-signatures-08 §3.7.3 | determined |
+| `bbs-proof-colliding-generators.rel` | the same, at a collision the draft forbids | **degenerate** |
+| `vrf-ecvrf.rel` | ECVRF, RFC 9381 §5.3 | determined |
+| `voprf-batched-dleq.rel` | VOPRF, RFC 9497 §2.2.2 | determined |
+| `frost-signature-share.rel` | FROST, RFC 9591 §5.3 | determined |
+
+### Six specifications, each hand-coding a case of one axis
+
+The interesting result is not any single verdict. It is that every
+specification read here already states a special case of what the
+criterion decides in general, each in its own vocabulary and each for
+its own proof:
+
+| specification | what it says | which axis |
+|---|---|---|
+| Swiss Post §10.2 | the Schnorr base is `g ∈ G_q \ {1}` | vacuity, one base |
+| Belenios §4.15 | the verifier checks `A0 ≠ 1` | vacuity, a prover-chosen target |
+| ElectionGuard 6.A | `α, β` lie in the prime-order subgroup, and `K` comes from the key ceremony | vacuity, by construction |
+| RFC 9381 | `ECVRF_validate_key(Y)`, and no encoding for the identity | vacuity |
+| BBS §3.3 | "The generators MUST be unique and pseudo-random i.e., with no known relationship to each other" | **both** |
+| RFC 9497 | nothing, on the composite `M` that carries the batch | — |
+
+The BBS sentence is the one to read twice, because it states both
+halves of the theory and draws the line in the same place we do.
+*Unique* is the half a checker reading the relation can decide, and
+`bbs-proof-colliding-generators.rel` is what its failure looks like:
+two withheld messages on one generator, so the proof pins only their
+sum. That is `credential-broken.rel`, arrived at independently by a
+different committee. *No known relationship* is the other half, and
+our completeness theorem says no checker reading the relation can
+decide it — seeing that two generators are related means computing a
+discrete logarithm. So the draft asks for it as a construction
+requirement rather than as a check, which is the only place it can
+live.
+
+Swiss Post is the only one of the six that states its rule and then
+does not apply it uniformly.
+
+### A gap in our own criterion
+
+RFC 9497 turned up something neither axis catches, and the Swiss Post
+plaintext-equality case is the same shape, so it is not a one-off.
+
+An equation whose bases are all the identity **and** whose target is
+the identity is trivially true and constrains nothing. Our vacuity
+axis reports a dead row only when its target is live, where no witness
+exists at all; and the determination axis is content as long as the
+remaining equations pin every claimed secret. So the checker reports:
+
+```
+$ printf 'secrets k\nclaims k\neq pkS G\neq 1 1\n' | \
+    ./_build/default/Executable/Analyse/main.exe -
+  determination  DETERMINED
+  vacuity        no finding
+  verdict        acceptable
+```
+
+and it is right. The relation does determine `k`. What has happened
+is that the second equation — the one carrying the whole batch claim —
+has silently stopped saying anything, and the relation is no longer
+the relation the protocol needed. The same thing happens to Swiss
+Post's plaintext-equality proof when both public keys are the identity
+and the two ciphertexts agree.
+
+A third report would cover it, and it is cheap: *equation i constrains
+nothing*. It is decidable from the pattern, needs no new theory, and
+these are two independent specifications where it would have fired.
+It is not implemented.
+
 ## Cases that fail, and why
 
 | file | verdict |

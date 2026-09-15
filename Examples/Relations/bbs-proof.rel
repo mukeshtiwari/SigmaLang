@@ -1,0 +1,12 @@
+# BBS signatures, draft-irtf-cfrg-bbs-signatures-08, section 3.7.3
+# (ProofVerify): selective disclosure from a BBS signature, shown with
+# two of the messages withheld.
+#
+# The two equations are the T1 and T2 relations of the verifier.  The
+# first ties the randomised signature to the secret e and the
+# randomiser r1; the second opens the randomised commitment D and the
+# withheld messages against their own generators.
+secrets e r1 r3 m_j1 m_j2
+claims  e r1 r3 m_j1 m_j2
+eq  Bbar   Abar  D   1  1     1
+eq  Bv     1     1   D  H_j1  H_j2
