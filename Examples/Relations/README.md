@@ -332,6 +332,7 @@ is not a question there.
 | `no-unused-scalar.rel` | `DEGENERATE` — every scalar used, no repeated column, no identity image, and still two witnesses |
 | `dead-column.rel` | `DEGENERATE` claimed, `DETERMINED` unclaimed — the same matrix, so the claim is a real input |
 | `two-rows.rel` | `DETERMINED` — sound, but no equation has pairwise distinct bases, so the sufficient test of `Compiler/IncidenceDecide.v` declines and the elimination is what decides it |
+| `credential-repaired-by-adding.rel` | `DETERMINED` — the same repeated base as `credential-broken.rel`, plus one equation. The shape a checklist objects to is still there and the statement is sound, which is why no such rule can work (`Compiler/NoChecklist.v`) |
 | `vacuous.rel` | determined and still rejected — every target the identity, so the all-zero witness works |
 
 `no-unused-scalar.rel` is the relation sigma-rs accepts at `3e12c83`
