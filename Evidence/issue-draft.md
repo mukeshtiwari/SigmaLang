@@ -121,8 +121,99 @@ check. A sufficient condition covering every relation in your test
 vectors is a few lines; the general case is a rank computation that
 emits the same certificate.
 
-Happy to open a PR with a certificate checker if that is useful, or to
-leave it entirely in caller-land and just document the condition. We
-would also value being told if the scoping decision in #218 is
+## Why we think #218 is moving the right way
+
+Since first drafting this we proved something that bears directly on
+the decision, and it is the reason we are sending this rather than
+leaving it.
+
+Adding equations to a relation can only help it determine its witness:
+constraints accumulate. So any relation that fails to determine can be
+repaired by saying more — and the repair leaves untouched whatever
+shape a checklist objected to. Concretely, append one equation per
+scalar, each on a fresh base. The credential
+
+    C = x1*G + x2*G + x3*H
+
+is underdetermined and repeats a base. Add
+
+    D = x1*G + x2*K
+
+and it determines all three scalars, with the repeated base still
+sitting in the first equation.
+
+It follows that no rule of the form *reject because an equation looks
+like this* can be sound, whatever shape it names, because that shape
+occurs in relations that are perfectly fine. That covers E2 (image
+terms summing to the identity) and E3 (an element is the identity):
+both are conditions on something being **present**, so both were
+unsound as stated, and removing them is correct rather than merely a
+scoping choice.
+
+It does not cover E1. "A declared scalar occurs in **no** equation" is
+a condition on something being **absent** everywhere, so adding an
+equation destroys the pattern instead of preserving it. That rule is
+sound and we think you are right to keep it.
+
+So our reading of #218 is that it is removing the entries that could
+never have worked and keeping the one that does. If that is the
+intent, the theorem says it is correct.
+
+## One disagreement, so you hear it from us
+
+We ran your negative vectors: 23 batchable cases and 11 compact. Our
+verdicts match the published expectation everywhere except E0, the
+empty relation, which your vectors expect to be accepted and we
+reject.
+
+We think this is a difference of position rather than a defect on
+either side. A relation with no equations is satisfied by every
+witness, so a proof of it demonstrates nothing, which is what our
+vacuity check reports. Your position — that a well-formed relation
+with nothing to say is still well-formed — is equally coherent. The
+two answer different questions. We mention it only so that a
+mismatch, if you ever run our checker against your suite, is not a
+surprise.
+
+(These are the vectors at `92c63fc`, which is the last revision whose
+instance encoding our reader parses. `main` now carries five relations
+in a different wire format and no invalid file, so we have kept a copy
+in our artefact to keep the comparison reproducible.)
+
+## What a checker could tell your users
+
+The more useful output is not a verdict. Because a proof establishes
+knowledge of a coset of the kernel — no less, since extraction gives a
+member of it, and no more, since the members produce identical
+transcripts — what a relation establishes is exactly the linear
+combinations of the scalars that are constant on that coset. Those are
+computable, and the elimination that produces a certificate already
+produces them.
+
+So instead of *rejected*, a library could say:
+
+    you wrote:     C = x1*G + x2*G + x3*H
+    this proves:   x1 + x2
+                   x3
+
+For the relation at the top of this issue it prints `x1 - x3` and
+`x2 + x3`: two combinations, where the author wrote three scalars. For
+a well-formed relation it prints each scalar on its own line, and that
+listing is the acceptance certificate.
+
+We suspect that is the form in which this is worth having in a
+library, whatever you decide about validation: not a gate that rejects
+people's relations, but an answer to "what does my proof actually
+prove".
+
+## What we are asking
+
+Nothing urgent, and no action if you would rather leave statement
+quality in caller-land — that is a defensible line and we will
+describe it as such.
+
+We would value being told whether the scoping decision in #218 is
 intended to be permanent, since we are writing this up and would
-rather describe it correctly.
+rather get it right. And we are happy to open a PR, either with a
+certificate checker or with just the specification-printing described
+above, if either is useful.
