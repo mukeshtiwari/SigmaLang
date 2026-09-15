@@ -59,4 +59,6 @@ Examples/ThresholdIns.v
 Boundary/Schema.v
 Boundary/Linear.v
 Boundary/Character.v
+Boundary/Bipartite.v
+Boundary/Bilinear.v
 Boundary/Switch.v
