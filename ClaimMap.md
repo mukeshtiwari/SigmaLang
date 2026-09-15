@@ -43,6 +43,9 @@ deciding would compute them.
 | A3 | ~~sigma-rs Check 9 is stronger than its justification~~ | — | **dropped**: Check 9 no longer exists at HEAD |
 | A4 | Claims about what sigma-rs checks must name a commit | the vectors' commit ran ten numbered checks; 0.3.2 keeps count agreement, assignment, skipping trivially-true equations, an image identity check, and rejection of non-trivial homogeneous equations | supported by reading both versions |
 | A5 | sigma-rs's `"Trivial kernel in this relation"` is a misnomer: it is vacuity, not the kernel of the linear map | `canonical.rs:471-473` fires when image equals constant term, i.e. the all-zero witness works — our `leaf_vacuous_iff_neutral_targets`; determination is unaddressed there | supported — do not repeat their wording |
+| A6 | The Swiss Post primitives spec excludes the identity from the Schnorr base but not from the exponentiation proof's base vector or the plaintext-equality public keys | v1.6.0: §10.2 types `g ∈ G_q \ {1}` on algs 10.1/10.2/10.3; §10.4 alg 10.7 types the bases `G_q^n`; §10.5 alg 10.10 types `h, h' ∈ G_q`, and `1 ∈ G_q`. `Examples/Relations/swisspost-*.rel`: all-identity bases → `VACUOUS`, identity keys → `UNSATISFIABLE` | supported **as a reading of the primitives spec only** — call sites are in the protocol spec, unaudited; NOT an attack |
+| A7 | Belenios's non-zero proof performs the vacuity check by hand | §4.15 verifier step 1 is "check that A0 ≠ 1"; A0 is prover-chosen and is the only non-identity target. `belenios-nonzero-unchecked.rel` → `VACUOUS` | supported |
+| A8 | ElectionGuard's range and decryption proofs are determined, and structurally cannot hit either axis | v2.1.0 Verification 6.A puts α, β in the prime-order subgroup; K is fixed by the key ceremony, not by the prover | supported |
 
 ## Measurements
 
@@ -50,6 +53,7 @@ deciding would compute them.
 |---|---|---|---|
 | M1 | 13,072 leaves from a deployed Helios election: all determined, 0 degenerate, 0 undecided | IACR2024, 932 ballots, 6,524 ballot proofs, tally matches | supported |
 | M2 | CMZ 10/10, Privacy Pass 6/6, CFRG P-256 relations 7/7 determined | driver runs | supported |
+| M5 | Every relation of Belenios, ElectionGuard and Swiss Post, as its specification intends it, is determined | `Examples/Relations/`, transcribed by hand from the three specifications | supported — again a NEGATIVE result |
 | M3 | The criterion fires exactly on the draft's instance-validation controls | E1/E1b `DEGENERATE` with checked witness, E2 `VACUOUS`; E3/E4 rejected below the theory, at the SEC1 decoder and an index bound | supported |
 | M4 | **No deployed statement was found degenerate** | all corpora | supported — this is a NEGATIVE result and the paper must say so |
 
@@ -59,5 +63,7 @@ deciding would compute them.
 - "nobody has asked whether statements determine their witness" — Picus has
 - "undecidable" — it is a reduction under the DL assumption; the group is finite
 - "we found a vulnerability" — we did not
+- "Swiss Post's exponentiation proof is broken" — A6 is a gap in the primitives spec's stated input types; we have not shown any call site reaches it, and the protocol spec may constrain the bases at every one
+- "our tool found the Swiss Post gap automatically" — the transcription from the spec was by hand; the tool decided the transcribed relations
 - "the CFRG draft's validation accepts X" — the validation is sigma-rs's; draft -02 has no validation section
 - "sigma-rs performs ten instance checks" without a commit — at 0.3.2 most are gone
