@@ -78,6 +78,11 @@ fn accepted_yet_has_two_witnesses() {
 }
 ```
 
+The same holds on this branch. Against `3e12c83` the validation is
+reached through `CanonicalLinearRelation::try_from`; on #218 it is
+`Instance::try_from` and `image` is a field. Both accept, and both
+give the same pair of witnesses.
+
 Nothing is unsound here: the proof does demonstrate knowledge of a
 solution. It matters only when the surrounding protocol treats the
 scalars as separately meaningful — distinct attribute openings, key

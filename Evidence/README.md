@@ -1,5 +1,12 @@
 # Evidence produced outside this repository
 
+There are two variants because the API differs across versions.
+`sigmalang_counterexample.rs` targets `main` at `3e12c83`, where
+validation is reached through `CanonicalLinearRelation::try_from`.
+`sigmalang_counterexample_pr218.rs` targets the branch of PR #218,
+where `Instance::try_from` is restored and `image` becomes a field.
+Both are accepted and both exhibit the same two witnesses.
+
 ## sigmalang_counterexample.rs
 
 A test against the sigma-rs reference implementation, not against this
