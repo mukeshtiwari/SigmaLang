@@ -96,29 +96,38 @@ let arity (l : Cfrg.leaf) =
    Big_int_Z.big_int_of_int
      (if Array.length l.Cfrg.mat = 0 then 0 else Array.length l.Cfrg.mat.(0)))
 
-(* The smallest search worth writing, and the first end-to-end use of
- * the certificate pipeline on data nobody here produced.
- *
- * A column carrying the identity in every row supports the kernel
- * vector with one at that column and zero elsewhere; Degeneracy.v's
- * dead_column_incidence is that fact.  Finding such a column needs no
- * linear algebra, so this is not the rank computation - it is the one
- * case where the certificate can be written down by inspection.
- *
- * Nothing here is trusted.  The vector is handed to classify_leaf as a
- * proposal and checked by the extracted incidence_zerob before any
- * verdict depends on it, exactly as a vector from a full elimination
- * would be. *)
-let dead_column_proposal (l : Cfrg.leaf) : B.big_int array option =
-  let m = Array.length l.Cfrg.mat in
-  let n = if m = 0 then 0 else Array.length l.Cfrg.mat.(0) in
-  let dead j =
-    Array.for_all (fun row -> P256.equal row.(j) P256.identity) l.Cfrg.mat in
-  let rec find j =
-    if j >= n then None else if dead j then Some j else find (j + 1) in
-  match find 0 with
-  | None -> None
-  | Some j -> Some (Array.init n (fun k -> if k = j then fone else fzero))
+(* Certificates by elimination over the scalar field.
+ * Search.Incidence is ordinary OCaml and is not trusted: whatever it
+ * returns is handed to the extracted checker, which refuses a wrong
+ * answer, so a bug here costs a verdict and never a wrong one. *)
+let pfield : B.big_int Search.Incidence.field =
+  { Search.Incidence.zero = fzero; one = fone; add = fadd; mul = fmul;
+    sub = fsub; div = (fun a b -> fmul a (finv b));
+    eq = (fun a b -> B.eq_big_int a b) }
+
+let evidence_for (l : Cfrg.leaf) (n : Big_int_Z.big_int) =
+  let ni = Big_int_Z.int_of_big_int n in
+  let claim = Array.make ni true in
+  match
+    Search.Incidence.certify pfield (fun p q -> P256.equal p q)
+      P256.identity l.Cfrg.mat claim
+  with
+  | Search.Incidence.Degenerate v ->
+      { LeafStatus.ev_degenerate = Some (Vector.of_list (Array.to_list v))
+      ; LeafStatus.ev_determined = None }
+  | Search.Incidence.Determined blocks ->
+      { LeafStatus.ev_degenerate = None
+      ; LeafStatus.ev_determined =
+          Some (Vector.of_list
+                  (List.map
+                     (fun blk ->
+                        Vector.of_list
+                          (List.map
+                             (fun r -> Vector.of_list (Array.to_list r))
+                             (Array.to_list blk)))
+                     (Array.to_list blocks))) }
+  | Search.Incidence.Undecided ->
+      { LeafStatus.ev_degenerate = None; LeafStatus.ev_determined = None }
 
 let classify (l : Cfrg.leaf) : B.big_int LeafStatus.leaf_cert =
   let rows =
@@ -134,12 +143,11 @@ let classify (l : Cfrg.leaf) : B.big_int LeafStatus.leaf_cert =
     (* An instance off the wire declares its own scalars, so it claims
      * all of them: a declared scalar constrained by nothing is a
      * defect, which is the standard's E1 control. *)
+    (* an instance off the wire declares its own scalars, so it claims
+     * all of them: a declared scalar constrained by nothing is a
+     * defect, which is the standard's E1 control *)
     (Claim.full_claim n)
-    { LeafStatus.ev_degenerate =
-        (match dead_column_proposal l with
-         | None -> None
-         | Some v -> Some (Vector.of_list (Array.to_list v)))
-    ; LeafStatus.ev_determined = None }
+    (evidence_for l n)
 
 let leaf_sound (l : Cfrg.leaf) : bool =
   let (m, n) = arity l in

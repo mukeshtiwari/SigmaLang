@@ -6,4 +6,4 @@
  ; is a fact about Helios, not about this code, and the alert is
  ; silenced here rather than in the library.
  (flags (:standard -alert -crypto))
- (libraries Helioslib unix cryptokit yojson))
+ (libraries Helioslib Search unix cryptokit yojson))

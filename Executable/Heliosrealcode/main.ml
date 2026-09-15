@@ -108,64 +108,43 @@ let rec leaves_of (r : (Helios.coq_F, Helios.coq_G) Composition.comp_rel) =
   | Composition.CThresh (_, k, _, rs) ->
       List.concat_map leaves_of (Vector.to_list k rs)
 
-(* A column that is the identity in every row supports the kernel
-   vector concentrated there.  The verdict still checks it. *)
-let dead_column_proposal m n mat =
-  let rows = List.map (Vector.to_list n) (Vector.to_list m mat) in
-  let ni = Big_int_Z.int_of_big_int n in
-  let dead j =
-    rows <> [] &&
-    List.for_all (fun row -> Helios.gdec (List.nth row j) Helios.gone) rows in
-  let rec find j =
-    if j >= ni then None else if dead j then Some j else find (j + 1) in
-  match find 0 with
-  | None -> None
-  | Some j ->
-      Some (Vector.of_list
-              (List.init ni
-                 (fun k -> if k = j then Helios.fone else Helios.fzero)))
+(* Certificates, found by elimination over the scalar field.
+   Search.Incidence is ordinary OCaml and is not trusted: whatever it
+   returns is handed to the extracted checker, which refuses a wrong
+   answer.  A bug here costs a verdict, never a wrong one. *)
+let hfield : Helios.coq_F Search.Incidence.field =
+  { Search.Incidence.zero = Helios.fzero; one = Helios.fone;
+    add = Helios.fadd; mul = Helios.fmul; sub = Helios.fsub;
+    div = Helios.fdiv; eq = Helios.fdec }
 
-(* A compiled branch claims only the secrets it mentions.  The DSL
-   gives every leaf the width of the global private-variable vector,
-   so a branch of a disjunction carries columns for the other
-   branch's secrets and never mentions them; those are abstention,
-   not degeneracy, and live_claim is what says so. *)
-(* The search for an acceptance certificate, and it is a search, not a
-   decision procedure: nothing here is trusted.  If some equation
-   carries a claimed secret on a base that appears nowhere else in
-   that equation, then that one equation already reads "this secret is
-   zero" for any incidence solution, so the combination certifying
-   that column is the single coefficient one.  Compiler/Determined.v
-   checks whatever comes out; a wrong guess is simply not believed.
+let to_arrays m n mat =
+  Array.of_list
+    (List.map (fun r -> Array.of_list (Vector.to_list n r))
+       (Vector.to_list m mat))
 
-   The general case needs Gaussian elimination over the field, which
-   would emit its certificate the same way and be checked by the same
-   code. *)
-let certificate_for m n mat cl =
-  let mi = Big_int_Z.int_of_big_int m and ni = Big_int_Z.int_of_big_int n in
-  let rows =
-    Array.of_list
-      (List.map (fun r -> Array.of_list (Vector.to_list n r))
-         (Vector.to_list m mat)) in
-  let unique_in_row i j =
-    let b = rows.(i).(j) in
-    (not (Helios.gdec b Helios.gone)) &&
-    (let c = ref 0 in
-     Array.iter (fun x -> if Helios.gdec x b then incr c) rows.(i);
-     !c = 1) in
-  let block j =
-    let rec find i =
-      if i >= mi then None else if unique_in_row i j then Some i else find (i+1) in
-    let pivot = find 0 in
-    Vector.of_list
-      (List.init mi
-         (fun i ->
-            Vector.of_list
-              (List.init ni
-                 (fun j' ->
-                    if pivot = Some i && j' = j then Helios.fone
-                    else Helios.fzero)))) in
-  Vector.of_list (List.init ni block)
+let claim_array n cl = Array.of_list (Vector.to_list n cl)
+
+let vec_of_array a = Vector.of_list (Array.to_list a)
+
+let evidence_for m n mat cl =
+  match
+    Search.Incidence.certify hfield Helios.gdec Helios.gone
+      (to_arrays m n mat) (claim_array n cl)
+  with
+  | Search.Incidence.Degenerate v ->
+      { LeafStatus.ev_degenerate = Some (vec_of_array v)
+      ; LeafStatus.ev_determined = None }
+  | Search.Incidence.Determined blocks ->
+      { LeafStatus.ev_degenerate = None
+      ; LeafStatus.ev_determined =
+          Some (Vector.of_list
+                  (List.map
+                     (fun blk ->
+                        Vector.of_list
+                          (List.map vec_of_array (Array.to_list blk)))
+                     (Array.to_list blocks))) }
+  | Search.Incidence.Undecided ->
+      { LeafStatus.ev_degenerate = None; LeafStatus.ev_determined = None }
 
 let classify_one (m, n, mat, pub) =
   LeafStatus.classify_leaf
@@ -173,10 +152,7 @@ let classify_one (m, n, mat, pub) =
     Helios.gone Helios.gdec
     m n mat pub
     (Claim.live_claim Helios.gone Helios.gdec m n mat)
-    { LeafStatus.ev_degenerate = dead_column_proposal m n mat
-    ; LeafStatus.ev_determined =
-        Some (certificate_for m n mat
-                (Claim.live_claim Helios.gone Helios.gdec m n mat)) }
+    (evidence_for m n mat (Claim.live_claim Helios.gone Helios.gdec m n mat))
 
 type qtally =
   { mutable det : int; mutable deg : int; mutable und : int

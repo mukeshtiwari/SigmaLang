@@ -134,28 +134,40 @@ let rec leaves_of (r : (Helios.coq_F, Helios.coq_G) Composition.comp_rel) =
   | Composition.CThresh (_, k, _, rs) ->
       List.concat_map leaves_of (Vector.to_list k rs)
 
-let certificate_for m n mat =
-  let mi = Big_int_Z.int_of_big_int m and ni = Big_int_Z.int_of_big_int n in
-  let rows =
-    Array.of_list
-      (List.map (fun r -> Array.of_list (Vector.to_list n r))
-         (Vector.to_list m mat)) in
-  let unique_in_row i j =
-    let b = rows.(i).(j) in
-    (not (Helios.gdec b Helios.gone)) &&
-    (let c = ref 0 in
-     Array.iter (fun x -> if Helios.gdec x b then incr c) rows.(i);
-     !c = 1) in
-  let block j =
-    let rec find i =
-      if i >= mi then None
-      else if unique_in_row i j then Some i else find (i + 1) in
-    let pivot = find 0 in
-    Vector.of_list
-      (List.init mi (fun i ->
-         Vector.of_list (List.init ni (fun j2 ->
-           if pivot = Some i && j2 = j then Helios.fone else Helios.fzero)))) in
-  Vector.of_list (List.init ni block)
+(* Certificates by elimination.  Search.Incidence is ordinary OCaml
+   and is not trusted: whatever it returns goes to the extracted
+   checker, which refuses a wrong answer. *)
+let hfield : Helios.coq_F Search.Incidence.field =
+  { Search.Incidence.zero = Helios.fzero; one = Helios.fone;
+    add = Helios.fadd; mul = Helios.fmul; sub = Helios.fsub;
+    div = Helios.fdiv; eq = Helios.fdec }
+
+let to_arrays m n mat =
+  Array.of_list
+    (List.map (fun r -> Array.of_list (Vector.to_list n r))
+       (Vector.to_list m mat))
+
+let vec_of_array a = Vector.of_list (Array.to_list a)
+
+let evidence_for m n mat cl =
+  match
+    Search.Incidence.certify hfield Helios.gdec Helios.gone
+      (to_arrays m n mat) (Array.of_list (Vector.to_list n cl))
+  with
+  | Search.Incidence.Degenerate v ->
+      { LeafStatus.ev_degenerate = Some (vec_of_array v)
+      ; LeafStatus.ev_determined = None }
+  | Search.Incidence.Determined blocks ->
+      { LeafStatus.ev_degenerate = None
+      ; LeafStatus.ev_determined =
+          Some (Vector.of_list
+                  (List.map
+                     (fun blk ->
+                        Vector.of_list
+                          (List.map vec_of_array (Array.to_list blk)))
+                     (Array.to_list blocks))) }
+  | Search.Incidence.Undecided ->
+      { LeafStatus.ev_degenerate = None; LeafStatus.ev_determined = None }
 
 let qdet = ref 0 and qdeg = ref 0 and qund = ref 0
 and qvac = ref 0 and quns = ref 0 and qtot = ref 0
@@ -168,8 +180,8 @@ let record_quality r =
            Helios.fzero Helios.fone Helios.fadd Helios.fmul Helios.fdec
            Helios.gone Helios.gdec m n mat pub
            (Claim.live_claim Helios.gone Helios.gdec m n mat)
-           { LeafStatus.ev_degenerate = None
-           ; LeafStatus.ev_determined = Some (certificate_for m n mat) } in
+           (evidence_for m n mat
+              (Claim.live_claim Helios.gone Helios.gdec m n mat)) in
        incr qtot;
        (match c.LeafStatus.lc_determination with
         | LeafStatus.Cert_determined -> incr qdet
