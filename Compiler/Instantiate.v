@@ -314,6 +314,75 @@ Section Instantiation.
       + intros b; rewrite sum_over_cons; reflexivity.
   Qed.
 
+  (** ** Deciding faithfulness
+
+      The split is worth making because the two halves cost different
+      things.  Deciding that a statement determines its claim means
+      building an incidence system and eliminating over the scalar
+      field, which is where the certificates come from.  Deciding that
+      an environment is faithful means comparing bases: no field
+      arithmetic, no elimination, no certificate.  So the expensive
+      half is paid once per statement and the cheap one once per
+      instance, and the theorems below are what make that sound. *)
+
+  (** Two names may share a group element only if they are the same
+      name. *)
+  Definition pair_okb (c1 c2 : B) : bool :=
+    if Gdec (genv c1) (genv c2)
+    then (if Bdec c1 c2 then true else false)
+    else true.
+
+  (** A name that is not the absence marker may not land on the
+      identity. *)
+  Definition live_okb (c : B) : bool :=
+    if Bdec c bid then true
+    else (if Gdec (genv c) gid then false else true).
+
+  Definition row_faithfulb {n : nat} (row : Vector.t B n) : bool :=
+    let l := Vector.to_list row in
+    andb (List.forallb live_okb l)
+         (List.forallb (fun c1 => List.forallb (pair_okb c1) l) l).
+
+  Definition mat_faithfulb {m n : nat}
+    (mat : Vector.t (Vector.t B n) m) : bool :=
+    List.forallb row_faithfulb (Vector.to_list mat).
+
+  Lemma row_faithfulb_sound :
+    ∀ (n : nat) (row : Vector.t B n),
+    row_faithfulb row = true -> faithful_row row.
+  Proof.
+    intros n row h; unfold row_faithfulb in h.
+    apply andb_true_iff in h as (hlive & hpair); split.
+    - intros j k hjk.
+      pose proof (proj1 (List.forallb_forall _ _) hpair
+                    (Vector.nth row j) (in_to_list _ _ row j)) as hj.
+      pose proof (proj1 (List.forallb_forall _ _) hj
+                    (Vector.nth row k) (in_to_list _ _ row k)) as hjk'.
+      unfold pair_okb in hjk'.
+      destruct (Gdec (genv (Vector.nth row j)) (genv (Vector.nth row k)))
+        as [_ | hne]; [| exfalso; apply hne; exact hjk].
+      destruct (Bdec (Vector.nth row j) (Vector.nth row k))
+        as [he | _]; [exact he | discriminate].
+    - intros j hj.
+      pose proof (proj1 (List.forallb_forall _ _) hlive
+                    (Vector.nth row j) (in_to_list _ _ row j)) as hl.
+      unfold live_okb in hl.
+      destruct (Bdec (Vector.nth row j) bid) as [he | _];
+      [exfalso; apply hj; exact he |].
+      destruct (Gdec (genv (Vector.nth row j)) gid) as [_ | hne];
+      [discriminate | exact hne].
+  Qed.
+
+  (** The check a driver runs per instance. *)
+  Lemma mat_faithfulb_sound :
+    ∀ (m n : nat) (mat : Vector.t (Vector.t B n) m),
+    mat_faithfulb mat = true -> faithful mat.
+  Proof.
+    intros m n mat h i; apply row_faithfulb_sound.
+    exact (proj1 (List.forallb_forall _ _) h
+             (Vector.nth mat i) (in_to_list _ _ mat i)).
+  Qed.
+
   (** ** The two results *)
 
   (** Instantiation can only weaken: whatever solved the statement's
