@@ -157,9 +157,13 @@ let classify_one (m, n, mat, pub) =
 type qtally =
   { mutable det : int; mutable deg : int; mutable und : int
   ; mutable vac : int; mutable uns : int; mutable ok : int
-  ; mutable tot : int }
+  ; mutable tot : int
+  (* the largest leaf seen, so the report says how big these
+     statements actually are rather than only how many there are *)
+  ; mutable max_m : int; mutable max_n : int }
 
-let qt = { det = 0; deg = 0; und = 0; vac = 0; uns = 0; ok = 0; tot = 0 }
+let qt = { det = 0; deg = 0; und = 0; vac = 0; uns = 0; ok = 0; tot = 0
+         ; max_m = 0; max_n = 0 }
 
 (* Every compiled relation, kept so the two routes can be run over the
    same leaves and compared. *)
@@ -180,6 +184,10 @@ let record_quality r =
         | LeafStatus.Cert_unsatisfiable _ -> qt.uns <- qt.uns + 1
         | LeafStatus.Cert_vacuity_undecided -> ());
        let (m, n, _, _) = l in
+       let mi = Big_int_Z.int_of_big_int m
+       and ni = Big_int_Z.int_of_big_int n in
+       if mi > qt.max_m then qt.max_m <- mi;
+       if ni > qt.max_n then qt.max_n <- ni;
        if LeafStatus.leaf_acceptable m n c then qt.ok <- qt.ok + 1)
     (leaves_of r)
 
@@ -440,6 +448,8 @@ let () =
   Printf.printf "    vacuity: VACUOUS %d, UNSATISFIABLE %d, neither %d\n"
     qt.vac qt.uns (qt.tot - qt.vac - qt.uns);
   Printf.printf "    fit to compile: %d of %d\n" qt.ok qt.tot;
+  Printf.printf "    largest leaf: %d equation(s) over %d secret(s)\n"
+    qt.max_m qt.max_n;
 
   (* ---------- the same question by two routes, timed ---------- *)
   (* The checks are fast enough that one reading is mostly noise, so

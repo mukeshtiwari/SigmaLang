@@ -139,6 +139,11 @@ let evidence_for m n mat cl =
       { LeafStatus.ev_degenerate = None; LeafStatus.ev_determined = None }
 
 let qdet = ref 0 and qdeg = ref 0 and qund = ref 0
+
+(* the largest leaf seen, so the report says how big these statements
+   are and not only how many there are *)
+let qmaxm = ref 0
+let qmaxn = ref 0
 and qvac = ref 0 and quns = ref 0 and qtot = ref 0
 
 let record_quality r =
@@ -152,6 +157,10 @@ let record_quality r =
            (evidence_for m n mat
               (Claim.live_claim Helios.gone Helios.gdec m n mat)) in
        incr qtot;
+       let mi = Big_int_Z.int_of_big_int m
+       and ni = Big_int_Z.int_of_big_int n in
+       if mi > !qmaxm then qmaxm := mi;
+       if ni > !qmaxn then qmaxn := ni;
        (match c.LeafStatus.lc_determination with
         | LeafStatus.Cert_determined -> incr qdet
         | LeafStatus.Cert_degenerate _ -> incr qdeg
@@ -167,7 +176,9 @@ let report_quality () =
   Printf.printf "    %d leaves: determined %d, DEGENERATE %d, undecided %d\n"
     !qtot !qdet !qdeg !qund;
   Printf.printf "    vacuity: VACUOUS %d, UNSATISFIABLE %d, neither %d\n"
-    !qvac !quns (!qtot - !qvac - !quns)
+    !qvac !quns (!qtot - !qvac - !quns);
+  Printf.printf "    largest leaf: %d equation(s) over %d secret(s)\n"
+    !qmaxm !qmaxn
 
 (* Compile, prove and verify one batched DLEQ.  The composites are
  * computed by PrivacyPass.batch, the verified definition, rather than
