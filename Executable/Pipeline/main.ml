@@ -186,21 +186,117 @@ let () =
   Printf.printf "      verifier accepts                       %b\n\n"
     (PrivacyPass.pp_verify sha256_bigint [] rel t);
 
-  (* ---- 6. and the second half, on the same object ---- *)
-  Printf.printf "6. The second half of the project, asked of the same leaf:\n";
+  (* ---- 6. the second half, in detail ---- *)
+  Printf.printf "6. The second half, on the same leaf\n\n";
+
+  (* The incidence system, read off the matrix: one equation per row
+     per distinct non-neutral base, saying that the exponents sitting
+     under that base must sum to zero. *)
+  let incidence_of mat mm nn =
+    List.concat_map
+      (fun row ->
+         let bases = Vector.to_list nn row in
+         let distinct =
+           List.sort_uniq compare
+             (List.filter_map
+                (fun b -> if Helios.gdec b Helios.gone then None
+                          else Some (name b)) bases) in
+         List.map
+           (fun b ->
+              let carried =
+                List.filteri (fun _ _ -> true)
+                  (List.map (fun x -> x)
+                     (List.filter (fun (_, bb) -> name bb = b)
+                        (List.mapi (fun i bb -> (i, bb)) bases))) in
+              Printf.sprintf "under %-3s :  %s  =  0" b
+                (String.concat " + "
+                   (List.map (fun (i, _) -> Printf.sprintf "v%d" i) carried)))
+           distinct)
+      (Vector.to_list mm mat) in
+
+  let quality label mat pub mm nn =
+    let cl = Claim.live_claim Helios.gone Helios.gdec mm nn mat in
+    let ev = { LeafStatus.ev_degenerate = None
+             ; LeafStatus.ev_determined = None } in
+    let c =
+      LeafStatus.classify_leaf Helios.fzero Helios.fone Helios.fadd
+        Helios.fmul Helios.fdec Helios.gone Helios.gdec mm nn mat pub cl ev in
+    Printf.printf "      %-34s %-22s %s\n" label
+      (match c.LeafStatus.lc_determination with
+       | LeafStatus.Cert_determined -> "determined"
+       | LeafStatus.Cert_degenerate _ -> "DEGENERATE"
+       | LeafStatus.Cert_determination_undecided -> "undecided")
+      (match c.LeafStatus.lc_vacuity with
+       | LeafStatus.Cert_vacuous -> "VACUOUS"
+       | LeafStatus.Cert_unsatisfiable _ -> "UNSATISFIABLE"
+       | LeafStatus.Cert_vacuity_undecided -> "-") in
+
   (match rel with
    | Composition.Leaf (mm, nn, mat, pub) ->
-       let cl = Claim.live_claim Helios.gone Helios.gdec mm nn mat in
-       let ev = { LeafStatus.ev_degenerate = None
-                ; LeafStatus.ev_determined = None } in
-       let c =
-         LeafStatus.classify_leaf Helios.fzero Helios.fone Helios.fadd
-           Helios.fmul Helios.fdec Helios.gone Helios.gdec mm nn mat pub cl ev in
-       Printf.printf "      does it determine the key it claims?   %s\n"
-         (match c.LeafStatus.lc_determination with
-          | LeafStatus.Cert_determined -> "yes, with a certificate"
-          | LeafStatus.Cert_degenerate _ -> "NO"
-          | LeafStatus.Cert_determination_undecided -> "undecided")
+       Printf.printf "   The incidence system, read off the matrix:\n";
+       List.iter (fun l -> Printf.printf "      %s\n" l)
+         (incidence_of mat mm nn);
+       Printf.printf "\n   Only the zero vector solves it, so the relation\n";
+       Printf.printf "   determines k, and the checker says so with a\n";
+       Printf.printf "   certificate the extracted code verifies:\n\n";
+       Printf.printf "      %-34s %-22s %s\n" "instance" "witness" "vacuity";
+       quality "honest" mat pub mm nn
    | _ -> ());
-  Printf.printf "\n   The first half says the proof convinces the verifier.\n";
+
+  (* Now the instantiations that go wrong.  M is the batch composite,
+     formed from the tokens the client sent, so unlike X it is not a
+     fixed generator. *)
+  let ident_batch = Helios.gone in
+  let relM = get (PrivacyPass.compile_with
+                    (PrivacyPass.dleq_genv base_x y ident_batch Helios.gone)
+                    PrivacyPass.dleq_core) in
+  let relXM = get (PrivacyPass.compile_with
+                     (PrivacyPass.dleq_genv Helios.gone y ident_batch z)
+                     PrivacyPass.dleq_core) in
+  (match relM with
+   | Composition.Leaf (mm, nn, mat, pub) -> quality "batch composite = identity" mat pub mm nn
+   | _ -> ());
+  (match relXM with
+   | Composition.Leaf (mm, nn, mat, pub) -> quality "both bases = identity" mat pub mm nn
+   | _ -> ());
+
+  Printf.printf "\n   The middle line is the honest limit of the criterion.\n";
+  Printf.printf "   With the batch composite at the identity the second\n";
+  Printf.printf "   equation reads 1 = 1^k and says nothing, yet the first\n";
+  Printf.printf "   still pins k -- so the relation does determine what it\n";
+  Printf.printf "   claims, and 'determined' is the right answer to the\n";
+  Printf.printf "   question asked.  What has been lost is the batch, and\n";
+  Printf.printf "   that loss happened before the relation existed.\n\n";
+
+  (* Which is what the instantiation check is for. *)
+  let privs = Vector.of_list PrivacyPass.dleq_privs_list in
+  let rec leaf_eqs (st : (Helios.coq_F, string) Dsl.stmt) =
+    match st with
+    | Dsl.SEqs eqs -> [ eqs ]
+    | Dsl.SAnd (a, b) ->
+        (match Dsl.leaves_only a, Dsl.leaves_only b with
+         | Some la, Some lb -> [ la @ lb ]
+         | _ -> leaf_eqs a @ leaf_eqs b)
+    | Dsl.SOr (a, b) -> leaf_eqs a @ leaf_eqs b
+    | Dsl.SThresh (_, l) -> List.concat_map leaf_eqs l in
+  let faithful g =
+    List.for_all
+      (fun eqs ->
+         DslInstantiate.faithful_tob Helios.fadd Helios.fmul Helios.fopp
+           Helios.fdec Helios.gone Helios.gmul Helios.gpow Helios.gdec
+           (fun a b -> String.equal a b) (big 1) privs g PrivacyPass.penvI eqs)
+      (leaf_eqs PrivacyPass.dleq_core) in
+  Printf.printf "7. The instantiation check, which looks at the environment\n";
+  Printf.printf "   rather than the relation, and costs only group compares\n\n";
+  Printf.printf "      %-34s %s\n" "honest"
+    (string_of_bool (faithful genv));
+  Printf.printf "      %-34s %s\n" "batch composite = identity"
+    (string_of_bool
+       (faithful (PrivacyPass.dleq_genv base_x y ident_batch Helios.gone)));
+  Printf.printf "\n   It rejects the instance the relation check accepts,\n";
+  Printf.printf "   because a base name has been sent to the identity.\n";
+  Printf.printf "   That is Compiler/Instantiate.v, and it is why the two\n";
+  Printf.printf "   checks live at different levels.\n\n";
+
+  Printf.printf "   The first half says the proof convinces the verifier.\n";
   Printf.printf "   The second says the statement was worth proving.\n"
