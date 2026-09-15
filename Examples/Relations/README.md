@@ -183,36 +183,71 @@ live.
 Swiss Post is the only one of the six that states its rule and then
 does not apply it uniformly.
 
-### A gap in our own criterion
+### Not a gap in the criterion — a level below it
 
-RFC 9497 turned up something neither axis catches, and the Swiss Post
-plaintext-equality case is the same shape, so it is not a one-off.
+RFC 9497 turned up a case that looks at first like something neither
+axis catches, and the Swiss Post plaintext-equality case has the same
+shape. It is worth being exact about what it is, because the first
+diagnosis we wrote here was wrong.
 
-An equation whose bases are all the identity **and** whose target is
-the identity is trivially true and constrains nothing. Our vacuity
-axis reports a dead row only when its target is live, where no witness
-exists at all; and the determination axis is content as long as the
-remaining equations pin every claimed secret. So the checker reports:
+When the batch composite `M` lands on the identity, the relation reads
 
 ```
-$ printf 'secrets k\nclaims k\neq pkS G\neq 1 1\n' | \
-    ./_build/default/Executable/Analyse/main.exe -
-  determination  DETERMINED
-  vacuity        no finding
-  verdict        acceptable
+pkS = G^k
+1   = 1^k
 ```
 
-and it is right. The relation does determine `k`. What has happened
-is that the second equation — the one carrying the whole batch claim —
-has silently stopped saying anything, and the relation is no longer
-the relation the protocol needed. The same thing happens to Swiss
-Post's plaintext-equality proof when both public keys are the identity
-and the two ciphertexts agree.
+and the checker reports `determined, acceptable`. That verdict is
+correct, and nothing is missing from the criterion: a trivially-true
+equation is not part of the relation at all. The relation above **is**
+the relation `pkS = G^k` — same witnesses, same kernel, same
+everything — and the criterion is complete about it.
 
-A third report would cover it, and it is cheap: *equation i constrains
-nothing*. It is decidable from the pattern, needs no new theory, and
-these are two independent specifications where it would have fired.
-It is not implemented.
+What went wrong happened before the relation existed. The designer
+wrote a *statement* with two equations; the *instantiation* produced a
+relation with one. The damage is in the map between them, which is a
+different object with its own theory.
+
+`Compiler/Instantiate.v` is that theory. A statement's bases are
+names; an environment `genv` sends them to group elements; and the
+same incidence system reads over either. Two results, both
+machine-checked and axiom-free:
+
+- **`instantiation_monotone`** — every solution of the statement's
+  incidence system is a solution of the instance's, for *any*
+  environment. Instantiation can only weaken. So a statement that is
+  degenerate on its own names is degenerate however it is
+  instantiated, and a claim the statement fails to pin down is one no
+  environment will rescue (`instance_claim_implies_statement_claim`).
+- **`faithful_preserves_incidence`** — if `genv` keeps each equation's
+  names apart and off the identity, the two systems are *equal*.
+  Hence `faithful_transfers_the_claim`: the statement is checked once,
+  and every faithful instance inherits the verdict.
+
+The hypothesis is doing real work, and `FaithfulnessIsNeeded` at the
+foot of that file proves it rather than asserting it: a statement that
+determines both its secrets, an environment that confuses its two
+generators, and the resulting instance exhibiting `(1, -1)`.
+
+This is why it was worth resisting a third check. One condition
+covers all three phenomena in this directory, and it was never told
+about any of them:
+
+| | what `genv` did | which clause |
+|---|---|---|
+| BBS colliding generators | identified two names in one equation | separation |
+| Swiss Post identity base | sent a name to the identity | non-identity |
+| VOPRF vanished equation | sent *every* name in an equation to the identity | non-identity |
+
+It also explains the table above. Every one of those six hand-coded
+checks is a side condition on the **instantiation**, not on the
+statement, which is why no two of them are phrased alike.
+
+**What is not done.** The theorems are about instantiating an abstract
+matrix of names. Wiring them to this repository's own `compile` and
+its `genv` — so that the Helios and CMZ statements are checked once at
+design time rather than per instance — is further work, and until it
+is done the checker still runs per leaf.
 
 ## Cases that fail, and why
 

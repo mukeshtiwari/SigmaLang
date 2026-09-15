@@ -48,7 +48,9 @@ deciding would compute them.
 | A8 | ElectionGuard's range and decryption proofs are determined, and structurally cannot hit either axis | v2.1.0 Verification 6.A puts α, β in the prime-order subgroup; K is fixed by the key ceremony, not by the prover | supported |
 | A9 | Six independent specifications each hand-code a special case of one of the two axes; one does not apply its own rule uniformly | table in `Examples/Relations/README.md`, each row cited to its spec | supported |
 | A10 | BBS states both halves of our characterisation and draws the line where our completeness theorem puts it | draft-irtf-cfrg-bbs-signatures-08 §3.3: generators "MUST be unique and pseudo-random i.e., with no known relationship to each other" — uniqueness is the decidable half, "no known relationship" the half the theorem says no pattern checker can reach | supported — the strongest external confirmation we have |
-| A11 | **Our own criterion misses a third case**: an equation with all-identity bases and an identity target constrains nothing, and neither axis reports it | `voprf-batched-dleq` with the composite at the identity, and `swisspost-plaintext-equality-identity-keys` with agreeing ciphertexts, both report `acceptable` | supported — decidable from the pattern, NOT implemented |
+| A11 | ~~Our own criterion misses a third case~~ | — | **withdrawn**: a trivially-true equation is not part of the relation, so the criterion is complete and its `acceptable` verdict is correct. The defect is in the instantiation, one level up — see A12 |
+| A12 | Instantiation can only weaken a statement, and a faithful environment changes nothing | `Compiler/Instantiate.v`, axiom-free: `instantiation_monotone` (any `genv`), `faithful_preserves_incidence` and `faithful_transfers_the_claim` (separation + non-identity per equation), with `FaithfulnessIsNeeded` proving the hypothesis cannot be dropped | supported |
+| A13 | One condition explains all three observed phenomena and all six specifications' hand-coded checks | BBS collision = names identified; Swiss Post identity base and VOPRF vanished equation = names sent to the identity; each spec's check is a side condition on the instantiation, not on the statement | supported |
 
 ## Measurements
 
@@ -68,5 +70,7 @@ deciding would compute them.
 - "we found a vulnerability" — we did not
 - "Swiss Post's exponentiation proof is broken" — A6 is a gap in the primitives spec's stated input types; we have not shown any call site reaches it, and the protocol spec may constrain the bases at every one
 - "our tool found the Swiss Post gap automatically" — the transcription from the spec was by hand; the tool decided the transcribed relations
+- "statements are checked once at design time" — A12 is proven for an abstract name matrix; it is NOT yet wired to this repository's `compile` and `genv`, so the checker still runs per leaf
+- any third axis or extra check for trivially-true equations — A11 was withdrawn; the case is covered by A12 and needs no new verdict
 - "the CFRG draft's validation accepts X" — the validation is sigma-rs's; draft -02 has no validation section
 - "sigma-rs performs ten instance checks" without a commit — at 0.3.2 most are gone
