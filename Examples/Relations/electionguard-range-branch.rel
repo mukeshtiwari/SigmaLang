@@ -1,0 +1,13 @@
+# ElectionGuard 2.1.0, section 3.3.7, Verification 6: one branch of
+# the disjunctive Chaum-Pedersen range proof that a selection encrypts
+# a value in [0, R].  Branch j divides the second target by K^j, which
+# is public.  cryptosith.org/papers/EG-spec-v2.1.0.pdf
+#
+# Clean, and for a reason worth recording.  Check 6.A puts alpha and
+# beta in the prime-order subgroup, and K is the election public key
+# fixed by the key ceremony with its own Schnorr proofs, so neither
+# base can be the identity and neither is chosen by the prover.
+secrets xi
+claims  xi
+eq  alpha      g
+eq  beta/K^j   K

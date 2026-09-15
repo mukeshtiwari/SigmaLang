@@ -1,0 +1,11 @@
+# Belenios 3.0, section 4.15: proof that a ciphertext (alpha, beta)
+# encrypts a non-zero value.  www.belenios.org/specification.pdf
+#
+# The prover publishes A0 = beta^s * y^(-s*r) and proves that A0, in
+# base (beta, y), has the same representation as 1 does in base
+# (alpha, g).  Writing u = s and v = -s*r, that is the two equations
+# below -- and the first of them has the identity as its target.
+secrets u v
+claims  u v
+eq  1    alpha  g
+eq  A0   beta   y

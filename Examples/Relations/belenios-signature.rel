@@ -1,0 +1,5 @@
+# Belenios 3.0, section 4.16: the Schnorr signature on a ballot,
+# against the voter's credential.  This is what stops ballot stuffing.
+secrets s
+claims  s
+eq  credential  g

@@ -1,0 +1,7 @@
+# ElectionGuard 2.1.0: a guardian's decryption share, proved with the
+# generic Chaum-Pedersen procedure -- one secret behind the published
+# key and the share.
+secrets s
+claims  s
+eq  K_i   g
+eq  M_i   alpha

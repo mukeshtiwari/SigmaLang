@@ -1,0 +1,13 @@
+# The same proof with every base the identity.
+#
+# Algorithm 10.7 types the bases as "G_q^n", and the identity is a
+# member of G_q.  The "\ {1}" that the same document puts on the
+# Schnorr base is absent here, so a base vector of all ones is
+# type-correct input.  Then phi is the constant map: every witness
+# has the same image, the honest image is all ones, and the proof
+# demonstrates nothing whatever about x.
+secrets x
+claims  x
+eq  1   1
+eq  1   1
+eq  1   1

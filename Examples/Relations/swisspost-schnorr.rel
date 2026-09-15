@@ -1,0 +1,9 @@
+# Swiss Post crypto-primitives 1.6.0, section 10.2, algorithm 10.1:
+# phi(x) = g^x.  The spec types the base as "g in G_q \ {1}", and the
+# exclusion is stated three times -- on the phi-function, on the
+# generator and on the verifier.  It is the one-base instance of what
+# our vacuity axis checks, and the two files below are what happens
+# when the same exclusion is left off a many-base proof.
+secrets x
+claims  x
+eq  y   g

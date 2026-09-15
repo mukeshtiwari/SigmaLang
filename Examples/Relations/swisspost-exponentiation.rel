@@ -1,0 +1,8 @@
+# Swiss Post crypto-primitives 1.6.0, section 10.4, algorithm 10.7:
+# phi(x) = (g_0^x, ..., g_(n-1)^x), one secret exponent against a
+# vector of caller-supplied bases.  Shown here at n = 3.
+secrets x
+claims  x
+eq  y0   g0
+eq  y1   g1
+eq  y2   g2

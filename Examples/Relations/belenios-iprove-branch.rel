@@ -1,0 +1,7 @@
+# Belenios 3.0, section 4.12: one branch of an interval-membership
+# proof, that (alpha, beta) has the form (g^r, y^r * g^Mj).  The
+# branch for Mj divides the second target by g^Mj, which is public.
+secrets r
+claims  r
+eq  alpha       g
+eq  beta/g^Mj   y

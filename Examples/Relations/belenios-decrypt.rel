@@ -1,0 +1,7 @@
+# Belenios 3.0, section 4.20: a trustee's partial decryption proof.
+# The same key that produced the published X produced the decryption
+# factor.  Shape-identical to the Helios trustee proof.
+secrets x
+claims  x
+eq  X       g
+eq  factor  alpha

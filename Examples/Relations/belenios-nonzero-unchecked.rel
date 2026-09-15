@@ -1,0 +1,16 @@
+# The same proof with the verifier's first check omitted.
+#
+# Belenios verifies "A0 != 1" before anything else, and that check is
+# load-bearing in a way the equations do not show.  The map is
+# injective exactly when the encrypted value is non-zero: from the
+# first equation v = -r*u, and substituting into the second leaves
+# A0 = g^(m*u), so u is pinned only when m is non-zero -- and when m
+# is zero, A0 is forced to 1.
+#
+# A verifier that dropped the check would be looking at this, where
+# every target is the identity.  The all-zero witness satisfies it, so
+# the proof demonstrates nothing at all.
+secrets u v
+claims  u v
+eq  1   alpha  g
+eq  1   beta   y

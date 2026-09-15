@@ -1,0 +1,9 @@
+# Swiss Post crypto-primitives 1.6.0, section 10.5, algorithm 10.10:
+# two ciphertexts under different keys carry the same plaintext.
+# phi(r, r') = (g^r, g^r', h^r / h'^r'), so the third base for r' is
+# the inverse of the second public key.
+secrets r r_
+claims  r r_
+eq  c0       g  1
+eq  c0_      1  g
+eq  c1/c1_   h  inv_h_

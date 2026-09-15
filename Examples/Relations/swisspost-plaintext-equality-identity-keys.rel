@@ -1,0 +1,21 @@
+# The same proof with both public keys the identity, which algorithm
+# 10.10 admits: it types them as "h in G_q" and "h' in G_q", again
+# without the "\ {1}" it writes for the Schnorr base.
+#
+# The third equation -- the only one that says anything about the
+# plaintexts -- collapses to 1 = 1^r * 1^(-r'), and our checker
+# reports it as unsatisfiable whenever the two ciphertexts differ.
+#
+# It is worth being exact about what that does and does not catch.
+# With both keys the identity an honest c1 and c1' are both equal to
+# the message, so their quotient is the identity too, and on that
+# input the checker reports the relation determined and acceptable --
+# correctly, because the relation is fine.  It has simply stopped
+# being a statement about plaintext equality.  No verdict of ours
+# addresses that: whether a relation says what its author meant is
+# not a question either axis decides.
+secrets r r_
+claims  r r_
+eq  c0       g  1
+eq  c0_      1  g
+eq  c1/c1_   1  1
