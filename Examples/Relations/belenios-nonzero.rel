@@ -9,3 +9,21 @@ secrets u v
 claims  u v
 eq  1    alpha  g
 eq  A0   beta   y
+
+# The checker calls this DETERMINED, and that verdict is correct about
+# the pattern and wrong about the protocol.  It is the clearest
+# deployed instance of the gap the completeness theorem describes.
+#
+# Read the names as unrelated and the incidence system forces u = 0
+# and v = 0, so the relation determines both.  But the names are not
+# unrelated: alpha = g^r and beta = y^r g^m.  Eliminating v from the
+# first equation leaves A0 = g^(m*u), so u is pinned only when the
+# encrypted m is non-zero.  When m is zero the true kernel is a line
+# and the relation determines nothing, while every visible pattern
+# says otherwise.
+#
+# What saves the protocol is not the relation.  It is the verifier's
+# first step, "check A0 != 1", which is unsatisfiable exactly when
+# m = 0.  Belenios closes by hand the gap no checker reading the
+# pattern can close, which is what the completeness theorem says must
+# happen.
