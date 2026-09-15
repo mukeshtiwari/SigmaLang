@@ -58,11 +58,13 @@ Section Schema.
     ∃ w : W, Sol i s w ∧ ∀ w' : W, Sol i s w' -> w' = w.
 
   (** The side condition a compiler can discharge at design time. In
-      the linear case it is faithfulness -- distinct names get distinct
-      values, no name gets the identity -- but nothing below depends on
-      which condition it is, only that it is a condition on the
-      interpretation. *)
-  Context (faithful : interp -> Prop).
+      the linear case it is faithfulness -- the names a statement uses
+      get distinct values, and none of them the identity -- but nothing
+      below depends on which condition it is. It may even depend on the
+      schema, as that one does, and allowing it to makes the negative
+      result stronger: the schemas ruled out below survive every side
+      condition, including the ones tailored to them. *)
+  Context (faithful : interp -> schema -> Prop).
 
   (** ** Exactness
 
@@ -74,12 +76,12 @@ Section Schema.
 
   Definition exact (crit : criterion) : Prop :=
     ∀ (i : interp) (s : schema),
-      faithful i -> (crit s = true <-> determines i s).
+      faithful i s -> (crit s = true <-> determines i s).
 
   (** A schema on which two faithful interpretations disagree. *)
   Definition interpretation_sensitive (s : schema) : Prop :=
     ∃ i1 i2 : interp,
-      faithful i1 ∧ faithful i2 ∧ determines i1 s ∧ ¬ determines i2 s.
+      faithful i1 s ∧ faithful i2 s ∧ determines i1 s ∧ ¬ determines i2 s.
 
   (** ** Exactness is the dichotomy
 
@@ -91,7 +93,7 @@ Section Schema.
     ∀ crit : criterion,
       exact crit ->
       ∀ (s : schema) (i1 i2 : interp),
-        faithful i1 -> faithful i2 ->
+        faithful i1 s -> faithful i2 s ->
         (determines i1 s <-> determines i2 s).
   Proof.
     intros crit hcrit s i1 i2 hf1 hf2.

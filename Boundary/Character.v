@@ -111,16 +111,16 @@ Definition branch : list r1c := [boolean; gated; square].
     Any stronger condition of the same kind -- distinctness of names,
     non-triviality -- is equally satisfied by both interpretations
     below, since there is only one name and neither sends it to zero. *)
-Definition faithful (i : env) : Prop := i a_nm <> F0.
+Definition faithful (i : env) (_ : list r1c) : Prop := i a_nm <> F0.
 
 Definition i_nonresidue : env := fun _ => F3.
 Definition i_residue    : env := fun _ => F2.
 
-Lemma faithful_nonresidue : faithful i_nonresidue.
-Proof. discriminate. Qed.
+Lemma faithful_nonresidue : ∀ s, faithful i_nonresidue s.
+Proof. intros s; discriminate. Qed.
 
-Lemma faithful_residue : faithful i_residue.
-Proof. discriminate. Qed.
+Lemma faithful_residue : ∀ s, faithful i_residue s.
+Proof. intros s; discriminate. Qed.
 
 (** ** Membership is a computation
 
@@ -187,8 +187,8 @@ Theorem character_is_sensitive :
 Proof.
   exists i_nonresidue, i_residue.
   repeat split.
-  + exact faithful_nonresidue.
-  + exact faithful_residue.
+  + exact (faithful_nonresidue branch).
+  + exact (faithful_residue branch).
   + exact nonresidue_determines.
   + exact residue_does_not_determine.
 Qed.
