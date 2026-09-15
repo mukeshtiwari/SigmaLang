@@ -15,6 +15,14 @@ secret. A `1` is the identity in either position: as a base it means
 that secret does not occur in that equation, and as a target it means
 the target is the identity.
 
+What the checker reads is not a matrix of its own invention. Each
+`eq` line is parsed into the compiler's own `Dsl.equation` --- the
+type `compile` consumes --- and the matrix the checker sees is
+`DslInstantiate.name_mat` of exactly those equations. So the statement
+you check is the statement you would compile, with no transcription
+between the two. That is the same defect this development is about,
+one level up, and it would be poor form to leave it open here.
+
 Bases are names rather than group elements because that is all the
 question depends on. Two positions constrain each other exactly when
 they carry the same base, so naming the bases says everything the

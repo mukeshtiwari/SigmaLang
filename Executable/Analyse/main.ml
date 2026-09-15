@@ -101,7 +101,25 @@ let parse (text : string) : input =
   ; targets = Array.of_list (List.rev !targets)
   ; rows = Array.of_list (List.rev !rows) }
 
-(* ---------- the two layers ---------- *)
+(* ---------- the two layers, over the compiler's own statement ----------
+ *
+ * The file is parsed into the compiler's [Dsl.equation] type rather
+ * than into a matrix of our own.  That matters more than it looks.
+ * The point of checking a statement is to learn something about the
+ * protocol you are going to build from it, and that only follows if
+ * the object checked and the object compiled are the same object.  A
+ * checker with its own private notion of a statement certifies its
+ * own notion and leaves the transcription to the compiler's language
+ * unguarded -- which is the defect this whole development is about,
+ * one level up.
+ *
+ * So the equations below are what [Dsl.compile] takes, and the matrix
+ * the checker sees is [DslInstantiate.name_mat] of exactly those
+ * equations. *)
+
+let big = Big_int_Z.big_int_of_int
+let vec l = Vector.of_list l
+let vec_of_array a = Vector.of_list (Array.to_list a)
 
 (* The scalar field is the real one: the incidence system lives in the
    field the secrets are drawn from, so the elimination is exact. *)
@@ -110,16 +128,53 @@ let fd : Helios.coq_F Search.Incidence.field =
     add = Helios.fadd; mul = Helios.fmul; sub = Helios.fsub;
     div = Helios.fdiv; eq = Helios.fdec }
 
-let gid = "1"
-let geq : string -> string -> bool = String.equal
+let veq (a : string) (b : string) = String.equal a b
 
-let big = Big_int_Z.big_int_of_int
-let vec l = Vector.of_list l
-let vec_of_array a = Vector.of_list (Array.to_list a)
+(* A base in a statement is not a group element but a cell: the list
+   of (base, coefficient) pairs the equation places on one secret.
+   Two cells are the same base exactly when they are syntactically
+   equal, and the empty cell is the absence marker. *)
+let cellq = DslInstantiate.cell_dec Helios.fdec veq
+let cellid : (Helios.coq_F, string) DslInstantiate.cellname = []
 
-(* the untrusted half *)
-let evidence_for (mat : string array array) (claim : bool array) =
-  match Search.Incidence.certify fd geq gid mat claim with
+let one_pexpr : (Helios.coq_F, string) Dsl.pexpr = Dsl.PConst Helios.fone
+let minus_one : (Helios.coq_F, string) Dsl.pexpr =
+  Dsl.PConst (Helios.fsub Helios.fzero Helios.fone)
+
+(* One row of the file becomes one equation of the core language: a
+   term per secret sitting on a non-identity base, and the target as a
+   public offset with coefficient minus one, which is how the
+   elaborator moves it across the equality. *)
+let equation_of_row (inp : input) (i : int) : (Helios.coq_F, string) Dsl.equation =
+  let terms = ref [] in
+  Array.iteri
+    (fun j b ->
+       if b <> "1" then
+         terms := { Dsl.t_coeff = one_pexpr
+                  ; Dsl.t_var = inp.secrets.(j)
+                  ; Dsl.t_base = b } :: !terms)
+    inp.rows.(i);
+  let off = if inp.targets.(i) = "1" then []
+            else [ (minus_one, inp.targets.(i)) ] in
+  { Dsl.eq_rhs = List.rev !terms; Dsl.eq_off = off }
+
+let equations_of (inp : input) =
+  List.init (Array.length inp.rows) (equation_of_row inp)
+
+(* The target, read as a cell so that the vacuity test can compare it
+   with the bases: a neutral target is the empty cell. *)
+let target_cell (t : string) : (Helios.coq_F, string) DslInstantiate.cellname =
+  if t = "1" then [] else [ (t, one_pexpr) ]
+
+let to_arrays m n mat =
+  Array.of_list
+    (List.map (fun r -> Array.of_list (Vector.to_list n r))
+       (Vector.to_list m mat))
+
+(* the untrusted half: search for a certificate over the cells *)
+let evidence_for m n mat cl =
+  match Search.Incidence.certify fd cellq cellid
+          (to_arrays m n mat) (Array.of_list (Vector.to_list n cl)) with
   | Search.Incidence.Degenerate v ->
       { LeafStatus.ev_degenerate = Some (vec_of_array v)
       ; LeafStatus.ev_determined = None }
@@ -135,15 +190,28 @@ let evidence_for (mat : string array array) (claim : bool array) =
 
 (* the verified half *)
 let classify (inp : input) =
-  let m = Array.length inp.rows and n = Array.length inp.secrets in
-  let mat = vec (List.map vec_of_array (Array.to_list inp.rows)) in
-  let pub = vec_of_array inp.targets in
+  let eqs = equations_of inp in
+  let n = Array.length inp.secrets in
+  let m = List.length eqs in
+  let privs = vec (Array.to_list inp.secrets) in
+  let mat = DslInstantiate.name_mat veq (big n) privs eqs in
+  let pub = vec (List.map target_cell (Array.to_list inp.targets)) in
   let cl = vec_of_array inp.claims in
   LeafStatus.classify_leaf
     Helios.fzero Helios.fone Helios.fadd Helios.fmul Helios.fdec
-    gid geq
-    (big m) (big n) mat pub cl
-    (evidence_for inp.rows inp.claims)
+    cellid cellq (big m) (big n) mat pub cl
+    (evidence_for (big m) (big n) mat cl)
+
+(* The forms a proof of this statement establishes: a basis of the row
+   space of the incidence system, read off the same cells. *)
+let established_forms (inp : input) =
+  let eqs = equations_of inp in
+  let n = Array.length inp.secrets in
+  let m = List.length eqs in
+  let privs = vec (Array.to_list inp.secrets) in
+  let mat = DslInstantiate.name_mat veq (big n) privs eqs in
+  Search.Incidence.established fd cellq cellid
+    (to_arrays (big m) (big n) mat)
 
 (* ---------- reporting ---------- *)
 
@@ -168,7 +236,7 @@ let show_relation inp =
            (Array.to_list
               (Array.mapi
                  (fun j b ->
-                    if b = gid then ""
+                    if b = "1" then ""
                     else Printf.sprintf "%s^%s" b inp.secrets.(j))
                  row)) in
        Printf.printf "    %s = %s\n" inp.targets.(i)
@@ -226,8 +294,7 @@ let report inp =
      combinations of the secrets whose value a proof fixes.  When it
      lists every secret separately the statement is determined, and
      that identity is what the acceptance certificate proves. *)
-  let forms =
-    Search.Incidence.established fd geq gid inp.rows in
+  let forms = established_forms inp in
   Printf.printf "\n  what a proof of this establishes knowledge of\n";
   if Array.length forms = 0 then
     Printf.printf "    nothing\n"
