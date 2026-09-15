@@ -8,7 +8,7 @@ $ dune build Executable/Analyse/main.exe
 $ ./_build/default/Executable/Analyse/main.exe Examples/Relations/cmz-show.rel
 ```
 
-Three keywords. `secrets` fixes the column order, `claims` says which
+Four keywords. `secrets` fixes the column order, `claims` says which
 of those secrets the relation asserts it pins down (the default is all
 of them), and each `eq` gives a target followed by one base per
 secret. A `1` is the identity in either position: as a base it means
@@ -24,7 +24,39 @@ between the two. That is the same defect this development is about,
 one level up, and it would be poor form to leave it open here.
 
 Bases are names rather than group elements because that is all the
-question depends on. Two positions constrain each other exactly when
+*statement* question depends on. Two positions constrain each other
+exactly when they carry the same base, so naming the bases says
+everything the checker can use and nothing it cannot.
+
+The instance is a separate question, and `point` is how you ask it:
+
+```
+eq  C   g1  g2  h        # the statement: a generator each
+
+point g1  2              # the deployment: which element each name
+point g2  2              # stands for.  Here g1 and g2 are the same.
+point h   5
+```
+
+The statement is sound and stays sound. The instance is not, because
+an environment that sends two names to one element merges their
+equations, and the tool reports it:
+
+```
+  environment    NOT FAITHFUL -- two bases coincide, or one is the identity
+  verdict        statement acceptable, INSTANCE NOT
+```
+
+That second check is what `Compiler/DslInstantiate.v` proves sound,
+and it is the hypothesis under which a design-time verdict transfers
+to a running system. Omit the `point` lines and the tool says so
+rather than pretending: the verdict is then about the statement alone.
+
+An exponent names an element because every element of a prime-order
+group is a power of the generator. A real deployment would hand its
+own encodings to the library rather than write them in a file; the
+exponent form is here so that a faithful and an unfaithful instance of
+one statement can be written down side by side. Two positions constrain each other exactly when
 they carry the same base, so naming the bases says everything the
 checker can use and nothing it cannot.
 

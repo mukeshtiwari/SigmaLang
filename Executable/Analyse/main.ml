@@ -39,7 +39,12 @@ type input =
   { secrets : string array
   ; claims : bool array
   ; targets : string array
-  ; rows : string array array }
+  ; rows : string array array
+  (* The environment, when one is supplied: a group element for each
+     base name.  A statement is written over names and says nothing
+     about which elements they stand for, so this is a separate input
+     and the checker answers a separate question about it. *)
+  ; points : (string * int) list }
 
 exception Bad of string
 
@@ -55,7 +60,7 @@ let tokens s =
 
 let parse (text : string) : input =
   let secrets = ref [||] and claimed = ref None in
-  let targets = ref [] and rows = ref [] in
+  let targets = ref [] and rows = ref [] and points = ref [] in
   let seen_secrets = ref false in
   let index_of name =
     let n = Array.length !secrets in
@@ -88,6 +93,11 @@ let parse (text : string) : input =
                       (List.length bases) n);
            targets := target :: !targets;
            rows := Array.of_list bases :: !rows
+       | [ "point"; name; k ] ->
+           (match int_of_string_opt k with
+            | Some e -> points := (name, e) :: !points
+            | None -> where "point needs a base name and an exponent")
+       | "point" :: _ -> where "point needs a base name and an exponent"
        | "eq" :: _ -> where "eq needs a target and one base per secret"
        | tok :: _ -> where (Printf.sprintf "unrecognised keyword: %s" tok))
     (String.split_on_char '\n' text);
@@ -99,7 +109,8 @@ let parse (text : string) : input =
        | Some c -> c
        | None -> Array.make (Array.length !secrets) true)
   ; targets = Array.of_list (List.rev !targets)
-  ; rows = Array.of_list (List.rev !rows) }
+  ; rows = Array.of_list (List.rev !rows)
+  ; points = List.rev !points }
 
 (* ---------- the two layers, over the compiler's own statement ----------
  *
@@ -213,6 +224,62 @@ let established_forms (inp : input) =
   Search.Incidence.established fd cellq cellid
     (to_arrays (big m) (big n) mat)
 
+(* ---------- the environment, when one is supplied ----------
+ *
+ * Everything above decides a question about the statement: whether
+ * the relation written over names determines what it claims.  That
+ * verdict transfers to a real instance only if the environment
+ * supplying the group elements is faithful, which is the hypothesis
+ * of Compiler/DslInstantiate.v's transfer theorem and the reason that
+ * theorem has a hypothesis at all.
+ *
+ * An environment can break a sound statement in exactly two ways: by
+ * sending two names to the same element, or by sending an occupied
+ * name to the identity.  Checking that is comparisons of group
+ * elements and nothing else -- no field arithmetic, no elimination,
+ * no certificate -- which is why the expensive half is paid once per
+ * statement and this half once per instance. *)
+
+(* Every base a statement mentions, which is what an environment has
+   to cover. *)
+let base_names (inp : input) =
+  let seen = Hashtbl.create 16 in
+  Array.iter
+    (Array.iter (fun b -> if b <> "1" then Hashtbl.replace seen b ()))
+    inp.rows;
+  List.sort compare (Hashtbl.fold (fun k () acc -> k :: acc) seen [])
+
+type env_verdict =
+  | No_environment
+  | Missing of string list
+  | Faithful
+  | Unfaithful
+
+let check_environment (inp : input) =
+  if inp.points = [] then No_environment
+  else
+    let missing =
+      List.filter (fun b -> not (List.mem_assoc b inp.points))
+        (base_names inp) in
+    if missing <> [] then Missing missing
+    else begin
+      (* every element of a prime-order group is a power of the
+         generator, so an exponent names one *)
+      let genv name =
+        match List.assoc_opt name inp.points with
+        | Some e ->
+            Helios.gpow Helios.gen
+              (Helios.mk_field (Big_int_Z.big_int_of_int e))
+        | None -> Helios.gone in
+      let n = Array.length inp.secrets in
+      let privs = vec (Array.to_list inp.secrets) in
+      if DslInstantiate.faithful_tob
+           Helios.fadd Helios.fmul Helios.fopp Helios.fdec
+           Helios.gone Helios.gmul Helios.gpow Helios.gdec
+           veq (big n) privs genv (fun _ -> Helios.fone) (equations_of inp)
+      then Faithful else Unfaithful
+    end
+
 (* ---------- reporting ---------- *)
 
 (* A residue near the top of the field is a small negative number, and
@@ -322,11 +389,35 @@ let report inp =
            row;
          Printf.printf "    %s\n" (Buffer.contents buf))
       forms;
+  (* The environment is a separate question and gets a separate line,
+     because a statement that is sound says nothing about an instance
+     that collapses two of its bases. *)
+  Printf.printf "\n  environment    %s\n"
+    (match check_environment inp with
+     | No_environment ->
+         "not supplied -- the verdict above is about the statement only"
+     | Missing ms ->
+         "INCOMPLETE -- no point given for " ^ String.concat ", " ms
+     | Faithful ->
+         "faithful -- the verdict above transfers to this instance"
+     | Unfaithful ->
+         "NOT FAITHFUL -- two bases coincide, or one is the identity");
+
+  (* The verdict is about both halves.  A sound statement deployed
+     under an environment that collapses two of its bases is not a
+     sound protocol, and reporting it as acceptable would be the same
+     mistake the statement checker exists to prevent. *)
+  let stmt_ok = LeafStatus.leaf_acceptable (big m) (big n) c in
+  let env_ok =
+    match check_environment inp with
+    | No_environment | Faithful -> true
+    | Missing _ | Unfaithful -> false in
   Printf.printf "\n  verdict        %s\n"
-    (if LeafStatus.leaf_acceptable (big m) (big n) c
-     then "acceptable"
-     else "NOT acceptable");
-  LeafStatus.leaf_acceptable (big m) (big n) c
+    (match stmt_ok, env_ok with
+     | true, true -> "acceptable"
+     | true, false -> "statement acceptable, INSTANCE NOT"
+     | false, _ -> "NOT acceptable");
+  stmt_ok && env_ok
 
 let usage = "usage: main.exe RELATION-FILE   (or - to read stdin)\n\n\
 \  secrets a1 a2 r      the secret scalars, in column order\n\
