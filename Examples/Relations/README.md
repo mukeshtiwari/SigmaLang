@@ -243,11 +243,40 @@ It also explains the table above. Every one of those six hand-coded
 checks is a side condition on the **instantiation**, not on the
 statement, which is why no two of them are phrased alike.
 
-**What is not done.** The theorems are about instantiating an abstract
-matrix of names. Wiring them to this repository's own `compile` and
-its `genv` — so that the Helios and CMZ statements are checked once at
-design time rather than per instance — is further work, and until it
-is done the checker still runs per leaf.
+`Compiler/DslInstantiate.v` wires this to the compiler this
+repository actually runs. A compiled cell is not a single base —
+`row_of_terms` puts, in a variable's column, the product of every term
+carrying it — so the object playing the part of a name is the whole
+cell: the list of (base, coefficient) pairs the equation places on
+that variable. `row_of_terms_is_instantiated` shows the compiled row
+is exactly the instantiation of the syntactic one, and everything else
+transports.
+
+**Why this is cheaper.** The two halves cost very different things.
+Deciding that a statement determines its claim means building an
+incidence system and eliminating over the scalar field — that is where
+the certificates come from. Deciding that an environment is faithful
+means comparing group elements: no field arithmetic, no elimination,
+no certificate. `faithful_tob` is that decision procedure, proved
+sound, and
+`faithful_check_transfers_the_design_time_verdict` is the form a driver
+uses — one boolean per instance, and one design-time fact about the
+statement that no instance repeats.
+
+The split also puts the blame in the right place. A statement that
+gives two attributes the *same* generator is a bad statement, and
+`no_instance_rescues_a_bad_statement` says no environment will save it.
+A statement with two proper generators that an environment then
+collapses is a bad *instance*, and only the cheap check sees it. Two
+`Example`s at the foot of the file compute both.
+
+**What is still not done.** The results cover the matrix, which is
+what determination depends on; the vacuity axis depends on the target
+vector and is not covered. They are stated for a leaf — a statement
+compiling to an `AND`/`OR`/threshold tree needs them applied leafwise,
+which is immediate but unstated. And the OCaml drivers do not use any
+of this yet, so nothing in this repository has actually been measured
+running faster.
 
 ## Cases that fail, and why
 
