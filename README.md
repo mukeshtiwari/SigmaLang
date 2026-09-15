@@ -349,18 +349,68 @@ checked by extracted code before you act on it.
 for a determined relation with neither vacuity finding, so `Undecided`
 is not acceptance — it is the checker declining to speak.
 
-### Using it on your own protocol
+### Running it on your own relation
 
-`Executable/Heliosrealcode/main.ml` is the template: `evidence_for`
-and `classify_one`, about forty lines together. You supply
+`Executable/Analyse` takes a relation in a text file, so a protocol
+neither we nor the compiler has seen can be checked without writing
+any OCaml:
 
-- the field operations as a `Search.Incidence.field` record;
-- group equality and the group identity;
-- your relation as an array of arrays, and your claim as a `bool`
-  array.
+```
+$ dune build Executable/Analyse/main.exe
+$ ./_build/default/Executable/Analyse/main.exe Examples/Relations/credential-broken.rel
+Relation: 1 equation over 3 secrets
+    C = g^a1 * g^a2 * h^r
+  claims to pin down: a1, a2, r
 
-Everything else is shared. The four drivers in `Executable/` differ
-only in how they obtain their relations.
+  determination  DEGENERATE
+    the relation does not pin down what it claims.
+    Adding this vector to any witness gives another
+    witness for the same targets:
+      a1  - 1
+      a2  + 1
+  vacuity        no finding
+
+  verdict        NOT acceptable
+```
+
+The file that produced it is three lines:
+
+```
+secrets a1 a2 r
+claims  a1 a2 r
+eq  C   g  g  h
+```
+
+`secrets` fixes the column order, `claims` says which of them the
+relation asserts it pins down (the default is all of them), and each
+`eq` gives a target followed by one base per secret. A `1` is the
+identity in either position: as a base it means that secret does not
+occur in that equation, and as a target it means the target is the
+identity. Replacing the second `g` with `g2` turns the same run into
+`DETERMINED`.
+
+Bases are names rather than group elements, and that is not a
+shorthand. Both questions depend on the relation only through which
+positions carry the same base and which carry the identity, so naming
+the bases says exactly as much as the checker can use. Changing a
+claim, on the other hand, changes the verdict: the matrix in
+`Examples/Relations/dead-column.rel` is degenerate when it claims `x3`
+and determined when it does not.
+
+`Examples/Relations/` holds six of these, including the counterexample
+that has no unused scalar and the relation the sufficient test of
+`Compiler/IncidenceDecide.v` declines on. The exit status is 0 for an
+acceptable relation and 1 otherwise, so it drops into a test suite.
+
+To call the checker from your own program rather than through the
+file, `Executable/Analyse/main.ml` and
+`Executable/Heliosrealcode/main.ml` are both templates: `evidence_for`
+and `classify`, about forty lines together. You supply the field
+operations as a `Search.Incidence.field` record, group equality and
+the group identity, your relation as an array of arrays, and your
+claim as a `bool` array. Everything else is shared, and the five
+drivers in `Executable/` differ only in how they obtain their
+relations.
 
 ### What it does not do
 

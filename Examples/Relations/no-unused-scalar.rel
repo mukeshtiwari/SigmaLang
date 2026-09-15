@@ -1,0 +1,7 @@
+# Every scalar used, no image the identity, no two columns equal --
+# and still degenerate.  This is the relation sigma-rs accepts at
+# 3e12c83 and on the #218 branch.
+secrets x1 x2 x3
+claims  x1 x2 x3
+eq  P   g  g  1
+eq  Q   1  h  h

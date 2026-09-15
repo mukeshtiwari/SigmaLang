@@ -1,0 +1,7 @@
+# Sound, but no single equation has pairwise distinct bases, so the
+# sufficient test of IncidenceDecide.v declines on it.  The
+# elimination does not.
+secrets x1 x2 x3
+claims  x1 x2 x3
+eq  P   g  g  h
+eq  Q   h  g  g

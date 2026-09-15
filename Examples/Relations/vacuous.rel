@@ -1,0 +1,4 @@
+# Every target the identity: the all-zero witness works.
+secrets x y
+claims  x y
+eq  1   g  h
