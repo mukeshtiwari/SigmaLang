@@ -52,6 +52,7 @@ deciding would compute them.
 | A12 | Instantiation can only weaken a statement, and a faithful environment changes nothing | `Compiler/Instantiate.v`, axiom-free: `instantiation_monotone` (any `genv`), `faithful_preserves_incidence` and `faithful_transfers_the_claim` (separation + non-identity per equation), with `FaithfulnessIsNeeded` proving the hypothesis cannot be dropped | supported |
 | A13 | One condition explains all three observed phenomena and all six specifications' hand-coded checks | BBS collision = names identified; Swiss Post identity base and VOPRF vanished equation = names sent to the identity; each spec's check is a side condition on the instantiation, not on the statement | supported |
 | A14 | The instantiation theory is wired to this repository's own compiler, and splits the work into a design-time half and a cheap per-instance half | `Compiler/DslInstantiate.v`, axiom-free: `row_of_terms_is_instantiated` and `compiled_matrix_is_instantiated` (the bridge — a cell is the list of (base, coefficient) pairs on a variable), `faithful_tob` + `faithful_tob_sound` (the per-instance decision procedure: group-element comparisons only, no field arithmetic), `faithful_check_transfers_the_design_time_verdict`, `no_instance_rescues_a_bad_statement`, and two computed `Example`s | supported |
+| A15 | The design-time result reaches compiled statements, claim included, across the whole source language | `Compiler/DslInstantiate.v`, axiom-free: `live_claim_is_design_time` (a branch's computed claim equals the syntactic one under a faithful environment) and `compiled_statement_leaves_determine` (`SEqs`/`SAnd`/`SOr`/`SThresh`: a checked statement compiles to a tree whose every leaf determines its live claim) | supported |
 
 ## Measurements
 
@@ -72,7 +73,7 @@ deciding would compute them.
 - "Swiss Post's exponentiation proof is broken" — A6 is a gap in the primitives spec's stated input types; we have not shown any call site reaches it, and the protocol spec may constrain the bases at every one
 - "our tool found the Swiss Post gap automatically" — the transcription from the spec was by hand; the tool decided the transcribed relations
 - "the checker now runs faster" / "we measured a speedup" — A14 makes the design-time split sound, but no driver uses it and nothing has been measured
-- "statement quality is settled at design time" — A14 covers the matrix and so the determination axis; vacuity depends on the target vector and is not covered, and the tree cases are unstated
+- "statement quality is settled at design time" — A14/A15 cover the determination axis. Vacuity is NOT covered and deliberately so: a target is a product of instance-supplied public points (Belenios's A0 is prover-chosen), so it is instance-dependent by nature and already cheap
 - any third axis or extra check for trivially-true equations — A11 was withdrawn; the case is covered by A12 and needs no new verdict
 - "the CFRG draft's validation accepts X" — the validation is sigma-rs's; draft -02 has no validation section
 - "sigma-rs performs ten instance checks" without a commit — at 0.3.2 most are gone

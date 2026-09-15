@@ -270,13 +270,33 @@ A statement with two proper generators that an environment then
 collapses is a bad *instance*, and only the cheap check sees it. Two
 `Example`s at the foot of the file compute both.
 
-**What is still not done.** The results cover the matrix, which is
-what determination depends on; the vacuity axis depends on the target
-vector and is not covered. They are stated for a leaf — a statement
-compiling to an `AND`/`OR`/threshold tree needs them applied leafwise,
-which is immediate but unstated. And the OCaml drivers do not use any
-of this yet, so nothing in this repository has actually been measured
-running faster.
+Two further pieces carry this to the statements people actually
+write. `live_claim_is_design_time` closes a gap that would otherwise
+have sunk the whole chain: the checker does not take a branch's claim
+on trust, it *computes* one from the instantiated matrix by finding
+the neutral columns, so the theorem above quantified over a claim
+nobody could produce at design time. Under a faithful environment the
+two agree, and for the reason faithfulness already names — a cell
+collapses to the identity only when it is empty. And
+`compiled_statement_leaves_determine` lifts the branch result to the
+whole source language, conjunction, disjunction and threshold alike:
+check a statement, and every leaf of whatever the compiler builds from
+it determines the claim it makes. That matters because nothing anyone
+proves is a bare leaf — a Helios ballot is a disjunction of two
+conjunctions, and its 13,072 leaves come from about 6,500 proofs.
+
+**What is deliberately not covered.** The vacuity axis. Its question
+is whether every target is the identity, and a target is a product of
+public points the instance supplies — Belenios's `A0` is chosen by the
+prover at proof time. So it is instance-dependent by nature, not by an
+accident of how these theorems are stated, and there is nothing to
+move to design time. It is also already cheap, O(m) group
+comparisons, the same order as the faithfulness check; the expensive
+half was always determination.
+
+**What is not done.** The OCaml drivers do not use any of this, so
+nothing in this repository has been measured running faster. The
+speedup is proved available, not demonstrated.
 
 ## Cases that fail, and why
 
