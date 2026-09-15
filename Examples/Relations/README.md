@@ -294,9 +294,34 @@ move to design time. It is also already cheap, O(m) group
 comparisons, the same order as the faithfulness check; the expensive
 half was always determination.
 
-**What is not done.** The OCaml drivers do not use any of this, so
-nothing in this repository has been measured running faster. The
-speedup is proved available, not demonstrated.
+**Measured.** `Executable/Heliosrealcode` now runs both routes over
+the same leaves of the 2024 IACR election and compares their verdicts,
+so a disagreement would surface as a failure rather than as a faster
+wrong answer:
+
+```
+    per instance : 13072 leaves eliminated over the field   0.7160s
+    design time  :     4 statement leaves, checked once     0.0002s
+     + instances : 13072 faithfulness checks                0.0183s
+    both routes determine every leaf : yes
+```
+
+Four statement leaves, not three: the ballot proof is a disjunction,
+and each branch is a leaf of its own.
+
+That is **38.8x** on the statement-quality work. It is also the
+honest place to stop, because the verifier as a whole takes about two
+minutes on this election and is dominated by modular exponentiation
+and SHA-256. Quality checking goes from roughly half a percent of the
+run to a few hundredths — a large win on the line item and close to
+invisible on the wall clock. That was the expected shape before
+measuring, and it is worth reporting either way: it says the design-time
+split is worth having for the analysis it makes possible, not because
+anyone was waiting on the old route.
+
+Helios is the only corpus where this could be measured at all. CMZ has
+ten leaves, Privacy Pass six, the CFRG vectors seven; per-instance cost
+is not a question there.
 
 ## Cases that fail, and why
 

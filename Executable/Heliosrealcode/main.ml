@@ -161,7 +161,12 @@ type qtally =
 
 let qt = { det = 0; deg = 0; und = 0; vac = 0; uns = 0; ok = 0; tot = 0 }
 
+(* Every compiled relation, kept so the two routes can be run over the
+   same leaves and compared. *)
+let compiled : (Helios.coq_F, Helios.coq_G) Composition.comp_rel list ref = ref []
+
 let record_quality r =
+  compiled := r :: !compiled;
   List.iter
     (fun l ->
        let c = classify_one l in
@@ -177,6 +182,99 @@ let record_quality r =
        let (m, n, _, _) = l in
        if LeafStatus.leaf_acceptable m n c then qt.ok <- qt.ok + 1)
     (leaves_of r)
+
+(* ---------- the same question, asked once instead of 13,072 times ----------
+ *
+ * Compiler/DslInstantiate.v proves that a statement can be checked
+ * over its own syntax, and that every environment faithful to it
+ * compiles to a relation determining the same claim.  The two halves
+ * cost very different things: checking the statement means
+ * eliminating over the scalar field, while checking an environment
+ * means comparing group elements.  Helios has three statements and
+ * this election has thousands of instances of them, so the split is
+ * worth measuring rather than asserting.
+ *
+ * Both routes are run below over the same leaves and their verdicts
+ * compared, so a disagreement would show up as a failure rather than
+ * as a faster wrong answer. *)
+
+let big = Big_int_Z.big_int_of_int
+
+(* Names, as the compiler's variables. *)
+let veq (a : string) (b : string) = String.equal a b
+
+(* The statement's own bases: a cell is the list of (base, coefficient)
+   pairs an equation puts on one variable, and two cells are the same
+   base exactly when they are syntactically equal. *)
+let cellq = DslInstantiate.cell_dec Helios.fdec veq
+let cellid : (Helios.coq_F, string) DslInstantiate.cellname = []
+
+(* Certificates, found the same way whatever the bases are. *)
+let evidence_gen gdec gid m n mat cl =
+  match Search.Incidence.certify hfield gdec gid
+          (to_arrays m n mat) (claim_array n cl) with
+  | Search.Incidence.Degenerate v ->
+      { LeafStatus.ev_degenerate = Some (vec_of_array v)
+      ; LeafStatus.ev_determined = None }
+  | Search.Incidence.Determined blocks ->
+      { LeafStatus.ev_degenerate = None
+      ; LeafStatus.ev_determined =
+          Some (Vector.of_list
+                  (List.map
+                     (fun blk ->
+                        Vector.of_list
+                          (List.map vec_of_array (Array.to_list blk)))
+                     (Array.to_list blocks))) }
+  | Search.Incidence.Undecided ->
+      { LeafStatus.ev_degenerate = None; LeafStatus.ev_determined = None }
+
+let determination_gen gdec gid m n mat =
+  let cl = Claim.live_claim gid gdec m n mat in
+  LeafStatus.classify_determination
+    Helios.fzero Helios.fone Helios.fadd Helios.fmul Helios.fdec
+    gid gdec m n mat cl (evidence_gen gdec gid m n mat cl)
+
+(* The leaves of a statement as equation lists, in the order compile
+   builds them -- including the conjunction of two pure statements,
+   which the compiler merges into a single leaf. *)
+let rec leaf_eqs (s : (Helios.coq_F, string) Dsl.stmt) =
+  match s with
+  | Dsl.SEqs eqs -> [ eqs ]
+  | Dsl.SAnd (a, b) ->
+      (match Dsl.leaves_only a, Dsl.leaves_only b with
+       | Some la, Some lb -> [ la @ lb ]
+       | _ -> leaf_eqs a @ leaf_eqs b)
+  | Dsl.SOr (a, b) -> leaf_eqs a @ leaf_eqs b
+  | Dsl.SThresh (_, l) -> List.concat_map leaf_eqs l
+
+(* Design time: the statement's own leaves, over names. *)
+let design_time_determination n privs eqs =
+  let nm = DslInstantiate.name_mat veq n privs eqs in
+  determination_gen cellq cellid (big (List.length eqs)) n nm
+
+(* Per instance: the cheap half. *)
+let is_faithful n privs genv eqs =
+  DslInstantiate.faithful_tob
+    Helios.fadd Helios.fmul Helios.fopp Helios.fdec
+    Helios.gone Helios.gmul Helios.gpow Helios.gdec
+    veq n privs genv Helios.penvI eqs
+
+(* Helios has exactly three statements. *)
+let statements =
+  [ ("ballot",  big 2, Helios.ballot_privs,  Helios.ballot_core)
+  ; ("key",     big 1, Helios.decrypt_privs, Helios.pok_core)
+  ; ("decrypt", big 1, Helios.decrypt_privs, Helios.decrypt_core) ]
+
+(* The instance environments that produced those relations. *)
+let envs : (Big_int_Z.big_int * string Vector.t
+            * (string -> Helios.coq_G)
+            * (Helios.coq_F, string) Dsl.equation list list) list ref = ref []
+
+let record_split name genv =
+  match List.find_opt (fun (nm, _, _, _) -> nm = name) statements with
+  | None -> ()
+  | Some (_, n, privs, core) ->
+      envs := (n, privs, genv, leaf_eqs core) :: !envs
 
 let () =
   (* With no argument, use the copy of the 2024 election kept in the
@@ -231,6 +329,7 @@ let () =
        let pok = member "pok" t in
        let rel = get (Helios.pok_rel pk) in
        record_quality rel;
+       record_split "key" (Helios.pok_genv pk);
        (* a key proof has one equation, so its announcement is one
           element; the leaf still expects a pair, so reuse it *)
        let a = gof (str (member "commitment" pok)) in
@@ -255,6 +354,7 @@ let () =
                  and beta = gof (str (member "beta" ch)) in
                  let rel = get (Helios.ballot_rel h alpha beta) in
                  record_quality rel;
+                 record_split "ballot" (Helios.ballot_genv h alpha beta);
                  let t = ballot_transcript (to_list pf) in
                  incr nproofs;
                  if not (Helios.helios_ballot_verify sha1_bigint rel t) then incr nbad)
@@ -295,6 +395,7 @@ let () =
             let (a, _) = List.nth aggr i in
             let rel = get (Helios.decrypt_rel pk a d) in
             record_quality rel;
+            record_split "decrypt" (Helios.decrypt_genv pk a d);
             let com = member "commitment" pf in
             let t' =
               single_transcript
@@ -339,6 +440,79 @@ let () =
   Printf.printf "    vacuity: VACUOUS %d, UNSATISFIABLE %d, neither %d\n"
     qt.vac qt.uns (qt.tot - qt.vac - qt.uns);
   Printf.printf "    fit to compile: %d of %d\n" qt.ok qt.tot;
+
+  (* ---------- the same question by two routes, timed ---------- *)
+  (* The checks are fast enough that one reading is mostly noise, so
+     each is run several times and the best is reported: the best run
+     is the one least disturbed by everything else on the machine. *)
+  let reps = 5 in
+  let clock f =
+    let best = ref infinity and last = ref (f ()) in
+    for _ = 1 to reps do
+      let t = Unix.gettimeofday () in
+      last := f ();
+      let d = Unix.gettimeofday () -. t in
+      if d < !best then best := d
+    done;
+    (!last, !best) in
+
+  let leaves = List.concat_map leaves_of !compiled in
+  let nleaves = List.length leaves in
+  let nshapes =
+    List.fold_left (fun a (_, _, _, core) -> a + List.length (leaf_eqs core))
+      0 statements in
+
+  (* Route A, as the verifier does it today: eliminate over the scalar
+     field once per compiled leaf. *)
+  let (a_det, ta) =
+    clock (fun () ->
+        List.fold_left
+          (fun acc (m, n, mat, _) ->
+             match determination_gen Helios.gdec Helios.gone m n mat with
+             | LeafStatus.Cert_determined -> acc + 1
+             | _ -> acc)
+          0 leaves) in
+
+  (* Route B, design time: the same elimination, over the statements'
+     own names, once each. *)
+  let (b_shapes, tb1) =
+    clock (fun () ->
+        List.fold_left
+          (fun acc (_, n, privs, core) ->
+             List.fold_left
+               (fun acc eqs ->
+                  match design_time_determination n privs eqs with
+                  | LeafStatus.Cert_determined -> acc + 1
+                  | _ -> acc)
+               acc (leaf_eqs core))
+          0 statements) in
+
+  (* Route B, per instance: group comparisons and nothing else. *)
+  let (b_ok, tb2) =
+    clock (fun () ->
+        List.fold_left
+          (fun acc (n, privs, genv, eqss) ->
+             List.fold_left
+               (fun acc eqs ->
+                  if is_faithful n privs genv eqs then acc + 1 else acc)
+               acc eqss)
+          0 !envs) in
+
+  let routes_agree =
+    a_det = nleaves && b_shapes = nshapes && b_ok = nleaves in
+
+  Printf.printf "\n  The same question by two routes (best of %d)\n" reps;
+  Printf.printf "    per instance : %5d leaves eliminated over the field   %8.4fs\n"
+    nleaves ta;
+  Printf.printf "    design time  : %5d statement leaves, checked once     %8.4fs\n"
+    nshapes tb1;
+  Printf.printf "     + instances : %5d faithfulness checks                %8.4fs\n"
+    nleaves tb2;
+  Printf.printf "    split total  : %41s %8.4fs" "" (tb1 +. tb2);
+  if tb1 +. tb2 > 0.0 then
+    Printf.printf "   (%.1fx)" (ta /. (tb1 +. tb2));
+  Printf.printf "\n    both routes determine every leaf : %s\n"
+    (if routes_agree then "yes" else "NO -- DISAGREEMENT");
 
   Printf.printf "\n  VERDICT: proofs %s, tally %s, statements %s\n"
     (if !nbad = 0 && !dec_ok && !pok_ok then "all verify" else "FAILED")
